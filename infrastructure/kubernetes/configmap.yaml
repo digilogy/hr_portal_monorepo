@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hr-configmap
+  namespace: hr-portal
+data:
+  NODE_ENV: "production"
+  PORT: "5111"
+  DB_HOST: "mysql-svc.hr-portal.svc.cluster.local"
+  DB_PORT: "3306"
+  DB_USER: "hr_user"
+  DB_NAME: "hr-portal"
+  REDIS_HOST: "redis-svc.hr-portal.svc.cluster.local"
+  REDIS_PORT: "6379"
+  AWS_REGION: "ap-south-1"
+  AWS_S3_BUCKET: "hr-portal-uploads"
+  SES_FROM_EMAIL: "no-reply@example.com"
+  FRONTEND_URL: "https://hr.example.com"
+  ALLOWED_ORIGINS: "https://hr.example.com"

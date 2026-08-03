@@ -1,0 +1,20 @@
+{
+  "name": "@hr-portal/storage",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.583.0",
+    "@aws-sdk/s3-request-presigner": "^3.583.0",
+    "@hr-portal/config": "*",
+    "@hr-portal/logger": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "@hr-portal/api-hr-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "bulk-upload": "ts-node scripts/run-bulk-upload.ts",
+    "audit-employees": "ts-node scripts/audit-employee-data.ts",
+    "worker": "ts-node src/workers/mail.worker.ts",
+    "pm2:start": "pm2 start echoconfig.cjs",
+    "pm2:stop": "pm2 stop echoconfig.cjs",
+    "pm2:restart": "pm2 restart echoconfig.cjs",
+    "pm2:logs": "pm2 logs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hr-portal/auth": "*",
+    "@hr-portal/common": "*",
+    "@hr-portal/config": "*",
+    "@hr-portal/database": "*",
+    "@hr-portal/logger": "*",
+    "@hr-portal/mail": "*",
+    "@hr-portal/notification": "*",
+    "@hr-portal/queue": "*",
+    "@aws-sdk/client-ses": "^3.0.0",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.7.8",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.19.1",
+    "xlsx": "^0.18.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.14.2",
+    "@types/pdfkit": "^0.17.6",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}

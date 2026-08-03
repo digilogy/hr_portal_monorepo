@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-api-deployment
+  namespace: hr-portal
+  labels:
+    app: hr-api
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: hr-api
+  template:
+    metadata:
+      labels:
+        app: hr-api
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - hr-api
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: api-container
+          image: hr-portal/api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5111
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1024Mi"
+          # No separate /ready or /live routes exist yet — both probes hit
+          # the same /api/health endpoint used by the ECS/ALB health check.
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5111
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5111
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          envFrom:
+            - configMapRef:
+                name: hr-configmap
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: DB_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: JWT_SECRET
+            - name: ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: ADMIN_USER
+            - name: ADMIN_PIN
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: ADMIN_PIN
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hr-api-service
+  namespace: hr-portal
+spec:
+  ports:
+    - port: 5111
+      targetPort: 5111
+      protocol: TCP
+  selector:
+    app: hr-api
+  type: ClusterIP
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hr-api-hpa
+  namespace: hr-portal
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hr-api-deployment
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-mail-worker-deployment
+  namespace: hr-portal
+  labels:
+    app: hr-mail-worker
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: hr-mail-worker
+  template:
+    metadata:
+      labels:
+        app: hr-mail-worker
+    spec:
+      containers:
+        - name: mail-worker-container
+          image: hr-portal/mail-worker:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "250m"
+              memory: "512Mi"
+          envFrom:
+            - configMapRef:
+                name: hr-configmap
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: DB_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: JWT_SECRET
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hr-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+
+# No scheduler deployment: main-zip has no cron/repeatable background jobs,
+# unlike ideas-staging-backend's cg-scheduler — nothing to stand up here.

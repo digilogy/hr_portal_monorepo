@@ -1,0 +1,31 @@
+{
+  "name": "hr-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HR / Timesheet Portal Monorepo",
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "db:generate": "npm run db:generate --workspace=@hr-portal/database",
+    "db:migrate": "npm run db:migrate --workspace=@hr-portal/database",
+    "db:migrate:deploy": "npm run db:migrate:deploy --workspace=@hr-portal/database"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "prettier": "^3.2.5",
+    "eslint": "^9.2.0",
+    "rimraf": "^5.0.7"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "apps/api_hr_portal",
+    "apps/hr_portal",
+    "packages/*"
+  ]
+}
