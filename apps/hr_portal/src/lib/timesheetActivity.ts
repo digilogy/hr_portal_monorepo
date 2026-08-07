@@ -30,7 +30,7 @@ export interface DayActivity {
   timeRange?: string;
 }
 
-const DAILY_TARGET_HOURS = 8;
+const DAILY_TARGET_HOURS = 8.5;
 
 function getSlotLabel(slot: ActivitySlot): string {
   if (slot.taskType === "Custom" && slot.title?.trim()) {

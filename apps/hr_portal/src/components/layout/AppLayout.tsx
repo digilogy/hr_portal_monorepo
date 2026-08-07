@@ -15,7 +15,7 @@ import {
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
+import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
 import { isAdminPortalHost } from "@/lib/host";
 import { apiFetch } from "@/lib/api";
 
@@ -35,7 +35,10 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [alsoManager, setAlsoManager] = useState(false);
   const [isAdminDomain, setIsAdminDomain] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  // trailingSlash: true (static export) means usePathname() always returns e.g. "/login/",
+  // so normalize before comparing against route strings like "/login".
+  const pathname = rawPathname.length > 1 ? rawPathname.replace(/\/+$/, "") : rawPathname;
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
 
@@ -103,11 +106,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   const menuItems = [
-    {
-      key: "/timesheet",
-      icon: <ClockCircleOutlined />,
-      label: <Link href="/timesheet" onClick={() => setMobileMenuOpen(false)}>Timesheet</Link>,
-    },
+    ...(canAccessTimesheet(role)
+      ? [{
+        key: "/timesheet",
+        icon: <ClockCircleOutlined />,
+        label: <Link href="/timesheet" onClick={() => setMobileMenuOpen(false)}>Timesheet</Link>,
+      }]
+      : []),
     ...(canAccessPersonalDashboard(role)
       ? [{
         key: "/my-dashboard",

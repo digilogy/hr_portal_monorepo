@@ -327,15 +327,15 @@ export default function MyDashboardPage() {
 
   const stats = useMemo(() => {
     const todayHours = todayEntry?.totalHours ?? 0;
-    const todayTarget = 8;
+    const todayTarget = 8.5;
 
     const weekHours = weekEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
     const weekWorkingDays = getWorkingDays(weekStart, weekStart.endOf("week"));
-    const weekTarget = weekWorkingDays * 8;
+    const weekTarget = weekWorkingDays * 8.5;
 
     const monthHours = monthEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
     const monthWorkingDays = getWorkingDays(monthStart, monthEnd);
-    const monthTarget = monthWorkingDays * 8;
+    const monthTarget = monthWorkingDays * 8.5;
 
     const loggedDates = new Set(
       weekEntries.filter((entry) => entry.totalHours > 0).map((entry) => entry.date),

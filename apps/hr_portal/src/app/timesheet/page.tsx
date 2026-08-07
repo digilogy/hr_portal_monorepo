@@ -10,6 +10,8 @@ import {
 import { CalendarOutlined, AppstoreOutlined, BarsOutlined } from "@ant-design/icons";
 import { message, DatePicker, Segmented } from "antd";
 import { apiFetch } from "@/lib/api";
+import { getTokenRole } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import {
   findSlotTimeConflict,
   getLatestSlotEndMinutes,
@@ -41,13 +43,22 @@ function calculateDurationHours(timeStr: string) {
 function calculateTotalFilledHours(slots: TimeSlotData[]) {
   return parseFloat(
     slots
-      .filter((slot) => slot.task.trim().length > 0)
+      .filter((slot) => slot.timeSlot && slot.timeSlot.trim().length > 0)
       .reduce((sum, slot) => sum + calculateDurationHours(slot.timeSlot), 0)
       .toFixed(1),
   );
 }
 
 export default function TimesheetPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const role = getTokenRole();
+    if (role === "admin") {
+      router.replace("/dashboard");
+    }
+  }, [router]);
+
   const [messageApi, contextHolder] = message.useMessage();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
     dayjs().startOf("week"),
@@ -285,12 +296,12 @@ export default function TimesheetPage() {
 
   let totalFilledHours = 0;
   data.forEach((slot) => {
-    if (slot.task.trim().length > 0) {
+    if (slot.timeSlot && slot.timeSlot.trim().length > 0) {
       totalFilledHours += calculateDurationHours(slot.timeSlot);
     }
   });
 
-  const standardTargetHours = 8;
+  const standardTargetHours = 8.5;
   const standardFilled = Math.min(totalFilledHours, standardTargetHours);
   const overtimeFilled = Math.max(0, totalFilledHours - standardTargetHours);
 
@@ -316,7 +327,7 @@ export default function TimesheetPage() {
                 <span className="text-3xl font-extrabold text-gray-900 dark:text-white">
                   {Number(standardFilled.toFixed(1))}
                 </span>
-                <span className="text-lg text-gray-500 font-medium">/ 8 hrs Target</span>
+                <span className="text-lg text-gray-500 font-medium">/ 8.5 hrs Target</span>
               </div>
             </div>
 

@@ -33,6 +33,7 @@ COPY --from=builder /app/apps/hr_portal/out /usr/share/nginx/html
 
 EXPOSE 3661
 # nginx defaults to port 80; rewrite to the app's conventional local port
-RUN sed -i 's/listen  *80;/listen 3661;/' /etc/nginx/conf.d/default.conf
+RUN sed -i 's/listen  *80;/listen 3661;/' /etc/nginx/conf.d/default.conf && \
+    sed -i '/listen 3661;/a \    error_page 404 /404.html;' /etc/nginx/conf.d/default.conf
 
 CMD ["nginx", "-g", "daemon off;"]

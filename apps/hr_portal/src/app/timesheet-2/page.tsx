@@ -215,7 +215,7 @@ export default function Timesheet2Page() {
                 <span className="text-3xl font-extrabold text-gray-900 dark:text-white">
                   {standardFilled}
                 </span>
-                <span className="text-lg text-gray-500 font-medium">/ 8 hrs Target</span>
+                <span className="text-lg text-gray-500 font-medium">/ 8.5 hrs Target</span>
               </div>
             </div>
 

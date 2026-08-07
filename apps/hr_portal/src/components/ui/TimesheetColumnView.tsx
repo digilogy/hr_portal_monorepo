@@ -178,7 +178,7 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
     const updatedSlot: TimeSlotData = {
       ...activeSlot,
       title: getTaskTypeTitle(draftType, draftTitle),
-      task: draftTask.trim(),
+      task: draftTask.trim() || draftType,
       taskType: draftType,
       timeSlot: draftTime,
     };

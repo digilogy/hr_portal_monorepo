@@ -5,7 +5,9 @@ import { Modal, Input, Button } from "antd";
 export interface TimeSlotData {
   key: string;
   timeSlot: string;
+  title?: string;
   task: string;
+  taskType?: string;
   isLunch?: boolean;
 }
 
@@ -86,7 +88,7 @@ export const TimesheetListView: React.FC<TimesheetListViewProps> = ({
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
             {data.map((slot) => {
-              const isFilled = slot.task.trim().length > 0;
+              const isFilled = Boolean(slot.task?.trim()) || Boolean(slot.title?.trim()) || !!slot.taskType || Boolean(slot.isLunch);
               const isExtra = slot.key.startsWith("extra-");
 
               return (

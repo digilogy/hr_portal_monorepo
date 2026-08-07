@@ -812,7 +812,7 @@ export class TeamReportsService {
     );
 
     const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHoursPerEmployee = workingDays * 8;
+    const expectedHoursPerEmployee = workingDays * 8.5;
 
     const flatMembers = visibleEmployees.map((employee) =>
       buildTeamMemberNode(employee, hoursByEmail, expectedHoursPerEmployee),
@@ -887,7 +887,7 @@ export class TeamReportsService {
       range.to,
     );
     const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8;
+    const expectedHours = workingDays * 8.5;
 
     return buildUserRows(employees, hoursByEmail, expectedHours);
   }
@@ -921,7 +921,7 @@ export class TeamReportsService {
       range.to,
     );
     const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8;
+    const expectedHours = workingDays * 8.5;
 
     return {
       rows: buildUserRows(pagedEmployees, hoursByEmail, expectedHours),
@@ -1128,7 +1128,7 @@ export class TeamReportsService {
         0,
       );
       const workingDays = getWorkingDays(from, to);
-      const expectedHours = headcount * workingDays * 8;
+      const expectedHours = headcount * workingDays * 8.5;
 
       rows.push({
         key: String(weekOffset + 1),
@@ -1454,7 +1454,7 @@ export class TeamReportsService {
         }
       : { hours: 0, hasEntry: false };
     const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8;
+    const expectedHours = workingDays * 8.5;
 
     const days: Array<{
       date: string;
@@ -1599,8 +1599,9 @@ export class TeamReportsService {
       dowStats.set(dow, dowEntry);
 
       for (const slot of entry.slots) {
-        if (!slot.task?.trim() && !slot.taskType?.trim()) continue;
-        const taskType = slot.taskType?.trim() || "Other";
+        if (!slot.timeSlot?.trim()) continue;
+        const taskType =
+          slot.taskType?.trim() || (slot.isLunch ? "Lunch" : "Other");
         const hours = calculateSlotHours(slot.timeSlot) ?? 0;
         const stats = taskStats.get(taskType) ?? { hours: 0, slotCount: 0 };
         stats.hours += hours;

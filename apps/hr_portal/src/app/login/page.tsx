@@ -54,9 +54,48 @@ function LoginPageContent() {
     clearRememberedLogin();
   };
 
+  const handleEmailInputChange = (val: string) => {
+    if (val.includes("@")) {
+      const atIndex = val.indexOf("@");
+      const prefix = val.slice(0, atIndex);
+      const domainPart = val.slice(atIndex).toLowerCase().trim();
+
+      setEmailPrefix(prefix);
+
+      if (domainPart.length > 1) {
+        const exactMatch = ALLOWED_DOMAINS.find(
+          (d) => d.toLowerCase() === domainPart
+        );
+        if (exactMatch) {
+          setEmailDomain(exactMatch);
+        } else {
+          const partialMatch = ALLOWED_DOMAINS.find(
+            (d) =>
+              d.toLowerCase().startsWith(domainPart) ||
+              domainPart.startsWith(d.toLowerCase())
+          );
+          if (partialMatch) {
+            setEmailDomain(partialMatch);
+          }
+        }
+      }
+    } else {
+      setEmailPrefix(val);
+    }
+  };
+
+  useEffect(() => {
+    if (emailPrefix.includes("@")) {
+      handleEmailInputChange(emailPrefix);
+    }
+  }, [emailPrefix]);
+
   const applyEmailToForm = (email: string) => {
     const atIndex = email.indexOf("@");
-    if (atIndex === -1) return;
+    if (atIndex === -1) {
+      setEmailPrefix(email);
+      return;
+    }
 
     const prefix = email.slice(0, atIndex);
     const domain = email.slice(atIndex);
@@ -315,8 +354,16 @@ function LoginPageContent() {
                   <Input
                     size="large"
                     value={emailPrefix}
-                    onChange={(e) => setEmailPrefix(e.target.value)}
-                    className="login-email-prefix h-12 min-w-0 flex-1 rounded-none border-0 shadow-none"
+                    onChange={(e) => handleEmailInputChange(e.target.value)}
+                    onInput={(e) => handleEmailInputChange((e.target as HTMLInputElement).value)}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData("text");
+                      if (pasted && pasted.includes("@")) {
+                        e.preventDefault();
+                        handleEmailInputChange(pasted);
+                      }
+                    }}
+                    className="login-email-prefix h-12 min-w-0 flex-1 rounded-none border-0 shadow-none px-4"
                     onPressEnter={handleRequestAccess}
                   />
                   <Select

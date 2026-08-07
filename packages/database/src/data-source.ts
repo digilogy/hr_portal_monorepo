@@ -22,3 +22,22 @@ export const AppDataSource = new DataSource({
   migrations: [],
   subscribers: [],
 });
+
+export async function initializeDatabase(): Promise<DataSource> {
+  if (!AppDataSource.isInitialized) {
+    await AppDataSource.initialize();
+  }
+  try {
+    await AppDataSource.query(`
+      ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "rowIndex" INTEGER;
+      ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "status" VARCHAR;
+      ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "message" TEXT;
+      ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "payload" JSONB;
+      ALTER TABLE "upload_log" ALTER COLUMN "action" DROP NOT NULL;
+    `);
+  } catch (err) {
+    console.warn("Notice: Failed to run automatic upload_log schema patch", err);
+  }
+  return AppDataSource;
+}
+

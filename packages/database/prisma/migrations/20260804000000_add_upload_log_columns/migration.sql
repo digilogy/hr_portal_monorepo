@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "rowIndex" INTEGER;
+ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "status" VARCHAR;
+ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "message" TEXT;
+ALTER TABLE "upload_log" ADD COLUMN IF NOT EXISTS "payload" JSONB;
+ALTER TABLE "upload_log" ALTER COLUMN "action" DROP NOT NULL;

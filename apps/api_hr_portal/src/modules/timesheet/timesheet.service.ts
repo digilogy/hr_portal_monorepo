@@ -6,24 +6,45 @@ function calculateSlotHours(timeSlot: string): number {
   const parts = timeSlot.split(" - ");
   if (parts.length !== 2) return 0;
 
-  const parseTime = (timeStr: string) => {
-    const [time, period] = timeStr.trim().split(" ");
-    let [h, m] = time.split(":").map(Number);
-    if (period === "PM" && h !== 12) h += 12;
-    if (period === "AM" && h === 12) h = 0;
-    return h * 60 + m;
+  const parseMinutes = (timeStr: string): number | null => {
+    const trimmed = timeStr.trim();
+    if (!trimmed) return null;
+
+    const tokens = trimmed.split(" ").filter(Boolean);
+    const timePart = tokens[0];
+    const period = tokens.length === 2 ? tokens[1].toUpperCase() : null;
+    const [hStr, mStr] = timePart.split(":");
+    if (!hStr || !mStr) return null;
+
+    const hour = Number(hStr);
+    const minute = Number(mStr);
+    if (Number.isNaN(hour) || Number.isNaN(minute) || minute < 0 || minute > 59) {
+      return null;
+    }
+
+    let normalizedHour = hour;
+    if (period) {
+      if (period !== "AM" && period !== "PM") return null;
+      if (normalizedHour < 1 || normalizedHour > 12) return null;
+      if (period === "PM" && normalizedHour !== 12) normalizedHour += 12;
+      if (period === "AM" && normalizedHour === 12) normalizedHour = 0;
+    } else {
+      if (normalizedHour < 0 || normalizedHour > 23) return null;
+    }
+
+    return normalizedHour * 60 + minute;
   };
 
-  const start = parseTime(parts[0]);
-  const end = parseTime(parts[1]);
-  if (end <= start) return 0;
+  const start = parseMinutes(parts[0]);
+  const end = parseMinutes(parts[1]);
+  if (start === null || end === null || end <= start) return 0;
 
   return (end - start) / 60;
 }
 
 function calculateTotalHours(slots: TimesheetSlot[]): number {
   const total = slots
-    .filter((slot) => slot.task.trim().length > 0)
+    .filter((slot) => slot.timeSlot && slot.timeSlot.trim().length > 0)
     .reduce((sum, slot) => sum + calculateSlotHours(slot.timeSlot), 0);
   return parseFloat(total.toFixed(1));
 }

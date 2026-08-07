@@ -77,7 +77,9 @@ export function clearAuthSession(): void {
 /** Hard navigation to a clean /login (no query params, no stale client state). */
 export function redirectToLoginPage(): void {
   if (typeof window === "undefined") return;
-  if (window.location.pathname === "/login" && !window.location.search) return;
+  // trailingSlash: true (static export) means the real pathname is "/login/", not "/login".
+  const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (currentPath === "/login" && !window.location.search) return;
   window.location.replace("/login");
 }
 
@@ -104,6 +106,10 @@ export function getTokenRole(): UserRole | null {
     return role;
   }
   return "employee";
+}
+
+export function canAccessTimesheet(role: UserRole | null): boolean {
+  return role !== "admin";
 }
 
 export function canAccessTeam(role: UserRole | null): boolean {

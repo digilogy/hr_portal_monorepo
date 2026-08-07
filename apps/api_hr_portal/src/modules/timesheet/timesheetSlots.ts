@@ -6,18 +6,32 @@ interface ParsedTimeRange {
 }
 
 function parseMinutes(timeStr: string): number | null {
-  const [time, period] = timeStr.trim().split(" ");
-  if (!time || !period) return null;
+  const trimmed = timeStr.trim();
+  if (!trimmed) return null;
 
-  const [hStr, mStr] = time.split(":");
-  let h = Number(hStr);
-  const m = Number(mStr);
-  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  const parts = trimmed.split(" ").filter(Boolean);
+  const timePart = parts[0];
+  const period = parts.length === 2 ? parts[1].toUpperCase() : null;
+  const [hStr, mStr] = timePart.split(":");
+  if (!hStr || !mStr) return null;
 
-  if (period === "PM" && h !== 12) h += 12;
-  if (period === "AM" && h === 12) h = 0;
+  const hour = Number(hStr);
+  const minute = Number(mStr);
+  if (Number.isNaN(hour) || Number.isNaN(minute) || minute < 0 || minute > 59) {
+    return null;
+  }
 
-  return h * 60 + m;
+  let normalizedHour = hour;
+  if (period) {
+    if (period !== "AM" && period !== "PM") return null;
+    if (normalizedHour < 1 || normalizedHour > 12) return null;
+    if (period === "PM" && normalizedHour !== 12) normalizedHour += 12;
+    if (period === "AM" && normalizedHour === 12) normalizedHour = 0;
+  } else {
+    if (normalizedHour < 0 || normalizedHour > 23) return null;
+  }
+
+  return normalizedHour * 60 + minute;
 }
 
 function parseTimeSlotRange(timeSlot: string): ParsedTimeRange | null {
