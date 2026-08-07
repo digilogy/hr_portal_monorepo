@@ -197,45 +197,41 @@ export function buildCascadedReportFilterOptions(
   records: ReportFilterEmployee[],
   filters: Pick<ReportFilters, "department" | "subDepartment" | "hod" | "hrbp" | "manager">,
 ): {
+  departments: string[];
   subDepartments: string[];
   hods: string[];
   hrbps: string[];
   managers: string[];
   employees: Array<{ employeeId: string; label: string }>;
 } {
-  const departmentScoped = scopeReportFilterEmployees(records, {
-    department: filters.department,
-    subDepartment: "all",
-    hod: "all",
-    hrbp: "all",
-    manager: "all",
-  });
-
-  const subDepartmentScoped = scopeReportFilterEmployees(records, {
-    department: filters.department,
-    subDepartment: filters.subDepartment,
-    hod: "all",
-    hrbp: "all",
-    manager: "all",
-  });
+  const scopeExcept = (keyToIgnore: keyof typeof filters) => {
+    return scopeReportFilterEmployees(records, {
+      ...filters,
+      [keyToIgnore]: "all",
+    });
+  };
 
   const fullyScoped = scopeReportFilterEmployees(records, filters);
 
   return {
+    departments: buildDedupedOptionsFromRecords(
+      scopeExcept("department"),
+      (record) => record.department,
+    ),
     subDepartments: buildDedupedOptionsFromRecords(
-      departmentScoped,
+      scopeExcept("subDepartment"),
       (record) => record.subDepartment,
     ),
     hods: buildDedupedOptionsFromRecords(
-      departmentScoped,
+      scopeExcept("hod"),
       (record) => record.hod,
     ),
     hrbps: buildDedupedOptionsFromRecords(
-      departmentScoped,
+      scopeExcept("hrbp"),
       (record) => record.hrbp,
     ),
     managers: buildDedupedOptionsFromRecords(
-      subDepartmentScoped.length > 0 ? subDepartmentScoped : departmentScoped,
+      scopeExcept("manager"),
       (record) => record.manager,
     ),
     employees: fullyScoped.map((record) => ({
@@ -251,6 +247,15 @@ export function sanitizeReportFilters(
 ): ReportFilters {
   const cascaded = buildCascadedReportFilterOptions(records, filters);
   let next = { ...filters };
+
+  if (
+    next.department !== "all" &&
+    !cascaded.departments.some(
+      (value) => filterFieldKey(value) === filterFieldKey(next.department),
+    )
+  ) {
+    next = { ...next, department: "all" };
+  }
 
   if (
     next.subDepartment !== "all" &&

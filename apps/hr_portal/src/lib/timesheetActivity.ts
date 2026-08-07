@@ -193,7 +193,7 @@ export function buildRecentWeekActivity(
 
   while (cursor.isAfter(start) || cursor.isSame(start, "day")) {
     const day = cursor.day();
-    if (day !== 0 && day !== 6) {
+    if (day !== 0) {
       dates.push(cursor.format("YYYY-MM-DD"));
     }
     cursor = cursor.subtract(1, "day");

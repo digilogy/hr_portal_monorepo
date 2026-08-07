@@ -7,6 +7,7 @@ import {
   DEFAULT_REPORT_FILTERS,
 } from "./reportFilters";
 import { teamReportsRepository, TimesheetHoursStats } from "./teamReports.repository";
+import { inferTaskCategory } from "./taskCategorizer";
 import { getTimesheetTaskExportRows, buildExcelBuffer, buildPdfBuffer } from "./teamReports.export";
 
 export interface TeamMemberNode {
@@ -153,6 +154,12 @@ export interface WorkforcePulseResult {
   };
   dailyActivity: WorkforcePulseDay[];
   byDayOfWeek: WorkforcePulseDayOfWeek[];
+  distribution?: Array<{
+    category: string;
+    hours: number;
+    percentage: number;
+    rate: number;
+  }>;
   byTaskType: WorkforcePulseTaskType[];
   byHour: WorkforcePulseHour[];
 }
@@ -297,7 +304,7 @@ function getWorkingDays(from: string, to: string): number {
 
   while (current <= end) {
     const day = current.getDay();
-    if (day !== 0 && day !== 6) count++;
+    if (day !== 0) count++;
     current = addDays(current, 1);
   }
 
@@ -742,6 +749,7 @@ export class TeamReportsService {
       departments: options.departments,
       subDepartments: options.subDepartments,
       managers: options.managers,
+      employees: options.employees,
     };
   }
 
@@ -751,14 +759,6 @@ export class TeamReportsService {
     filters: ReportFilters,
   ) {
     const employees = await AccessService.getReportScopeEmployees(email, role);
-    if (filters.department === "all") {
-      return {
-        subDepartments: [],
-        managers: [],
-        employees: [],
-      };
-    }
-
     const scoped = filterEmployeesByReportFilters(employees, filters);
     const options = buildReportFilterOptions(scoped);
     return {
@@ -826,6 +826,7 @@ export class TeamReportsService {
     const filteredMembers = applyRosterCardFilter(flatMembers, rosterFilter);
     const useTree =
       role === UserRole.MANAGER &&
+      rosterFilter === "all" &&
       filteredMembers.length <= TEAM_ROSTER_TREE_THRESHOLD;
 
     if (useTree) {
@@ -1600,8 +1601,7 @@ export class TeamReportsService {
 
       for (const slot of entry.slots) {
         if (!slot.timeSlot?.trim()) continue;
-        const taskType =
-          slot.taskType?.trim() || (slot.isLunch ? "Lunch" : "Other");
+        const taskType = inferTaskCategory(slot.task, slot.taskType);
         const hours = calculateSlotHours(slot.timeSlot) ?? 0;
         const stats = taskStats.get(taskType) ?? { hours: 0, slotCount: 0 };
         stats.hours += hours;
@@ -1680,6 +1680,12 @@ export class TeamReportsService {
       },
       dailyActivity,
       byDayOfWeek,
+      distribution: byTaskType.map(t => ({
+        category: t.taskType,
+        hours: t.hours,
+        percentage: t.pct,
+        rate: t.pct,
+      })),
       byTaskType,
       byHour,
     };

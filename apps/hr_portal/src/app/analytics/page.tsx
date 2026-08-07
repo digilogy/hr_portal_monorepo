@@ -11,7 +11,7 @@ import {
 } from "antd";
 import { CalendarOutlined } from "@ant-design/icons";
 import { Dayjs } from "dayjs";
-import { getTokenRole } from "@/lib/auth";
+import { canAccessAnalytics, getTokenRole } from "@/lib/auth";
 import { isAdminPortalHost } from "@/lib/host";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -30,22 +30,28 @@ import {
   getEffectiveDateRange,
 } from "@/lib/dateRangePresets";
 import { WorkRhythm } from "@/components/analytics/WorkRhythm";
+import { TaskDistribution } from "@/components/analytics/TaskDistribution";
+import { type DayActivity } from "@/lib/analyticsGrouping";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 interface AnalyticsData {
-  employeesInScope: number;
-  fromDate: string;
-  toDate: string;
-  dailyActivity: Array<{
-    date: string;
-    submittedCount: number;
-    totalHours: number;
+  summary: {
+    totalLoggedHours: number;
+    headcount: number;
+    avgUtilization: number;
+    timesheetsSubmitted: number;
+  };
+  distribution: Array<{
+    category: string;
+    hours: number;
+    percentage: number;
     rate: number;
   }>;
   byDayOfWeek: Array<{ day: string; hours: number; entryCount: number }>;
   byHour?: Array<{ hour: number; label: string; hours: number; slotCount: number }>;
+  dailyActivity: DayActivity[];
 }
 
 export default function AnalyticsPage() {
@@ -73,12 +79,16 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const role = getTokenRole();
-    if (role !== "admin") {
+    if (!canAccessAnalytics(role)) {
       router.replace("/timesheet");
       return;
     }
 
-    void apiFetch<ReportFilterOptions>("/api/reports/filter-options")
+    const endpoint =
+      role === "admin"
+        ? "/api/reports/filter-options"
+        : "/api/reports/filter-options/scoped";
+    void apiFetch<ReportFilterOptions>(endpoint)
       .then(setFilterOptions)
       .catch(console.error);
   }, [router]);
@@ -86,7 +96,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const role = getTokenRole();
-    if (role !== "admin") return;
+    if (!canAccessAnalytics(role)) return;
 
     const loadData = async () => {
       setLoading(true);
@@ -141,7 +151,6 @@ export default function AnalyticsPage() {
             options={filterOptions}
             loading={!filterOptions && loading}
             onChange={setAdminFilters}
-            hideEmployee={true}
           />
           <div className="flex flex-col sm:flex-row flex-wrap items-end gap-4">
 
@@ -233,6 +242,15 @@ export default function AnalyticsPage() {
             />
           </div>
         </Card>
+
+        {data?.distribution && data.distribution.length > 0 && (
+          <div className="mt-8">
+            <Title level={4} className="mb-4 text-gray-800 dark:text-zinc-100">
+              Task Category Breakdown
+            </Title>
+            <TaskDistribution distribution={data.distribution} />
+          </div>
+        )}
       </div>
     </div>
   );

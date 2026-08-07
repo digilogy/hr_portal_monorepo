@@ -211,11 +211,18 @@ export default function Timesheet2Page() {
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
                 Total Logged
               </span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                  {standardFilled}
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight">
+                  {(() => {
+                    const h = Math.floor(standardFilled);
+                    const m = Math.round((standardFilled - h) * 60);
+                    if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                    if (h > 0) return `${h}hrs`;
+                    if (m > 0) return `${m}mins`;
+                    return "0hrs";
+                  })()}
                 </span>
-                <span className="text-lg text-gray-500 font-medium">/ 8.5 hrs Target</span>
+                <span className="text-lg text-gray-500 font-medium">/ 8hrs 30mins Target</span>
               </div>
             </div>
 
