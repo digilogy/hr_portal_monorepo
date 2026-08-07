@@ -15,6 +15,7 @@ Create your `.env` file (in `apps/api_hr_portal/`) with your database, Redis, an
 Run the following command in the terminal to start PostgreSQL, Redis, the API, the mail worker, and the frontend in the background:
 ```bash
 docker-compose up -d
+npm run dev --workspace=@hr-portal/hr-portal
 ```
 
 ### 3. Rebuilding after Code Changes

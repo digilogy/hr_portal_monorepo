@@ -125,7 +125,7 @@ export function canAccessDashboard(role: UserRole | null): boolean {
 }
 
 export function canAccessAnalytics(role: UserRole | null): boolean {
-  return role === "admin";
+  return role === "admin" || role === "hrbp" || role === "manager";
 }
 
 export function canAccessPersonalDashboard(role: UserRole | null): boolean {

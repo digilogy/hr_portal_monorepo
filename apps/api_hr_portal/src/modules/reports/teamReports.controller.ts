@@ -256,8 +256,8 @@ export class ReportsController {
       }
 
       const role = getRole(req);
-      if (role !== UserRole.ADMIN && !AccessService.isAdminEmail(email)) {
-        res.status(403).json({ message: "Admin access only." });
+      if (role === UserRole.EMPLOYEE && !AccessService.isAdminEmail(email)) {
+        res.status(403).json({ message: "Analytics access is restricted to Managers, HR, and Admins." });
         return;
       }
 
@@ -436,8 +436,8 @@ export class ReportsController {
       }
 
       const role = getRole(req);
-      if (role !== UserRole.ADMIN && !AccessService.isAdminEmail(email)) {
-        res.status(403).json({ message: "Admin access only." });
+      if (role === UserRole.EMPLOYEE && !AccessService.isAdminEmail(email)) {
+        res.status(403).json({ message: "Analytics access is restricted to Managers, HR, and Admins." });
         return;
       }
 
@@ -504,8 +504,8 @@ export class ReportsController {
       }
 
       const role = getRole(req);
-      if (role !== UserRole.ADMIN && !AccessService.isAdminEmail(email)) {
-        res.status(403).json({ message: "Admin access only." });
+      if (role === UserRole.EMPLOYEE && !AccessService.isAdminEmail(email)) {
+        res.status(403).json({ message: "Analytics access is restricted to Managers, HR, and Admins." });
         return;
       }
 

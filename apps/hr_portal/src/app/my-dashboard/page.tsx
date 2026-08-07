@@ -155,7 +155,7 @@ function getWorkingDays(from: dayjs.Dayjs, to: dayjs.Dayjs): number {
 
   while (current.isBefore(end) || current.isSame(end, "day")) {
     const day = current.day();
-    if (day !== 0 && day !== 6) count += 1;
+    if (day !== 0) count += 1;
     current = current.add(1, "day");
   }
 
@@ -169,7 +169,7 @@ function getWeekdayDates(from: dayjs.Dayjs, to: dayjs.Dayjs): string[] {
 
   while (current.isBefore(end) || current.isSame(end, "day")) {
     const day = current.day();
-    if (day !== 0 && day !== 6) {
+    if (day !== 0) {
       dates.push(current.format("YYYY-MM-DD"));
     }
     current = current.add(1, "day");
@@ -506,10 +506,24 @@ export default function MyDashboardPage() {
         <Col xs={24} sm={12} xl={6}>
           <MetricCard
             title="Today's Hours"
-            valueLabel={stats.todayHours.toFixed(1)}
-            targetLabel={`/ ${stats.todayTarget}.0 hrs`}
+            valueLabel={(() => {
+              const h = Math.floor(stats.todayHours);
+              const m = Math.round((stats.todayHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()}
+            targetLabel={`/ ${(() => {
+              const h = Math.floor(stats.todayTarget);
+              const m = Math.round((stats.todayTarget - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()} Target`}
             percent={stats.todayPercent}
-            footerLeft="Target: 8h"
+            footerLeft="Target: 8hrs 30mins"
             footerRight={`${Math.round(stats.todayPercent)}%`}
             icon={<ClockCircleOutlined />}
             iconClassName="bg-blue-50 text-blue-500"
@@ -520,8 +534,22 @@ export default function MyDashboardPage() {
         <Col xs={24} sm={12} xl={6}>
           <MetricCard
             title="Weekly Hours"
-            valueLabel={stats.weekHours.toFixed(1)}
-            targetLabel={`/ ${stats.weekTarget} hrs`}
+            valueLabel={(() => {
+              const h = Math.floor(stats.weekHours);
+              const m = Math.round((stats.weekHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()}
+            targetLabel={`/ ${(() => {
+              const h = Math.floor(stats.weekTarget);
+              const m = Math.round((stats.weekTarget - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()} Target`}
             percent={stats.weekPercent}
             footerLeft={stats.weekOnTrack ? "On Track" : "Behind Target"}
             footerRight={`${Math.round(stats.weekPercent)}%`}
@@ -534,8 +562,22 @@ export default function MyDashboardPage() {
         <Col xs={24} sm={12} xl={6}>
           <MetricCard
             title="Monthly Hours"
-            valueLabel={stats.monthHours.toFixed(1)}
-            targetLabel={`/ ${stats.monthTarget} hrs`}
+            valueLabel={(() => {
+              const h = Math.floor(stats.monthHours);
+              const m = Math.round((stats.monthHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()}
+            targetLabel={`/ ${(() => {
+              const h = Math.floor(stats.monthTarget);
+              const m = Math.round((stats.monthTarget - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()} Target`}
             percent={stats.monthPercent}
             footerLeft={`${today.format("MMMM")} Cycle`}
             footerRight={`${Math.round(stats.monthPercent)}%`}

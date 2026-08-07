@@ -50,6 +50,15 @@ import {
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
+function formatDuration(hours: number): string {
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+  if (h > 0) return `${h}hrs`;
+  if (m > 0) return `${m}mins`;
+  return "0hrs";
+}
+
 interface UserReportRow {
   key: string;
   empId: string;
@@ -144,7 +153,7 @@ const timesheetColumns: ColumnsType<TimesheetTableRow> = [
     key: "hours",
     width: 72,
     align: "center",
-    render: (val: number | null) => (val != null ? `${val}h` : "—"),
+    render: (val: number | null) => (val != null ? formatDuration(val) : "—"),
   },
 ];
 
@@ -166,7 +175,7 @@ const managerColumns: ColumnsType<any> = [
     title: "Total Logged Hours",
     dataIndex: "totalHours",
     key: "totalHours",
-    render: (val: number) => <span className="font-semibold">{val}h</span>,
+    render: (val: number) => <span className="font-semibold">{formatDuration(val)}</span>,
   },
   {
     title: "Avg. Utilization",
@@ -196,7 +205,7 @@ const deptColumns: ColumnsType<any> = [
     title: "Total Logged Hours",
     dataIndex: "totalHours",
     key: "totalHours",
-    render: (val: number) => <span className="font-semibold">{val}h</span>,
+    render: (val: number) => <span className="font-semibold">{formatDuration(val)}</span>,
   },
   {
     title: "Avg. Utilization",
@@ -215,13 +224,13 @@ const orgColumns: ColumnsType<any> = [
     title: "Expected Hours",
     dataIndex: "expectedHours",
     key: "expectedHours",
-    render: (val: number) => <span className="text-gray-500">{val}h</span>,
+    render: (val: number) => <span className="text-gray-500">{formatDuration(val)}</span>,
   },
   {
     title: "Logged Hours",
     dataIndex: "loggedHours",
     key: "loggedHours",
-    render: (val: number) => <span className="font-semibold">{val}h</span>,
+    render: (val: number) => <span className="font-semibold">{formatDuration(val)}</span>,
   },
   {
     title: "Utilization",
@@ -588,7 +597,7 @@ export default function ReportsPage() {
         title: "Logged Hours",
         dataIndex: "hours",
         key: "hours",
-        render: (val: number) => <span className="font-semibold">{val}h</span>,
+        render: (val: number) => <span className="font-semibold">{formatDuration(val)}</span>,
       },
       {
         title: "Utilization",
