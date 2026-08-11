@@ -39,6 +39,7 @@ import {
   type ReportFilters,
 } from "@/lib/reportFilters";
 import { AdminReportFilters } from "@/components/reports/AdminReportFilters";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import {
   PERIOD_PRESET_OPTIONS,
   PeriodPreset,
@@ -258,6 +259,7 @@ function ReportTable({
   pagination,
   scrollX,
   emptyText,
+  cardRender,
 }: {
   columns: ColumnsType<any>;
   data: any[];
@@ -265,17 +267,19 @@ function ReportTable({
   pagination: TablePaginationConfig;
   scrollX: number;
   emptyText: string;
+  cardRender?: (record: any, index: number) => React.ReactNode;
 }) {
   if (!loading && data.length === 0) {
     return <Empty description={emptyText} />;
   }
 
   return (
-    <Table
+    <ResponsiveTable
       rowKey="key"
       columns={columns}
       dataSource={data}
       loading={loading}
+      cardRender={cardRender}
       pagination={{
         showSizeChanger: true,
         pageSizeOptions: ["10", "20", "50", "100"],
@@ -731,7 +735,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
       {contextHolder}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
         <div>
@@ -779,7 +783,7 @@ export default function ReportsPage() {
       {isAdmin && (
         <Card
           variant="borderless"
-          className="shadow-sm border border-gray-100 dark:border-zinc-800 rounded-xl"
+          className="shadow-sm border border-gray-100 dark:border-zinc-800 rounded-xl !mb-3"
           styles={{ body: { padding: 20 } }}
           title={
             <span className="flex items-center gap-2 text-base font-semibold">
@@ -825,6 +829,54 @@ export default function ReportsPage() {
                   loading={userLoading}
                   scrollX={900}
                   emptyText="No user-wise report data for the selected period."
+                  cardRender={(record: any, index: number) => (
+                    <div className="flex flex-col gap-3 sm:gap-4">
+                      {/* Header: #index + Avatar + Name + Status tag */}
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={() => handleUserClick(record)}>
+                          <div className="flex shrink-0 items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-orange-200 text-orange-500 text-[10px] sm:text-xs font-bold bg-orange-50">
+                            #{index + 1}
+                          </div>
+                          <Avatar className="!bg-[#fbb33b] shrink-0 text-white font-bold" size={32}>
+                            {getNameInitials(record.name)}
+                          </Avatar>
+                          <span className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#F5A623] transition-colors text-sm sm:text-base break-words">
+                            {record.name}
+                          </span>
+                        </div>
+                        <Tag color={record.status === "Submitted" ? "green" : "orange"} className="m-0 border-0 shadow-sm font-medium shrink-0 text-[10px] sm:text-xs">
+                          {record.status}
+                        </Tag>
+                      </div>
+
+                      {/* Body Grid */}
+                      <div className="grid grid-cols-2 gap-y-3 gap-x-3 mt-1 sm:mt-2">
+                        <div>
+                          <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Emp ID</div>
+                          <div className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100">{record.empId}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Department</div>
+                          <div className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100">{record.department}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Reporting Manager</div>
+                          <div className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100">{record.manager}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Logged Hours</div>
+                          <div className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100">{formatDuration(record.hours)}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-1">
+                        <div className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Utilization</div>
+                        <div className={`font-bold text-xs sm:text-sm ${record.utilization >= 100 ? "text-green-600" : "text-green-600"}`}>
+                          {record.utilization}%
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   pagination={{
                     current: userPage,
                     pageSize: userPageSize,
@@ -839,81 +891,81 @@ export default function ReportsPage() {
             },
             ...(capabilities.managerWise
               ? [
-                  {
-                    key: "manager",
-                    label: "Manager-wise Report",
-                    children: (
-                      <ReportTable
-                        columns={managerColumns}
-                        data={managerWiseData}
-                        loading={summaryLoading}
-                        scrollX={800}
-                        emptyText="No manager-wise report data for the selected period."
-                        pagination={{
-                          current: managerPage,
-                          pageSize: managerPageSize,
-                          total: managerWiseData.length,
-                          onChange: (page, pageSize) => {
-                            setManagerPage(page);
-                            setManagerPageSize(pageSize);
-                          },
-                        }}
-                      />
-                    ),
-                  },
-                ]
+                {
+                  key: "manager",
+                  label: "Manager-wise Report",
+                  children: (
+                    <ReportTable
+                      columns={managerColumns}
+                      data={managerWiseData}
+                      loading={summaryLoading}
+                      scrollX={800}
+                      emptyText="No manager-wise report data for the selected period."
+                      pagination={{
+                        current: managerPage,
+                        pageSize: managerPageSize,
+                        total: managerWiseData.length,
+                        onChange: (page, pageSize) => {
+                          setManagerPage(page);
+                          setManagerPageSize(pageSize);
+                        },
+                      }}
+                    />
+                  ),
+                },
+              ]
               : []),
             ...(capabilities.departmentWise
               ? [
-                  {
-                    key: "dept",
-                    label: "Department-wise Report",
-                    children: (
-                      <ReportTable
-                        columns={deptColumns}
-                        data={deptWiseData}
-                        loading={summaryLoading}
-                        scrollX={700}
-                        emptyText="No department-wise report data for the selected period."
-                        pagination={{
-                          current: deptPage,
-                          pageSize: deptPageSize,
-                          total: deptWiseData.length,
-                          onChange: (page, pageSize) => {
-                            setDeptPage(page);
-                            setDeptPageSize(pageSize);
-                          },
-                        }}
-                      />
-                    ),
-                  },
-                ]
+                {
+                  key: "dept",
+                  label: "Department-wise Report",
+                  children: (
+                    <ReportTable
+                      columns={deptColumns}
+                      data={deptWiseData}
+                      loading={summaryLoading}
+                      scrollX={700}
+                      emptyText="No department-wise report data for the selected period."
+                      pagination={{
+                        current: deptPage,
+                        pageSize: deptPageSize,
+                        total: deptWiseData.length,
+                        onChange: (page, pageSize) => {
+                          setDeptPage(page);
+                          setDeptPageSize(pageSize);
+                        },
+                      }}
+                    />
+                  ),
+                },
+              ]
               : []),
             ...(capabilities.organizationWise
               ? [
-                  {
-                    key: "org",
-                    label: "Organization-wise Report",
-                    children: (
-                      <ReportTable
-                        columns={orgColumns}
-                        data={orgWiseData}
-                        loading={summaryLoading}
-                        scrollX={700}
-                        emptyText="No organization-wide report data available."
-                        pagination={{
-                          current: orgPage,
-                          pageSize: orgPageSize,
-                          total: orgWiseData.length,
-                          onChange: (page, pageSize) => {
-                            setOrgPage(page);
-                            setOrgPageSize(pageSize);
-                          },
-                        }}
-                      />
-                    ),
-                  },
-                ]
+                {
+                  key: "org",
+                  label: "Organization-wise Report",
+                  children: (
+                    <ReportTable
+                      columns={orgColumns}
+                      data={orgWiseData}
+                      loading={summaryLoading}
+                      scrollX={700}
+                      emptyText="No organization-wide report data available."
+                      pagination={{
+                        current: orgPage,
+                        pageSize: orgPageSize,
+                        total: orgWiseData.length,
+                        onChange: (page, pageSize) => {
+                          setOrgPage(page);
+                          setOrgPageSize(pageSize);
+                        },
+                      }}
+                    />
+                  ),
+                },
+              ]
               : []),
           ]}
         />
@@ -950,15 +1002,14 @@ export default function ReportsPage() {
               <Alert type="error" message={detailError} showIcon className="mt-6" />
             ) : employeeDetail ? (
               timesheetRows.length > 0 ? (
-                <div className="mt-6 rounded-lg border border-gray-100 overflow-hidden">
-                  <Table
+                <div className="bg-white dark:bg-zinc-950 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-zinc-800 p-0 sm:p-4 mt-6">
+                  <ResponsiveTable
                     columns={timesheetColumns}
                     dataSource={timesheetRows}
                     pagination={false}
-                    size="small"
-                    tableLayout="auto"
-                    scroll={{ y: 420 }}
-                    className="timesheet-modal-table [&_.ant-table-cell]:!whitespace-normal"
+                    rowClassName={(record: any) =>
+                      record.hours === null ? "bg-gray-50 dark:bg-zinc-900/50 italic text-gray-500" : ""
+                    }
                   />
                 </div>
               ) : (

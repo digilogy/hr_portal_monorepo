@@ -38,6 +38,8 @@ import {
   getNameInitials,
   getTokenRole,
 } from "@/lib/auth";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+import { DashboardMetricCard } from "@/components/dashboard/DashboardMetricCard";
 
 const { Title, Text } = Typography;
 
@@ -135,19 +137,6 @@ interface TeamResponse {
   };
 }
 
-interface MetricCardProps {
-  title: string;
-  valueLabel: string;
-  targetLabel: string;
-  percent: number;
-  footerLeft: string;
-  footerRight: string;
-  icon: React.ReactNode;
-  iconClassName: string;
-  barClassName: string;
-  percentClassName: string;
-}
-
 function getWorkingDays(from: dayjs.Dayjs, to: dayjs.Dayjs): number {
   let count = 0;
   let current = from.startOf("day");
@@ -176,55 +165,6 @@ function getWeekdayDates(from: dayjs.Dayjs, to: dayjs.Dayjs): string[] {
   }
 
   return dates;
-}
-
-function MetricCard({
-  title,
-  valueLabel,
-  targetLabel,
-  percent,
-  footerLeft,
-  footerRight,
-  icon,
-  iconClassName,
-  barClassName,
-  percentClassName,
-}: MetricCardProps) {
-  const clampedPercent = Math.min(100, Math.max(0, percent));
-
-  return (
-    <Card
-      variant="borderless"
-      className="shadow-sm rounded-xl border border-gray-100 dark:border-zinc-800 h-full"
-      styles={{ body: { padding: 20 } }}
-    >
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <Text className="text-sm text-gray-500">{title}</Text>
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg ${iconClassName}`}
-        >
-          {icon}
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <span className="text-3xl font-bold text-gray-900 dark:text-white">{valueLabel}</span>
-        <span className="ml-1 text-sm text-gray-400">{targetLabel}</span>
-      </div>
-
-      <div className="h-1.5 w-full rounded-full bg-gray-100 dark:bg-zinc-800 mb-3 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${barClassName}`}
-          style={{ width: `${clampedPercent}%` }}
-        />
-      </div>
-
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-500">{footerLeft}</span>
-        <span className={`font-semibold ${percentClassName}`}>{footerRight}</span>
-      </div>
-    </Card>
-  );
 }
 
 export default function MyDashboardPage() {
@@ -502,9 +442,9 @@ export default function MyDashboardPage() {
 
       {(dashboardView === "personal" || !isManager) && (
         <>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+      <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Today's Hours"
             valueLabel={(() => {
               const h = Math.floor(stats.todayHours);
@@ -531,8 +471,8 @@ export default function MyDashboardPage() {
             percentClassName="text-blue-500"
           />
         </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Weekly Hours"
             valueLabel={(() => {
               const h = Math.floor(stats.weekHours);
@@ -559,8 +499,8 @@ export default function MyDashboardPage() {
             percentClassName="text-green-500"
           />
         </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Monthly Hours"
             valueLabel={(() => {
               const h = Math.floor(stats.monthHours);
@@ -587,8 +527,8 @@ export default function MyDashboardPage() {
             percentClassName="text-cyan-500"
           />
         </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Pending Submissions"
             valueLabel={String(stats.pendingCount)}
             targetLabel={stats.pendingCount === 1 ? "Day" : "Days"}
@@ -617,9 +557,9 @@ export default function MyDashboardPage() {
 
           {teamError && <Alert type="warning" message={teamError} showIcon />}
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} xl={6}>
-              <MetricCard
+          <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
                 title="Total Team Members"
                 valueLabel={String(teamStats.total)}
                 targetLabel="members"
@@ -632,8 +572,8 @@ export default function MyDashboardPage() {
                 percentClassName="text-blue-500"
               />
             </Col>
-            <Col xs={24} sm={12} xl={6}>
-              <MetricCard
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
                 title="Timesheets Submitted"
                 valueLabel={String(teamStats.submitted)}
                 targetLabel={`/ ${teamStats.total}`}
@@ -646,8 +586,8 @@ export default function MyDashboardPage() {
                 percentClassName="text-green-500"
               />
             </Col>
-            <Col xs={24} sm={12} xl={6}>
-              <MetricCard
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
                 title="Pending Timesheets"
                 valueLabel={String(teamStats.pending)}
                 targetLabel={teamStats.pending === 1 ? "member" : "members"}
@@ -670,8 +610,8 @@ export default function MyDashboardPage() {
                 percentClassName="text-amber-500"
               />
             </Col>
-            <Col xs={24} sm={12} xl={6}>
-              <MetricCard
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
                 title="Avg Team Utilization"
                 valueLabel={teamStats.utilization.toFixed(1)}
                 targetLabel="%"
@@ -704,7 +644,7 @@ export default function MyDashboardPage() {
               timesheets or utilization below 50%
             </Text>
             {attentionMembers.length > 0 ? (
-              <Table<AttentionMemberRow>
+              <ResponsiveTable<AttentionMemberRow>
                 dataSource={attentionMembers}
                 rowKey="tableRowKey"
                 pagination={{

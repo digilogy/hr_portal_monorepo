@@ -15,6 +15,8 @@ import {
   Empty,
   Drawer,
   Descriptions,
+  Grid,
+  Segmented
 } from "antd";
 import type { TablePaginationConfig } from "antd/es/table";
 import {
@@ -22,6 +24,8 @@ import {
   CheckCircleOutlined,
   SyncOutlined,
   ExclamationCircleOutlined,
+  AppstoreOutlined,
+  TableOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -34,82 +38,12 @@ import {
   type DepartmentFilterOptions,
 } from "@/lib/reportFilters";
 import { AdminDepartmentFilter } from "@/components/reports/AdminDepartmentFilter";
+import { AdminReportFilters } from "@/components/reports/AdminReportFilters";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+import { DashboardMetricCard } from "@/components/dashboard/DashboardMetricCard";
+import { useSearchParams } from "next/navigation";
 
 const { Title, Text } = Typography;
-
-interface MetricCardProps {
-  title: string;
-  valueLabel: string;
-  targetLabel: string;
-  percent: number;
-  footerLeft: string;
-  footerRight: string;
-  icon: React.ReactNode;
-  iconClassName: string;
-  barClassName: string;
-  percentClassName: string;
-  onClick?: () => void;
-  active?: boolean;
-}
-
-function MetricCard({
-  title,
-  valueLabel,
-  targetLabel,
-  percent,
-  footerLeft,
-  footerRight,
-  icon,
-  iconClassName,
-  barClassName,
-  percentClassName,
-  onClick,
-  active = false,
-}: MetricCardProps) {
-  const clampedPercent = Math.min(100, Math.max(0, percent));
-
-  return (
-    <Card
-      variant="borderless"
-      onClick={onClick}
-      hoverable={!!onClick}
-      className={`shadow-sm rounded-xl border h-full transition-all ${
-        active
-          ? "border-[#F5A623] ring-2 ring-[#F5A623]/20"
-          : "border-gray-100 dark:border-zinc-800"
-      } ${onClick ? "cursor-pointer" : ""}`}
-      styles={{ body: { padding: 20 } }}
-    >
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <Text className="text-sm text-gray-500">{title}</Text>
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg ${iconClassName}`}
-        >
-          {icon}
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <span className="text-3xl font-bold text-gray-900 dark:text-white">{valueLabel}</span>
-        {targetLabel ? (
-          <span className="ml-1 text-sm text-gray-400">{targetLabel}</span>
-        ) : null}
-      </div>
-
-      <div className="h-1.5 w-full rounded-full bg-gray-100 dark:bg-zinc-800 mb-3 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${barClassName}`}
-          style={{ width: `${clampedPercent}%` }}
-        />
-      </div>
-
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-500">{footerLeft}</span>
-        <span className={`font-semibold ${percentClassName}`}>{footerRight}</span>
-      </div>
-    </Card>
-  );
-}
 
 interface TeamMemberNode {
   key: string;
@@ -171,6 +105,18 @@ export default function MyTeamPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [viewMode, setViewMode] = useState<"flat" | "tree">("flat");
+  const screens = Grid.useBreakpoint();
+  const isMobile = screens.md === false;
+  const [tableViewMode, setTableViewMode] = useState<"table" | "card">("table");
+
+  useEffect(() => {
+    if (isMobile) {
+      setTableViewMode("card");
+    } else {
+      setTableViewMode("table");
+    }
+  }, [isMobile]);
+
   const [selectedMember, setSelectedMember] = useState<TeamMemberNode | null>(null);
   const [cardFilter, setCardFilter] = useState<RosterCardFilter>("all");
   const [adminFilters, setAdminFilters] = useState<DepartmentFilter>(
@@ -315,34 +261,24 @@ export default function MyTeamPage() {
     setCardFilter((current) => (current === filter ? "all" : filter));
     setPage(1);
   };
-
-  const rosterTitle = useMemo(() => {
-    if (cardFilter !== "all") {
-      return `${isAdmin ? "Organization Roster" : "Team & Downline Roster"} — ${ROSTER_CARD_FILTER_LABELS[cardFilter]} (${total})`;
-    }
-    if (isAdmin && hasActiveDepartmentFilter(adminFilters)) {
-      return `Organization Roster — Filtered (${total})`;
-    }
-    return isAdmin ? "Organization Roster" : "Team & Downline Roster";
-  }, [cardFilter, total, isAdmin, adminFilters]);
+  const rosterTitle = isAdmin ? "Organization Roster" : "Team & Downline Roster";
 
   const tablePagination: TablePaginationConfig | false =
     viewMode === "tree"
       ? false
       : {
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          pageSizeOptions: ["25", "50", "100"],
-          onChange: (nextPage, nextPageSize) => {
-            setPage(nextPage);
-            if (nextPageSize !== pageSize) {
-              setPageSize(nextPageSize);
-              setPage(1);
-            }
-          },
-        };
+        current: page,
+        pageSize,
+        total,
+        showSizeChanger: true,
+        pageSizeOptions: ["25", "50", "100"],
+        onChange: (nextPage, nextPageSize) => {
+          setPage(nextPage);
+          if (nextPageSize !== pageSize) {
+            setPageSize(nextPageSize);
+          }
+        },
+      };
 
   if (loading && !summary && data.length === 0) {
     return (
@@ -353,10 +289,10 @@ export default function MyTeamPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <Title level={2} className="!mb-1 text-xl md:text-3xl">
+          <Title level={2} className="!mb-1 text-gray-900 dark:text-gray-100">
             My Team
           </Title>
           <p className="text-gray-500 text-sm md:text-base">
@@ -378,9 +314,9 @@ export default function MyTeamPage() {
 
       {error && <Alert type="error" message={error} showIcon className="mb-4" />}
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+      <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Total Team Members"
             valueLabel={String(teamStats.total)}
             targetLabel="members"
@@ -395,8 +331,8 @@ export default function MyTeamPage() {
             active={cardFilter === "active"}
           />
         </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Timesheets Submitted"
             valueLabel={String(teamStats.submitted)}
             targetLabel={`/ ${teamStats.total}`}
@@ -411,28 +347,24 @@ export default function MyTeamPage() {
             active={cardFilter === "Submitted"}
           />
         </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Pending Timesheets"
             valueLabel={String(teamStats.pending)}
-            targetLabel={teamStats.pending === 1 ? "member" : "members"}
-            percent={teamStats.total > 0 ? (teamStats.pending / teamStats.total) * 100 : 0}
-            footerLeft={teamStats.pending > 0 ? "Action Required" : "All Submitted"}
-            footerRight={
-              teamStats.pending > 0
-                ? `${Math.round((teamStats.pending / Math.max(teamStats.total, 1)) * 100)}%`
-                : "0%"
-            }
+            targetLabel="members"
+            percent={teamStats.total > 0 ? Math.min(100, (teamStats.pending / teamStats.total) * 100) : 0}
+            footerLeft="Action Required"
+            footerRight={`${teamStats.total > 0 ? Math.round((teamStats.pending / teamStats.total) * 100) : 0}%`}
             icon={<ExclamationCircleOutlined />}
-            iconClassName="bg-amber-50 text-amber-500"
-            barClassName="bg-amber-500"
-            percentClassName="text-amber-500"
+            iconClassName="bg-orange-50 text-[#F5A623]"
+            barClassName="bg-[#F5A623]"
+            percentClassName="text-[#F5A623]"
             onClick={() => toggleCardFilter("Pending")}
             active={cardFilter === "Pending"}
           />
         </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
+        <Col xs={12} sm={12} xl={6}>
+          <DashboardMetricCard
             title="Avg Team Utilization"
             valueLabel={teamStats.utilization.toFixed(1)}
             targetLabel="%"
@@ -454,34 +386,100 @@ export default function MyTeamPage() {
       </Row>
 
       <Card
-        title={rosterTitle}
+        title={<span className="font-bold text-base sm:text-lg text-gray-900 dark:text-gray-100">{rosterTitle}</span>}
         className="shadow-sm border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden"
         variant="borderless"
         extra={
-          cardFilter !== "all" ? (
+          isMobile && (
+            <Segmented
+              options={[
+                { label: "", value: "card", icon: <AppstoreOutlined /> },
+                { label: "", value: "table", icon: <TableOutlined /> },
+              ]}
+              value={tableViewMode}
+              onChange={(val) => setTableViewMode(val as "card" | "table")}
+            />
+          )
+        }
+      >
+        {cardFilter !== "all" && (
+          <div className="flex items-center gap-3 mb-4">
+            <div className="px-4 py-1.5 rounded-full border border-orange-200 text-[#F5A623] bg-orange-50 font-medium text-xs sm:text-sm shadow-sm">
+              {ROSTER_CARD_FILTER_LABELS[cardFilter]} ({total})
+            </div>
             <button
               type="button"
               onClick={() => setCardFilter("all")}
-              className="text-sm text-[#F5A623] hover:underline"
+              className="text-[#F5A623] hover:underline text-sm font-medium"
             >
-              Clear filter
+              Clear
             </button>
-          ) : null
-        }
-      >
+          </div>
+        )}
+
         {data.length > 0 ? (
-          <Table
+          <ResponsiveTable
             rowKey="key"
             columns={columns}
             dataSource={data}
             loading={loading}
             pagination={tablePagination}
+            hideToggle={true}
+            viewMode={tableViewMode}
+            onViewModeChange={(val) => setTableViewMode(val)}
+            cardRender={(record: TeamMemberNode) => (
+              <div className="flex flex-col gap-3 sm:gap-4">
+                {/* Header: Avatar + Name/ID + Status */}
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={() => setSelectedMember(record)}>
+                    <Avatar className="!bg-[#fbb33b] text-white font-bold" size={40}>
+                      {getNameInitials(record.name)}
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#F5A623] transition-colors text-sm sm:text-base">{record.name}</span>
+                      <span className="text-gray-400 text-xs sm:text-sm">{record.employeeId}</span>
+                    </div>
+                  </div>
+                  <Tag color={record.timesheetStatus === "Submitted" ? "green" : "orange"} className="m-0 border-0 shadow-sm font-medium text-[10px] sm:text-xs">
+                    {record.timesheetStatus}
+                  </Tag>
+                </div>
+
+                {/* Body: Role, Dept, Manager */}
+                <div className="flex flex-col gap-1 sm:gap-2 mt-1 sm:mt-2">
+                  <div className="flex justify-between items-center text-xs sm:text-sm">
+                    <span className="text-gray-400">Role:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200 text-right">{record.role}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs sm:text-sm">
+                    <span className="text-gray-400">Department:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200 text-right">{record.department}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs sm:text-sm">
+                    <span className="text-gray-400">Manager:</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200 text-right">{record.manager}</span>
+                  </div>
+                </div>
+
+                {/* Footer: Hours & Utilization */}
+                <div className="flex justify-between items-center text-xs sm:text-sm mt-1 sm:mt-2 pt-2 sm:pt-3 border-t border-gray-100 dark:border-zinc-800">
+                  <div>
+                    <span className="text-gray-400">Hours: </span>
+                    <span className="font-bold">{record.hours}h</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Utilization: </span>
+                    <span className="font-bold text-[#F5A623]">{Math.round(record.utilization)}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
             expandable={
               viewMode === "tree"
                 ? {
-                    defaultExpandAllRows: false,
-                    indentSize: 24,
-                  }
+                  defaultExpandAllRows: false,
+                  indentSize: 24,
+                }
                 : undefined
             }
             className="[&_.ant-table-thead>tr>th]:bg-gray-50 dark:[&_.ant-table-thead>tr>th]:bg-zinc-900 [&_.ant-table-thead>tr>th]:font-semibold"

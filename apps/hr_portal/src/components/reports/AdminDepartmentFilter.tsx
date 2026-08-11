@@ -30,6 +30,8 @@ export function AdminDepartmentFilter({
 }: AdminDepartmentFilterProps) {
   const select = (
     <Select
+      popupMatchSelectWidth={false}
+      virtual={false}
       allowClear
       showSearch
       optionFilterProp="label"
