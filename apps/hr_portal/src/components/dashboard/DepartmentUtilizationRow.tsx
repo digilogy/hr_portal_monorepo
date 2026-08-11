@@ -53,17 +53,17 @@ export function DepartmentUtilizationRow({
     <button
       type="button"
       onClick={onClick}
-      className="group w-full text-left rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 transition-all hover:border-[#F5A623]/40 hover:shadow-md hover:shadow-[#F5A623]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5A623]/30"
+      className="group w-full text-left rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-3 sm:p-4 transition-all hover:border-[#F5A623]/40 hover:shadow-md hover:shadow-[#F5A623]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#F5A623]/30"
     >
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-gray-800 dark:text-gray-100 truncate group-hover:text-[#F5A623] transition-colors">
+            <span className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 truncate group-hover:text-[#F5A623] transition-colors">
               {department}
             </span>
-            <RightOutlined className="text-xs text-gray-300 group-hover:text-[#F5A623] shrink-0 transition-colors" />
+            <RightOutlined className="text-[10px] sm:text-xs text-gray-300 group-hover:text-[#F5A623] shrink-0 transition-colors" />
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+          <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-xs text-gray-500">
             <span className="inline-flex items-center gap-1">
               <TeamOutlined />
               {headcount} employees
@@ -73,7 +73,7 @@ export function DepartmentUtilizationRow({
           </div>
         </div>
         <span
-          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${styles.badge}`}
+          className={`shrink-0 rounded-full border px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold ${styles.badge}`}
         >
           {avgUtilization}%
         </span>

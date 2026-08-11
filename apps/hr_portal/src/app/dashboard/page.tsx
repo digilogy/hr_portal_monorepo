@@ -41,6 +41,7 @@ import { AdminDepartmentFilter } from "@/components/reports/AdminDepartmentFilte
 import { FilterField } from "@/components/ui/FilterField";
 import { DashboardMetricCard } from "@/components/dashboard/DashboardMetricCard";
 import { DepartmentUtilizationRow } from "@/components/dashboard/DepartmentUtilizationRow";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import {
   PERIOD_PRESET_OPTIONS,
   PeriodPreset,
@@ -286,7 +287,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       {contextHolder}
 
       {/* Header */}
@@ -429,12 +430,12 @@ export default function DashboardPage() {
           <div className="absolute inset-0 z-10 rounded-xl bg-white/40 dark:bg-black/20 pointer-events-none" />
         )}
         <div className="flex items-center justify-between mb-3">
-          <Title level={5} className="!mb-0 text-gray-700 dark:text-gray-200">
+          <Title level={5} className="mt-3 !mb-0 text-gray-700 dark:text-gray-200">
             Organization Summary
           </Title>
         </div>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} lg={4}>
+        <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
+          <Col xs={12} sm={12} lg={4}>
             <DashboardMetricCard
               title="Total Employees"
               valueLabel={(summary?.totalEmployees ?? 0).toLocaleString()}
@@ -443,7 +444,7 @@ export default function DashboardPage() {
               barClassName="bg-blue-500"
             />
           </Col>
-          <Col xs={24} sm={12} lg={4}>
+          <Col xs={12} sm={12} lg={4}>
             <DashboardMetricCard
               title="Total App Users"
               valueLabel={(summary?.totalSignUpUsers ?? 0).toLocaleString()}
@@ -454,7 +455,7 @@ export default function DashboardPage() {
               active={false}
             />
           </Col>
-          <Col xs={24} sm={12} lg={5}>
+          <Col xs={12} sm={12} lg={5}>
             <DashboardMetricCard
               title="Total Logged Hours"
               valueLabel={String(summary?.totalLoggedHours ?? 0)}
@@ -469,7 +470,7 @@ export default function DashboardPage() {
               active={cardFilter === "with_hours"}
             />
           </Col>
-          <Col xs={24} sm={12} lg={5}>
+          <Col xs={12} sm={12} lg={5}>
             <DashboardMetricCard
               title="Avg. Utilization"
               valueLabel={String(summary?.avgUtilization ?? 0)}
@@ -493,7 +494,7 @@ export default function DashboardPage() {
               active={cardFilter === "low_utilization"}
             />
           </Col>
-          <Col xs={24} sm={12} lg={6}>
+          <Col xs={24} sm={24} lg={6}>
             <DashboardMetricCard
               title="Timesheets Submitted"
               valueLabel={String(summary?.timesheetsSubmitted ?? 0)}
@@ -578,7 +579,7 @@ export default function DashboardPage() {
         onClose={() => setIsUserDrawerVisible(false)}
         size="large"
       >
-        <Table
+        <ResponsiveTable
           dataSource={summary?.signedUpUsersList ?? []}
           rowKey="email"
           pagination={{ pageSize: 15 }}

@@ -271,14 +271,14 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               </Dropdown>
             </div>
           </Header>
-          <Content className="md:m-6 md:mt-6 m-3 mt-4 min-w-0">
+          <Content className="m-0 sm:m-3 md:m-6 min-w-0">
             <div
               style={{
                 background: colorBgContainer,
                 borderRadius: borderRadiusLG,
                 overflowX: "hidden"
               }}
-              className="p-4 md:p-6 min-h-[360px]"
+              className="p-3 sm:p-4 md:p-6 min-h-[360px]"
             >
               {children}
             </div>

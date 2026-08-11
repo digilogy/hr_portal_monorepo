@@ -129,7 +129,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col gap-1 mb-2">
         <Title level={2} className="!mb-0 text-xl md:text-3xl">
           Analytics Dashboard

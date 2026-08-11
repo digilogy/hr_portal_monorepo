@@ -108,6 +108,8 @@ export function AdminReportFilters({
       {showDept && (
         <FilterField label="Department" icon={<ApartmentOutlined />}>
           <Select
+            popupMatchSelectWidth={false}
+            virtual={false}
             allowClear
             showSearch
             optionFilterProp="label"
@@ -128,6 +130,8 @@ export function AdminReportFilters({
       {showSubDept && (
         <FilterField label="Sub Department" icon={<PartitionOutlined />}>
           <Select
+            popupMatchSelectWidth={false}
+            virtual={false}
             allowClear
             showSearch
             optionFilterProp="label"
@@ -148,6 +152,8 @@ export function AdminReportFilters({
       {showManager && (
         <FilterField label="Reporting Manager" icon={<TeamOutlined />}>
           <Select
+            popupMatchSelectWidth={false}
+            virtual={false}
             allowClear
             showSearch
             optionFilterProp="label"
@@ -168,6 +174,8 @@ export function AdminReportFilters({
       {showEmployee && (
         <FilterField label="Employee" icon={<UserOutlined />}>
           <Select
+            popupMatchSelectWidth={false}
+            virtual={false}
             allowClear
             showSearch
             optionFilterProp="label"
