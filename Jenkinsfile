@@ -11,6 +11,10 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'DEPLOY_TO_AWS', defaultValue: false, description: 'Set to true to build and deploy images to AWS. Leave false for local CI testing.')
+    }
+
     options {
         timestamps()
         disableConcurrentBuilds()
@@ -59,6 +63,9 @@ pipeline {
         }
 
         stage('Build & Push Images') {
+            when {
+                expression { params.DEPLOY_TO_AWS }
+            }
             steps {
                 sh 'chmod +x scripts/deploy/*.sh'
                 sh "./scripts/deploy/build-and-push.sh ${IMAGE_TAG}"
@@ -66,6 +73,9 @@ pipeline {
         }
 
         stage('Database Migration') {
+            when {
+                expression { params.DEPLOY_TO_AWS }
+            }
             steps {
                 // Runs `prisma migrate deploy` as a one-off Fargate task with
                 // the NEW image, before any service rollout.
@@ -74,6 +84,9 @@ pipeline {
         }
 
         stage('Deploy Services') {
+            when {
+                expression { params.DEPLOY_TO_AWS }
+            }
             steps {
                 script {
                     // Background service first, then the user-facing API.
@@ -87,6 +100,9 @@ pipeline {
         }
 
         stage('Health Check') {
+            when {
+                expression { params.DEPLOY_TO_AWS }
+            }
             steps {
                 sh "./scripts/deploy/health-check.sh ${API_DOMAIN}"
             }
@@ -94,12 +110,13 @@ pipeline {
 
         stage('Deploy Frontend') {
             when {
-                // Only rebuild/redeploy the frontend when it (or shared
-                // packages) changed
-                anyOf {
-                    changeset 'apps/hr_portal/**'
-                    changeset 'packages/common/**'
-                    expression { currentBuild.number == 1 }
+                allOf {
+                    expression { params.DEPLOY_TO_AWS }
+                    anyOf {
+                        changeset 'apps/hr_portal/**'
+                        changeset 'packages/common/**'
+                        expression { currentBuild.number == 1 }
+                    }
                 }
             }
             steps {
