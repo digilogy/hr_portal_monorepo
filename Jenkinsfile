@@ -130,12 +130,14 @@ pipeline {
             //           message: "DEPLOYED: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.IMAGE_TAG})"
         }
         always {
-            node {
-                // Keep the Jenkins disk healthy: drop dangling layers and any
-                // images older than 7 days that aren't in use.
-                sh 'docker image prune -f || true'
-                sh 'docker image prune -af --filter "until=168h" || true'
-                cleanWs(deleteDirs: true, notFailBuild: true)
+            script {
+                node('') {
+                    // Keep the Jenkins disk healthy: drop dangling layers and any
+                    // images older than 7 days that aren't in use.
+                    sh 'docker image prune -f || true'
+                    sh 'docker image prune -af --filter "until=168h" || true'
+                    cleanWs(deleteDirs: true, notFailBuild: true)
+                }
             }
         }
     }
