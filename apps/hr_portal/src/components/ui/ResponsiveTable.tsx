@@ -126,7 +126,7 @@ export function ResponsiveTable<RecordType extends object = any>({
   const getRowKey = (record: RecordType, index?: number) => {
     if (typeof rowKey === "function") return rowKey(record, index);
     if (typeof rowKey === "string") return (record as any)[rowKey as keyof RecordType] as string;
-    return index?.toString() || Math.random().toString();
+    return index !== undefined ? index.toString() : JSON.stringify(record);
   };
 
   return (

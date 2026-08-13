@@ -16,6 +16,8 @@ Run the following command in the terminal to start PostgreSQL, Redis, the API, t
 ```bash
 docker-compose up -d
 npm run dev --workspace=@hr-portal/hr-portal
+/opt/homebrew/opt/openjdk@21/bin/java -Dmail.smtp.starttls.enable=true -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true -jar /opt/homebrew/opt/jenkins-lts/libexec/jenkins.war --httpListenAddress=127.0.0.1 --httpPort=8080
+
 ```
 
 ### 3. Rebuilding after Code Changes
