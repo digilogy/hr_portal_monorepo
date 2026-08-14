@@ -225,13 +225,16 @@ export default function MyDashboardPage() {
   const [mounted, setMounted] = useState(false);
 
   const today = dayjs();
-  const { from: periodFrom, to: periodTo } = useMemo(
-    () => getPeriodRange(selectedPeriod, customRange),
-    [selectedPeriod, customRange],
-  );
-  const periodFromStr = periodFrom.format("YYYY-MM-DD");
-  const periodToStr = periodTo.format("YYYY-MM-DD");
-  const label = rangeLabel(periodFrom, periodTo);
+  const { periodFrom, periodTo, periodFromStr, periodToStr, label } = useMemo(() => {
+    const { from, to } = getPeriodRange(selectedPeriod, customRange);
+    return {
+      periodFrom: from,
+      periodTo: to,
+      periodFromStr: from.format("YYYY-MM-DD"),
+      periodToStr: to.format("YYYY-MM-DD"),
+      label: rangeLabel(from, to),
+    };
+  }, [selectedPeriod, customRange]);
   const weekFrom = today.startOf("week").format("YYYY-MM-DD");
   const weekTo = today.format("YYYY-MM-DD");
 
