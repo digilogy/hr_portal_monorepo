@@ -142,6 +142,32 @@ export interface WorkforcePulseHour {
   slotCount: number;
 }
 
+export interface DepartmentUtilizationItem {
+  department: string;
+  totalHours: number;
+  headcount: number;
+  avgUtilization: number;
+}
+
+export interface ManagerComplianceItem {
+  managerName: string;
+  department: string;
+  teamSize: number;
+  totalHours: number;
+  compliancePercentage: number;
+  statusBand: "on_time" | "partial" | "lagging";
+}
+
+export interface ManagerComplianceSummary {
+  totalManagers: number;
+  onTimeCount: number;
+  onTimePct: number;
+  partialCount: number;
+  partialPct: number;
+  laggingCount: number;
+  laggingPct: number;
+}
+
 export interface WorkforcePulseResult {
   employeesInScope: number;
   fromDate: string;
@@ -162,6 +188,13 @@ export interface WorkforcePulseResult {
   }>;
   byTaskType: WorkforcePulseTaskType[];
   byHour: WorkforcePulseHour[];
+  departmentUtilization?: DepartmentUtilizationItem[];
+  departmentSummary?: {
+    totalDepartments: number;
+    activeDepartments: number;
+  };
+  managerCompliance?: ManagerComplianceItem[];
+  managerComplianceSummary?: ManagerComplianceSummary;
 }
 
 function calculateSlotHours(timeSlot: string): number | null {
@@ -1542,7 +1575,7 @@ export class TeamReportsService {
       byHour: [],
     });
 
-    if (role !== UserRole.ADMIN && !AccessService.isAdminEmail(email)) {
+    if (role === UserRole.EMPLOYEE && !AccessService.isAdminEmail(email)) {
       return emptyResult();
     }
 
@@ -1668,6 +1701,65 @@ export class TeamReportsService {
 
     const byHour = isSingleDay ? buildHourlySeries(hourStats) : [];
 
+    const deptRows = await this.getDepartmentWiseReport(
+      email,
+      role,
+      fromDate,
+      toDate,
+      filters,
+    );
+    const mgrRows = await this.getManagerWiseReport(
+      email,
+      role,
+      fromDate,
+      toDate,
+      filters,
+    );
+
+    const departmentUtilization: DepartmentUtilizationItem[] = deptRows
+      .map((d) => ({
+        department: d.department,
+        totalHours: d.totalHours,
+        headcount: d.headcount,
+        avgUtilization: d.avgUtilization,
+      }))
+      .sort((a, b) => b.avgUtilization - a.avgUtilization || b.totalHours - a.totalHours);
+
+    const activeDepartments = departmentUtilization.filter(
+      (d) => d.totalHours > 0 || d.avgUtilization > 0,
+    ).length;
+
+    const managerCompliance: ManagerComplianceItem[] = mgrRows.map((m) => {
+      const pct = Math.min(100, Math.max(0, m.avgUtilization));
+      let statusBand: "on_time" | "partial" | "lagging" = "lagging";
+      if (pct >= 90) statusBand = "on_time";
+      else if (pct >= 70) statusBand = "partial";
+
+      return {
+        managerName: m.managerName,
+        department: m.department,
+        teamSize: m.teamSize,
+        totalHours: m.totalHours,
+        compliancePercentage: pct,
+        statusBand,
+      };
+    });
+
+    const totalManagers = managerCompliance.length;
+    const onTimeCount = managerCompliance.filter((m) => m.statusBand === "on_time").length;
+    const partialCount = managerCompliance.filter((m) => m.statusBand === "partial").length;
+    const laggingCount = managerCompliance.filter((m) => m.statusBand === "lagging").length;
+
+    const managerComplianceSummary: ManagerComplianceSummary = {
+      totalManagers,
+      onTimeCount,
+      onTimePct: totalManagers > 0 ? Math.round((onTimeCount / totalManagers) * 100) : 0,
+      partialCount,
+      partialPct: totalManagers > 0 ? Math.round((partialCount / totalManagers) * 100) : 0,
+      laggingCount,
+      laggingPct: totalManagers > 0 ? Math.round((laggingCount / totalManagers) * 100) : 0,
+    };
+
     return {
       employeesInScope,
       fromDate: range.from,
@@ -1688,6 +1780,13 @@ export class TeamReportsService {
       })),
       byTaskType,
       byHour,
+      departmentUtilization,
+      departmentSummary: {
+        totalDepartments: departmentUtilization.length,
+        activeDepartments,
+      },
+      managerCompliance,
+      managerComplianceSummary,
     };
   }
 }

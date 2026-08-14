@@ -312,7 +312,7 @@ export default function MyTeamPage() {
         )}
       </div>
 
-      {error && <Alert type="error" message={error} showIcon className="mb-4" />}
+      {error && <Alert type="error" title={error} showIcon className="mb-4" />}
 
       <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
         <Col xs={12} sm={12} xl={6}>

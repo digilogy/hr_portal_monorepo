@@ -108,11 +108,11 @@ export default function ProfilePage() {
                 <div className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0">
                   <MailOutlined className="text-[#F5A623] text-lg" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Email Address
                   </p>
-                  <p className="text-gray-900 dark:text-gray-100 font-medium">{profile.email}</p>
+                  <p className="text-gray-900 dark:text-gray-100 font-medium break-all">{profile.email}</p>
                 </div>
               </div>
 
@@ -120,7 +120,7 @@ export default function ProfilePage() {
                 <div className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0">
                   <PhoneOutlined className="text-[#F5A623] text-lg" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Phone Number
                   </p>
@@ -132,11 +132,11 @@ export default function ProfilePage() {
                 <div className="w-10 h-10 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center flex-shrink-0">
                   <PushpinOutlined className="text-[#F5A623] text-lg" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
                     Department
                   </p>
-                  <p className="text-gray-900 dark:text-gray-100 font-medium">
+                  <p className="text-gray-900 dark:text-gray-100 font-medium break-words">
                     {profile.department}
                     {profile.subDepartment !== "—" ? ` · ${profile.subDepartment}` : ""}
                   </p>

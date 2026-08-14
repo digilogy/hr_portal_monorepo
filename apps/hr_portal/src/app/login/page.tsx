@@ -1,13 +1,16 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
+import type { InputRef } from "antd";
 import { Form, Input, Button, Typography, message, Select, Checkbox } from "antd";
 import { CheckCircleOutlined } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE } from "@/lib/api";
 import {
   clearRememberedLogin,
+  getDefaultDashboardPath,
   getRememberedLogin,
+  getTokenRole,
   isAuthenticated,
   setRememberedLogin,
 } from "@/lib/auth";
@@ -40,6 +43,23 @@ function LoginPageContent() {
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [verifyingToken, setVerifyingToken] = useState<boolean>(!!tokenFromUrl);
+
+  const emailInputRef = useRef<InputRef>(null);
+  const pinInputRef = useRef<InputRef>(null);
+  const setupPinInputRef = useRef<InputRef>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (step === 0) {
+        emailInputRef.current?.focus();
+      } else if (step === 1) {
+        pinInputRef.current?.focus();
+      } else if (step === 2) {
+        setupPinInputRef.current?.focus();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   const getFullEmail = () => `${emailPrefix}${emailDomain}`;
 
@@ -147,7 +167,8 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (isAuthenticated()) {
-      router.replace("/profile");
+      const role = getTokenRole();
+      router.replace(getDefaultDashboardPath(role));
       return;
     }
     if (tokenFromUrl) {
@@ -237,7 +258,8 @@ function LoginPageContent() {
 
       localStorage.setItem("token", data.token);
       messageApi.success("Login successful!");
-      router.replace("/profile");
+      const role = getTokenRole();
+      router.replace(getDefaultDashboardPath(role));
     } catch {
       messageApi.error("Network error");
     } finally {
@@ -269,7 +291,12 @@ function LoginPageContent() {
       messageApi.success(
         pinFlowType === "reset" ? "PIN reset successfully!" : "PIN set successfully!",
       );
-      router.replace("/profile");
+      if (pinFlowType === "new") {
+        router.replace("/profile");
+      } else {
+        const role = getTokenRole();
+        router.replace(getDefaultDashboardPath(role));
+      }
     } catch {
       messageApi.error("Network error");
     } finally {
@@ -352,6 +379,8 @@ function LoginPageContent() {
                 </Text>
                 <div className="login-email-row flex w-full items-stretch rounded-lg border border-gray-200 hover:border-blue-400 focus-within:border-blue-500 focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.1)] overflow-hidden">
                   <Input
+                    ref={emailInputRef}
+                    autoFocus
                     size="large"
                     value={emailPrefix}
                     onChange={(e) => handleEmailInputChange(e.target.value)}
@@ -448,6 +477,8 @@ function LoginPageContent() {
                 className="mb-5"
               >
                 <Input.Password
+                  ref={pinInputRef}
+                  autoFocus
                   className="h-12 rounded-lg"
                   placeholder="4-digit PIN"
                   maxLength={4}
@@ -496,6 +527,8 @@ function LoginPageContent() {
                 className="mb-4"
               >
                 <Input.Password
+                  ref={setupPinInputRef}
+                  autoFocus
                   className="h-12 rounded-lg"
                   placeholder="4-digit PIN"
                   maxLength={4}

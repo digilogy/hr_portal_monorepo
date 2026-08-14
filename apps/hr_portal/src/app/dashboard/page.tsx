@@ -340,6 +340,7 @@ export default function DashboardPage() {
                       setPeriodPreset("this_week");
                     }
                   }}
+                  disabledDate={(current) => current && current > dayjs().endOf("day")}
                   disabled={periodPreset !== "custom"}
                 />
               </FilterField>

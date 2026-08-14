@@ -152,12 +152,17 @@ export function ResponsiveTable<RecordType extends object = any>({
                     // Hide Sl.No from card view
                     if (title === "Sl.No" || title === "S.No") return null;
 
-                    let value: React.ReactNode = null;
+                    let value: any = null;
                     
                     if (col.render) {
-                      value = col.render((record as any)[(col as any).dataIndex], record, index);
+                      const rendered = col.render((record as any)[(col as any).dataIndex], record, index);
+                      if (rendered && typeof rendered === "object" && "children" in rendered && !React.isValidElement(rendered)) {
+                        value = (rendered as any).children;
+                      } else {
+                        value = rendered;
+                      }
                     } else if ((col as any).dataIndex) {
-                      value = (record as any)[(col as any).dataIndex] as React.ReactNode;
+                      value = (record as any)[(col as any).dataIndex];
                     }
 
                     if (value === undefined || value === null || title === undefined) {

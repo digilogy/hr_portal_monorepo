@@ -31,6 +31,15 @@ import {
 } from "@/lib/dateRangePresets";
 import { WorkRhythm } from "@/components/analytics/WorkRhythm";
 import { TaskDistribution } from "@/components/analytics/TaskDistribution";
+import {
+  UtilizationByDepartment,
+  type DepartmentUtilizationItem,
+} from "@/components/analytics/UtilizationByDepartment";
+import {
+  ComplianceByManager,
+  type ManagerComplianceItem,
+  type ManagerComplianceSummary,
+} from "@/components/analytics/ComplianceByManager";
 import { type DayActivity } from "@/lib/analyticsGrouping";
 
 const { Title, Text } = Typography;
@@ -52,6 +61,13 @@ interface AnalyticsData {
   byDayOfWeek: Array<{ day: string; hours: number; entryCount: number }>;
   byHour?: Array<{ hour: number; label: string; hours: number; slotCount: number }>;
   dailyActivity: DayActivity[];
+  departmentUtilization?: DepartmentUtilizationItem[];
+  departmentSummary?: {
+    totalDepartments: number;
+    activeDepartments: number;
+  };
+  managerCompliance?: ManagerComplianceItem[];
+  managerComplianceSummary?: ManagerComplianceSummary;
 }
 
 export default function AnalyticsPage() {
@@ -207,10 +223,23 @@ export default function AnalyticsPage() {
         </div>
       </Card>
 
-      <div className="relative">
+      <div className="relative space-y-6">
         {loading && data && (
           <div className="absolute inset-0 z-10 rounded-xl bg-white/40 dark:bg-black/20 pointer-events-none" />
         )}
+
+        {/* 2-Column Grid: Utilization by Department & Compliance by Manager */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+          <UtilizationByDepartment
+            departments={data?.departmentUtilization}
+            totalDepartments={data?.departmentSummary?.totalDepartments}
+            activeDepartments={data?.departmentSummary?.activeDepartments}
+          />
+          <ComplianceByManager
+            managers={data?.managerCompliance}
+            summary={data?.managerComplianceSummary}
+          />
+        </div>
 
         <Card
           variant="borderless"
@@ -243,14 +272,14 @@ export default function AnalyticsPage() {
           </div>
         </Card>
 
-        {data?.distribution && data.distribution.length > 0 && (
+        {/* {data?.distribution && data.distribution.length > 0 && (
           <div className="mt-8">
             <Title level={4} className="mb-4 text-gray-800 dark:text-zinc-100">
               Task Category Breakdown
             </Title>
             <TaskDistribution distribution={data.distribution} />
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
