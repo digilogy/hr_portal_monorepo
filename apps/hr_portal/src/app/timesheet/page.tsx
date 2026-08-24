@@ -68,7 +68,7 @@ function normalizeDaySlots(
   for (const s of rawSlots) {
     if (!s.task?.trim()) continue; // Discards obsolete empty rows
     const targetSlot = mapLegacySlot(s.timeSlot);
-    
+
     // If multiple legacy slots map to the same target slot, append them
     const existing = taskMap.get(targetSlot);
     if (existing) {
@@ -190,12 +190,14 @@ export default function TimesheetPage() {
 
     setSaving(true);
     try {
-      const payloadSlots = slots.map((s) => ({
-        key: s.key,
-        timeSlot: s.timeSlot,
-        title: s.title || "Daily Task",
-        task: s.task.trim(),
-      }));
+      const payloadSlots = slots
+        .filter((s) => s.task.trim().length > 0)
+        .map((s) => ({
+          key: s.key,
+          timeSlot: s.timeSlot,
+          title: s.title || "",
+          task: s.task.trim(),
+        }));
 
       await apiFetch<TimesheetRecord>("/api/timesheets/save", {
         method: "POST",
@@ -205,7 +207,7 @@ export default function TimesheetPage() {
         }),
       });
 
-      messageApi.success("✓ Timesheet saved successfully.");
+      messageApi.success("Timesheet saved successfully.");
       setInitialSnapshot(currentSnapshot);
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Failed to save timesheet";
@@ -300,7 +302,8 @@ export default function TimesheetPage() {
       {/* Daily Timesheet Main Card */}
       <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
         {/* Header Bar */}
-        <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex flex-col gap-4">
+          {/* Title & subtitle */}
           <div>
             <div className="flex items-center gap-2">
               <CalendarOutlined className="text-gray-900 dark:text-white text-lg" />
@@ -315,27 +318,35 @@ export default function TimesheetPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-end">
-            <div className="inline-flex items-center rounded-xl bg-gray-50 dark:bg-zinc-800 p-1 border border-gray-200 dark:border-zinc-700">
+          {/* Mobile: full-width date picker row then full-width save button */}
+          {/* Desktop: single row with everything right-aligned */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
+            {/* Date navigator — full width on mobile */}
+            <div className="flex items-center rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 w-full sm:w-auto">
               <Button
                 type="text"
                 size="small"
                 icon={<LeftOutlined />}
+                className="flex-shrink-0"
                 onClick={() => setSelectedDate((prev) => prev.subtract(1, "day"))}
               />
-              <DatePicker
-                value={selectedDate}
-                onChange={(d) => d && setSelectedDate(d)}
-                allowClear={false}
-                format="MMM D, YYYY"
-                variant="borderless"
-                className="w-32 text-center text-sm font-semibold"
-                suffixIcon={null}
-              />
+              <div className="flex-1 flex justify-center">
+                <DatePicker
+                  value={selectedDate}
+                  onChange={(d) => d && setSelectedDate(d)}
+                  allowClear={false}
+                  disabledDate={(current) => current && current > dayjs().endOf("day")}
+                  format="MMM D, YYYY"
+                  variant="borderless"
+                  className="text-center text-sm font-semibold w-36"
+                  suffixIcon={<CalendarOutlined className="text-gray-400" />}
+                />
+              </div>
               <Button
                 type="text"
                 size="small"
                 icon={<RightOutlined />}
+                className="flex-shrink-0"
                 disabled={selectedDate.isSame(dayjs(), "day")}
                 onClick={() => setSelectedDate((prev) => prev.add(1, "day"))}
               />
@@ -344,20 +355,21 @@ export default function TimesheetPage() {
             {!selectedDate.isSame(dayjs(), "day") && (
               <Button
                 size="middle"
-                className="rounded-xl font-medium"
+                className="rounded-xl font-medium sm:w-auto"
                 onClick={() => setSelectedDate(dayjs())}
               >
                 Today
               </Button>
             )}
 
+            {/* Save button — full width on mobile */}
             <Button
               type="primary"
               size="large"
               icon={saving ? <SyncOutlined spin /> : <SaveOutlined />}
               onClick={handleSave}
               disabled={isReadOnly || saving}
-              className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white font-semibold shadow-md px-6 flex items-center gap-2 h-10"
+              className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white font-semibold shadow-md flex items-center justify-center gap-2 h-12 w-full sm:w-auto sm:h-10 sm:px-6"
             >
               Save Timesheet
             </Button>
@@ -365,9 +377,9 @@ export default function TimesheetPage() {
         </div>
 
         {/* Table Column Headers */}
-        <div className="grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 border-b border-gray-100 dark:border-zinc-800 text-xs font-bold text-gray-400 tracking-wider uppercase">
-          <div className="col-span-4 md:col-span-3">TIME SLOT</div>
-          <div className="col-span-8 md:col-span-9">TASK DESCRIPTION</div>
+        <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 border-b border-gray-100 dark:border-zinc-800 text-xs font-bold text-gray-400 tracking-wider uppercase">
+          <div className="col-span-3">TIME SLOT</div>
+          <div className="col-span-9">TASK DESCRIPTION</div>
         </div>
 
         {/* Timesheet Slot Rows */}
@@ -385,10 +397,10 @@ export default function TimesheetPage() {
               return (
                 <div
                   key={slot.key}
-                  className="grid grid-cols-12 px-6 py-4 items-start gap-4 transition-colors hover:bg-gray-50/30 dark:hover:bg-zinc-800/20"
+                  className="flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors hover:bg-gray-50/30 dark:hover:bg-zinc-800/20"
                 >
                   {/* Left Column: Time slot details & badges */}
-                  <div className="col-span-4 md:col-span-3 flex flex-col gap-2 pt-2">
+                  <div className="col-span-1 md:col-span-3 flex flex-row md:flex-col justify-between md:justify-start items-center md:items-start w-full gap-2 md:pt-2">
                     <div className="flex items-center gap-2.5">
                       <div
                         className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isFilled
@@ -403,17 +415,17 @@ export default function TimesheetPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 pl-9">
+                    <div className="flex items-center gap-2 md:pl-9">
                       <span className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400">
                         {durationLabel}
                       </span>
 
                       {isFilled ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                        <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
                           <CheckOutlined className="text-[10px]" /> Logged
                         </span>
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-gray-50 dark:bg-zinc-800/60 text-gray-400 border border-gray-200/40 dark:border-zinc-700/40">
+                        <span className="hidden md:inline-flex px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-gray-50 dark:bg-zinc-800/60 text-gray-400 border border-gray-200/40 dark:border-zinc-700/40">
                           Pending
                         </span>
                       )}
@@ -421,14 +433,14 @@ export default function TimesheetPage() {
                   </div>
 
                   {/* Right Column: Task input text field */}
-                  <div className="col-span-8 md:col-span-9">
+                  <div className="col-span-1 md:col-span-9 w-full">
                     <textarea
                       rows={2}
                       value={slot.task}
                       onChange={(e) => handleTaskChange(slot.key, e.target.value)}
                       disabled={isReadOnly}
                       placeholder="Enter task description..."
-                      className={`w-full rounded-2xl p-3.5 text-sm transition-all duration-200 resize-none outline-none ${isFilled
+                      className={`w-full rounded-xl p-2.5 text-xs transition-all duration-200 resize-none outline-none ${isFilled
                         ? "border border-emerald-300 dark:border-emerald-800/80 text-gray-900 dark:text-zinc-100 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                         : "bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-100 placeholder-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
                         } ${isReadOnly ? "opacity-75 cursor-not-allowed" : ""}`}

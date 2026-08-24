@@ -23,7 +23,7 @@ export function BarChart({
   yAxisLabel = "",
   threshold
 }: BarChartProps) {
-  const padding = { top: 40, right: 20, bottom: 60, left: 50 };
+  const padding = { top: 40, right: 20, bottom: 32, left: 50 };
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const { max } = useMemo(() => {

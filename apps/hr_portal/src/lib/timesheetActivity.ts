@@ -128,21 +128,11 @@ export function summarizeDayActivity(entry: ActivityTimesheetEntry): {
     };
   }
 
-  if (uniqueHighlights.length === 1) {
-    const summary =
-      filledSlots.length > 1
-        ? `${uniqueHighlights[0]} · ${filledSlots.length} slots`
-        : uniqueHighlights[0];
-    return { highlights: uniqueHighlights, summary };
-  }
-
-  const summary = `${uniqueHighlights[0]}, ${uniqueHighlights[1]}${
-    filledSlots.length > 2 ? ` +${filledSlots.length - 2} more` : ""
-  }`;
-
+  // Since RecentActivityCard renders badges for the highlights, 
+  // returning a text summary here would result in duplicated text.
   return {
     highlights: uniqueHighlights.slice(0, 3),
-    summary,
+    summary: "",
   };
 }
 

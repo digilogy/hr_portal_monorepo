@@ -1,13 +1,16 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
+import type { InputRef } from "antd";
 import { Form, Input, Button, Typography, message, Select, Checkbox } from "antd";
 import { CheckCircleOutlined } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE } from "@/lib/api";
 import {
   clearRememberedLogin,
+  getDefaultDashboardPath,
   getRememberedLogin,
+  getTokenRole,
   isAuthenticated,
   setRememberedLogin,
 } from "@/lib/auth";
@@ -40,6 +43,24 @@ function LoginPageContent() {
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [verifyingToken, setVerifyingToken] = useState<boolean>(!!tokenFromUrl);
+  const hasVerifiedToken = useRef(false);
+
+  const emailInputRef = useRef<InputRef>(null);
+  const pinInputRef = useRef<InputRef>(null);
+  const setupPinInputRef = useRef<InputRef>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (step === 0) {
+        emailInputRef.current?.focus();
+      } else if (step === 1) {
+        pinInputRef.current?.focus();
+      } else if (step === 2) {
+        setupPinInputRef.current?.focus();
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   const getFullEmail = () => `${emailPrefix}${emailDomain}`;
 
@@ -147,10 +168,12 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (isAuthenticated()) {
-      router.replace("/profile");
+      const role = getTokenRole();
+      router.replace(getDefaultDashboardPath(role));
       return;
     }
-    if (tokenFromUrl) {
+    if (tokenFromUrl && !hasVerifiedToken.current) {
+      hasVerifiedToken.current = true;
       verifyTokenAndOpenPinSetup(tokenFromUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,7 +260,8 @@ function LoginPageContent() {
 
       localStorage.setItem("token", data.token);
       messageApi.success("Login successful!");
-      router.replace("/profile");
+      const role = getTokenRole();
+      router.replace(getDefaultDashboardPath(role));
     } catch {
       messageApi.error("Network error");
     } finally {
@@ -269,7 +293,12 @@ function LoginPageContent() {
       messageApi.success(
         pinFlowType === "reset" ? "PIN reset successfully!" : "PIN set successfully!",
       );
-      router.replace("/profile");
+      if (pinFlowType === "new") {
+        router.replace("/profile");
+      } else {
+        const role = getTokenRole();
+        router.replace(getDefaultDashboardPath(role));
+      }
     } catch {
       messageApi.error("Network error");
     } finally {
@@ -300,23 +329,21 @@ function LoginPageContent() {
           ? "Choose a new 4-digit PIN and confirm it"
           : "Choose a secure 4-digit PIN and confirm it";
 
-  if (verifyingToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] px-4">
-        <div className="rounded-2xl border border-white/80 bg-white/95 px-8 py-10 text-center shadow-[0_8px_40px_rgba(15,23,42,0.08)]">
-          <Text className="text-gray-500">Verifying your secure link...</Text>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4f6f9] px-4 py-10">
+    <>
       {contextHolder}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(37,99,235,0.12),transparent)]"
-      />
+      {verifyingToken ? (
+        <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] px-4">
+          <div className="rounded-2xl border border-white/80 bg-white/95 px-8 py-10 text-center shadow-[0_8px_40px_rgba(15,23,42,0.08)]">
+            <Text className="text-gray-500">Verifying your secure link...</Text>
+          </div>
+        </div>
+      ) : (
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4f6f9] px-4 py-10">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(37,99,235,0.12),transparent)]"
+          />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-blue-500/5 blur-3xl"
@@ -352,6 +379,8 @@ function LoginPageContent() {
                 </Text>
                 <div className="login-email-row flex w-full items-stretch rounded-lg border border-gray-200 hover:border-blue-400 focus-within:border-blue-500 focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.1)] overflow-hidden">
                   <Input
+                    ref={emailInputRef}
+                    autoFocus
                     size="large"
                     value={emailPrefix}
                     onChange={(e) => handleEmailInputChange(e.target.value)}
@@ -448,6 +477,8 @@ function LoginPageContent() {
                 className="mb-5"
               >
                 <Input.Password
+                  ref={pinInputRef}
+                  autoFocus
                   className="h-12 rounded-lg"
                   placeholder="4-digit PIN"
                   maxLength={4}
@@ -496,6 +527,8 @@ function LoginPageContent() {
                 className="mb-4"
               >
                 <Input.Password
+                  ref={setupPinInputRef}
+                  autoFocus
                   className="h-12 rounded-lg"
                   placeholder="4-digit PIN"
                   maxLength={4}
@@ -582,6 +615,8 @@ function LoginPageContent() {
         <p className="mt-6 text-center text-xs text-gray-400">© 2026 Timesheet Portal</p>
       </div>
     </div>
+    )}
+    </>
   );
 }
 

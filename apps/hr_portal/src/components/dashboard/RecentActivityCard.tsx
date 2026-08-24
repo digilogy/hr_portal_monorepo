@@ -14,6 +14,7 @@ const { Text } = Typography;
 
 interface RecentActivityCardProps {
   activities: DayActivity[];
+  periodLabel?: string;
 }
 
 const STATUS_STYLES: Record<
@@ -78,15 +79,17 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
             )}
           </div>
 
-          <p
-            className={`text-sm leading-relaxed ${
-              activity.isLogged
-                ? "text-gray-600 dark:text-gray-300"
-                : "italic text-gray-400"
-            }`}
-          >
-            {activity.summary}
-          </p>
+          {activity.summary && (
+            <p
+              className={`text-sm leading-relaxed ${
+                activity.isLogged
+                  ? "text-gray-600 dark:text-gray-300"
+                  : "italic text-gray-400"
+              }`}
+            >
+              {activity.summary}
+            </p>
+          )}
 
           {activity.highlights.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -139,7 +142,7 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
   );
 }
 
-export function RecentActivityCard({ activities }: RecentActivityCardProps) {
+export function RecentActivityCard({ activities, periodLabel }: RecentActivityCardProps) {
   const loggedCount = activities.filter((item) => item.isLogged).length;
 
   return (
@@ -149,7 +152,7 @@ export function RecentActivityCard({ activities }: RecentActivityCardProps) {
       title={
         <div className="flex items-center gap-2">
           <CalendarOutlined className="text-[#F5A623]" />
-          <span>Recent Activity</span>
+          <span>{periodLabel ? `Timesheet Activity · ${periodLabel}` : "Recent Activity"}</span>
         </div>
       }
       extra={
@@ -162,8 +165,8 @@ export function RecentActivityCard({ activities }: RecentActivityCardProps) {
     >
       <Text className="mb-4 block text-sm text-gray-500">
         {loggedCount > 0
-          ? `${loggedCount} logged workday${loggedCount === 1 ? "" : "s"} this week`
-          : "Your weekday timesheet activity for this week"}
+          ? `${loggedCount} logged workday${loggedCount === 1 ? "" : "s"} in selected period`
+          : "No timesheet activity logged in the selected period"}
       </Text>
 
       {activities.length > 0 ? (

@@ -48,16 +48,16 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET}
-      ADMIN_USER: ${ADMIN_USER}
-      ADMIN_PIN: ${ADMIN_PIN}
+      JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
+      ADMIN_USER: ${ADMIN_USER:-admin@casagrand.co.in}
+      ADMIN_PIN: ${ADMIN_PIN:-1234}
       FRONTEND_URL: http://localhost:3661
       ALLOWED_ORIGINS: http://localhost:3661
-      AWS_REGION: ${AWS_REGION:-ap-south-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
-      SES_FROM_EMAIL: ${SES_FROM_EMAIL}
+      AWS_REGION: ${AWS_REGION:-ap-south-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-AKIAQIJRSM7V3VJV3MME}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-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}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-support@digilogy.co}
       TZ: Asia/Kolkata
     depends_on:
       postgres:
@@ -80,12 +80,12 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET}
-      AWS_REGION: ${AWS_REGION:-ap-south-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
-      SES_FROM_EMAIL: ${SES_FROM_EMAIL}
+      JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
+      AWS_REGION: ${AWS_REGION:-ap-south-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-AKIAQIJRSM7V3VJV3MME}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-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}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-support@digilogy.co}
       TZ: Asia/Kolkata
     depends_on:
       postgres:

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Card,
   Col,
@@ -11,10 +11,11 @@ import {
   Spin,
   Empty,
   Alert,
-  Table,
   Avatar,
   Space,
   Segmented,
+  Select,
+  DatePicker,
 } from "antd";
 import {
   ClockCircleOutlined,
@@ -25,7 +26,7 @@ import {
   UserOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -42,6 +43,44 @@ import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { DashboardMetricCard } from "@/components/dashboard/DashboardMetricCard";
 
 const { Title, Text } = Typography;
+const { RangePicker } = DatePicker;
+
+type PeriodKey = "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "custom";
+
+function getPeriodRange(period: PeriodKey, customRange?: [Dayjs, Dayjs]): { from: Dayjs; to: Dayjs } {
+  const today = dayjs();
+  switch (period) {
+    case "today": return { from: today, to: today };
+    case "yesterday": { const y = today.subtract(1, "day"); return { from: y, to: y }; }
+    case "this_week": return { from: today.startOf("week"), to: today };
+    case "last_week": {
+      const s = today.subtract(1, "week").startOf("week");
+      return { from: s, to: s.endOf("week") };
+    }
+    case "this_month": return { from: today.startOf("month"), to: today };
+    case "last_month": {
+      const s = today.subtract(1, "month").startOf("month");
+      return { from: s, to: s.endOf("month") };
+    }
+    case "custom":
+      return customRange ? { from: customRange[0], to: customRange[1] } : { from: today.startOf("week"), to: today };
+  }
+}
+
+function fmtHours(h: number): string {
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  if (hrs > 0 && mins > 0) return `${hrs}hrs ${mins}mins`;
+  if (hrs > 0) return `${hrs}hrs`;
+  if (mins > 0) return `${mins}mins`;
+  return "0hrs";
+}
+
+function rangeLabel(from: Dayjs, to: Dayjs): string {
+  if (from.isSame(to, "day")) return from.format("MMM D, YYYY");
+  if (from.year() === to.year()) return `${from.format("MMM D")} – ${to.format("MMM D, YYYY")}`;
+  return `${from.format("MMM D, YYYY")} – ${to.format("MMM D, YYYY")}`;
+}
 
 interface EmployeeProfile {
   name: string;
@@ -49,6 +88,8 @@ interface EmployeeProfile {
   department: string;
   jobTitle: string;
   alsoManager?: boolean;
+  weeklyOff?: string;
+  policy?: string;
 }
 
 interface TimesheetRecord {
@@ -137,28 +178,43 @@ interface TeamResponse {
   };
 }
 
-function getWorkingDays(from: dayjs.Dayjs, to: dayjs.Dayjs): number {
-  let count = 0;
-  let current = from.startOf("day");
-  const end = to.startOf("day");
-
-  while (current.isBefore(end) || current.isSame(end, "day")) {
-    const day = current.day();
-    if (day !== 0) count += 1;
-    current = current.add(1, "day");
-  }
-
-  return count;
-}
-
-function getWeekdayDates(from: dayjs.Dayjs, to: dayjs.Dayjs): string[] {
+function getWorkdays(from: dayjs.Dayjs, to: dayjs.Dayjs, weeklyOffRule?: string): string[] {
   const dates: string[] = [];
   let current = from.startOf("day");
   const end = to.startOf("day");
+  
+  const rule = (weeklyOffRule || "").toLowerCase();
+
+  const isDayOff = (dayName: string) => rule.includes(dayName);
+  const excludeSunday = isDayOff("sunday") || !rule; // Default to Sunday if empty
+  const excludeMonday = isDayOff("monday");
+  const excludeTuesday = isDayOff("tuesday");
+  const excludeWednesday = isDayOff("wednesday");
+  const excludeThursday = isDayOff("thursday");
+  const excludeFriday = isDayOff("friday");
+  const excludeSaturday = isDayOff("saturday") && !rule.includes("2nd saturday"); 
+  const excludeSecondSaturday = rule.includes("2nd saturday");
 
   while (current.isBefore(end) || current.isSame(end, "day")) {
-    const day = current.day();
-    if (day !== 0) {
+    const dayOfWeek = current.day(); // 0 = Sunday, 6 = Saturday
+    let isWorkday = true;
+
+    if (dayOfWeek === 0 && excludeSunday) isWorkday = false;
+    else if (dayOfWeek === 1 && excludeMonday) isWorkday = false;
+    else if (dayOfWeek === 2 && excludeTuesday) isWorkday = false;
+    else if (dayOfWeek === 3 && excludeWednesday) isWorkday = false;
+    else if (dayOfWeek === 4 && excludeThursday) isWorkday = false;
+    else if (dayOfWeek === 5 && excludeFriday) isWorkday = false;
+    else if (dayOfWeek === 6) {
+      if (excludeSaturday) isWorkday = false;
+      else if (excludeSecondSaturday) {
+        // Calculate if it's the second Saturday
+        const weekOfMonth = Math.ceil(current.date() / 7);
+        if (weekOfMonth === 2) isWorkday = false;
+      }
+    }
+
+    if (isWorkday) {
       dates.push(current.format("YYYY-MM-DD"));
     }
     current = current.add(1, "day");
@@ -173,24 +229,50 @@ export default function MyDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [isManager, setIsManager] = useState(false);
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
-  const [todayEntry, setTodayEntry] = useState<TimesheetRecord | null>(null);
-  const [weekEntries, setWeekEntries] = useState<TimesheetRecord[]>([]);
-  const [monthEntries, setMonthEntries] = useState<TimesheetRecord[]>([]);
+  const [periodEntries, setPeriodEntries] = useState<TimesheetRecord[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMemberNode[]>([]);
   const [teamSummary, setTeamSummary] = useState<TeamResponse["summary"] | null>(null);
   const [teamError, setTeamError] = useState<string | null>(null);
   const [dashboardView, setDashboardView] = useState<"personal" | "team">("personal");
   const [userRole, setUserRole] = useState<ReturnType<typeof getTokenRole>>(null);
 
+  // Period filter
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>("this_week");
+  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | undefined>();
+  const [mounted, setMounted] = useState(false);
+
   const today = dayjs();
-  const weekStart = today.startOf("week");
-  const monthStart = today.startOf("month");
-  const monthEnd = today.endOf("month");
-  const weekFrom = weekStart.format("YYYY-MM-DD");
+  const { periodFrom, periodTo, periodFromStr, periodToStr, label } = useMemo(() => {
+    const { from, to } = getPeriodRange(selectedPeriod, customRange);
+    return {
+      periodFrom: from,
+      periodTo: to,
+      periodFromStr: from.format("YYYY-MM-DD"),
+      periodToStr: to.format("YYYY-MM-DD"),
+      label: rangeLabel(from, to),
+    };
+  }, [selectedPeriod, customRange]);
+  const weekFrom = today.startOf("week").format("YYYY-MM-DD");
   const weekTo = today.format("YYYY-MM-DD");
-  const monthFrom = monthStart.format("YYYY-MM-DD");
-  const monthTo = today.format("YYYY-MM-DD");
-  const todayStr = today.format("YYYY-MM-DD");
+
+  const fetchPeriodData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [profileRes, entriesRes] = await Promise.all([
+        apiFetch<{ profile: EmployeeProfile }>("/api/profile/me"),
+        apiFetch<TimesheetRecord[]>(
+          `/api/timesheets/history?fromDate=${periodFromStr}&toDate=${periodToStr}`,
+        ),
+      ]);
+      setProfile(profileRes.profile);
+      setPeriodEntries(entriesRes);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  }, [periodFromStr, periodToStr]);
 
   useEffect(() => {
     const role = getTokenRole();
@@ -199,120 +281,68 @@ export default function MyDashboardPage() {
       router.replace(role === "admin" ? "/dashboard" : "/timesheet");
       return;
     }
-
     const managerView = canAccessTeam(role);
     setIsManager(managerView);
+    void fetchPeriodData();
+    setMounted(true);
+    if (managerView) {
+      apiFetch<TeamResponse>(`/api/team/roster?fromDate=${weekFrom}&toDate=${weekTo}`)
+        .then((teamRes) => { setTeamMembers(teamRes.members); setTeamSummary(teamRes.summary); })
+        .catch((err: unknown) => {
+          setTeamError(err instanceof Error ? err.message : "Failed to load team overview");
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
-    const loadDashboard = async () => {
-      setLoading(true);
-      setError(null);
-      setTeamError(null);
-
-      try {
-        const personalRequests: [
-          Promise<{ profile: EmployeeProfile }>,
-          Promise<TimesheetRecord | null>,
-          Promise<TimesheetRecord[]>,
-          Promise<TimesheetRecord[]>,
-        ] = [
-          apiFetch<{ profile: EmployeeProfile }>("/api/profile/me"),
-          apiFetch<TimesheetRecord | null>(`/api/timesheets/day/${todayStr}`).catch(
-            () => null,
-          ),
-          apiFetch<TimesheetRecord[]>(
-            `/api/timesheets/history?fromDate=${weekFrom}&toDate=${weekTo}`,
-          ),
-          apiFetch<TimesheetRecord[]>(
-            `/api/timesheets/history?fromDate=${monthFrom}&toDate=${monthTo}`,
-          ),
-        ];
-
-        const teamRequest = managerView
-          ? apiFetch<TeamResponse>(
-              `/api/team/roster?fromDate=${weekFrom}&toDate=${weekTo}`,
-            ).catch((err: unknown) => {
-              setTeamError(
-                err instanceof Error ? err.message : "Failed to load team overview",
-              );
-              return null;
-            })
-          : Promise.resolve(null);
-
-        const [profileRes, todayRes, weekRes, monthRes, teamRes] = await Promise.all([
-          ...personalRequests,
-          teamRequest,
-        ]);
-
-        setProfile(profileRes.profile);
-        setTodayEntry(todayRes);
-        setWeekEntries(weekRes);
-        setMonthEntries(monthRes);
-
-        if (teamRes) {
-          setTeamMembers(teamRes.members);
-          setTeamSummary(teamRes.summary);
-        } else if (!managerView) {
-          setTeamMembers([]);
-          setTeamSummary(null);
-        }
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Failed to load dashboard");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void loadDashboard();
-  }, [router, todayStr, weekFrom, weekTo, monthFrom, monthTo]);
+  useEffect(() => {
+    if (!mounted) return;
+    void fetchPeriodData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodFromStr, periodToStr]);
 
   const stats = useMemo(() => {
-    const todayHours = todayEntry?.totalHours ?? 0;
-    const todayTarget = 8.5;
-
-    const weekHours = weekEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
-    const weekWorkingDays = getWorkingDays(weekStart, weekStart.endOf("week"));
-    const weekTarget = weekWorkingDays * 8.5;
-
-    const monthHours = monthEntries.reduce((sum, entry) => sum + (entry.totalHours || 0), 0);
-    const monthWorkingDays = getWorkingDays(monthStart, monthEnd);
-    const monthTarget = monthWorkingDays * 8.5;
-
-    const loggedDates = new Set(
-      weekEntries.filter((entry) => entry.totalHours > 0).map((entry) => entry.date),
-    );
-    const weekDates = getWeekdayDates(weekStart, today);
-    const pendingDates = weekDates.filter((date) => !loggedDates.has(date));
-    const pendingCount = pendingDates.length;
-    const todayPending = !todayEntry?.totalHours;
-
-    const todayPercent = (todayHours / todayTarget) * 100;
-    const weekPercent = weekTarget > 0 ? (weekHours / weekTarget) * 100 : 0;
-    const monthPercent = monthTarget > 0 ? (monthHours / monthTarget) * 100 : 0;
-    const pendingPercent =
-      weekDates.length > 0
-        ? ((weekDates.length - pendingCount) / weekDates.length) * 100
-        : 100;
-
+    const cappedTo = periodTo.isAfter(today) ? today : periodTo;
+    const totalHours = periodEntries.reduce((sum, e) => sum + (e.totalHours || 0), 0);
+    
+    const weeklyOff = profile?.weeklyOff;
+    
+    const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff);
+    const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff);
+    
+    const workingDays = workingDaysArray.length;
+    const elapsedWorkdays = elapsedWorkdaysArray.length;
+    
+    const targetTotal = workingDays * 8.5;
+    const avgDaily = elapsedWorkdays > 0 ? totalHours / elapsedWorkdays : 0;
+    const loggedDates = new Set(periodEntries.filter((e) => e.totalHours > 0).map((e) => e.date));
+    const weekdayDates = elapsedWorkdaysArray;
+    const pendingCount = weekdayDates.filter((d) => !loggedDates.has(d)).length;
+    const submittedWorkdays = loggedDates.size;
+    const totalPercent = targetTotal > 0 ? (totalHours / targetTotal) * 100 : 0;
+    const avgPercent = (avgDaily / 8.5) * 100;
+    const submissionPercent = elapsedWorkdays > 0 ? (submittedWorkdays / elapsedWorkdays) * 100 : 0;
+    const pendingPercent = weekdayDates.length > 0
+      ? ((weekdayDates.length - pendingCount) / weekdayDates.length) * 100
+      : 100;
     return {
-      todayHours,
-      todayTarget,
-      todayPercent,
-      weekHours: parseFloat(weekHours.toFixed(1)),
-      weekTarget,
-      weekPercent,
-      monthHours: parseFloat(monthHours.toFixed(1)),
-      monthTarget,
-      monthPercent,
+      totalHours: parseFloat(totalHours.toFixed(1)),
+      targetTotal,
+      totalPercent,
+      avgDaily: parseFloat(avgDaily.toFixed(2)),
+      avgPercent,
+      submittedWorkdays,
+      elapsedWorkdays,
+      submissionPercent,
       pendingCount,
-      todayPending,
       pendingPercent,
-      weekOnTrack: weekPercent >= 80,
+      needsLog: pendingCount > 0,
     };
-  }, [todayEntry, weekEntries, monthEntries, weekStart, monthStart, monthEnd, today]);
+  }, [periodEntries, periodFrom, periodTo, today]);
 
   const recentActivity = useMemo(
-    () => buildRecentWeekActivity(weekEntries, weekStart, today, 5),
-    [weekEntries, weekStart, today],
+    () => buildRecentWeekActivity(periodEntries, periodFrom, periodTo.isAfter(today) ? today : periodTo, 7),
+    [periodEntries, periodFrom, periodTo, today],
   );
 
   const flatTeamMembers = useMemo(
@@ -410,7 +440,7 @@ export default function MyDashboardPage() {
         </Link>
       </div>
 
-      {error && <Alert type="error" message={error} showIcon />}
+      {error && <Alert type="error" title={error} showIcon />}
 
       {isManager && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -442,108 +472,105 @@ export default function MyDashboardPage() {
 
       {(dashboardView === "personal" || !isManager) && (
         <>
-      <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
-        <Col xs={12} sm={12} xl={6}>
-          <DashboardMetricCard
-            title="Today's Hours"
-            valueLabel={(() => {
-              const h = Math.floor(stats.todayHours);
-              const m = Math.round((stats.todayHours - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()}
-            targetLabel={`/ ${(() => {
-              const h = Math.floor(stats.todayTarget);
-              const m = Math.round((stats.todayTarget - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()} Target`}
-            percent={stats.todayPercent}
-            footerLeft="Target: 8hrs 30mins"
-            footerRight={`${Math.round(stats.todayPercent)}%`}
-            icon={<ClockCircleOutlined />}
-            iconClassName="bg-blue-50 text-blue-500"
-            barClassName="bg-blue-500"
-            percentClassName="text-blue-500"
-          />
-        </Col>
-        <Col xs={12} sm={12} xl={6}>
-          <DashboardMetricCard
-            title="Weekly Hours"
-            valueLabel={(() => {
-              const h = Math.floor(stats.weekHours);
-              const m = Math.round((stats.weekHours - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()}
-            targetLabel={`/ ${(() => {
-              const h = Math.floor(stats.weekTarget);
-              const m = Math.round((stats.weekTarget - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()} Target`}
-            percent={stats.weekPercent}
-            footerLeft={stats.weekOnTrack ? "On Track" : "Behind Target"}
-            footerRight={`${Math.round(stats.weekPercent)}%`}
-            icon={<CheckCircleOutlined />}
-            iconClassName="bg-green-50 text-green-500"
-            barClassName="bg-green-500"
-            percentClassName="text-green-500"
-          />
-        </Col>
-        <Col xs={12} sm={12} xl={6}>
-          <DashboardMetricCard
-            title="Monthly Hours"
-            valueLabel={(() => {
-              const h = Math.floor(stats.monthHours);
-              const m = Math.round((stats.monthHours - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()}
-            targetLabel={`/ ${(() => {
-              const h = Math.floor(stats.monthTarget);
-              const m = Math.round((stats.monthTarget - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()} Target`}
-            percent={stats.monthPercent}
-            footerLeft={`${today.format("MMMM")} Cycle`}
-            footerRight={`${Math.round(stats.monthPercent)}%`}
-            icon={<CalendarOutlined />}
-            iconClassName="bg-cyan-50 text-cyan-500"
-            barClassName="bg-cyan-500"
-            percentClassName="text-cyan-500"
-          />
-        </Col>
-        <Col xs={12} sm={12} xl={6}>
-          <DashboardMetricCard
-            title="Pending Submissions"
-            valueLabel={String(stats.pendingCount)}
-            targetLabel={stats.pendingCount === 1 ? "Day" : "Days"}
-            percent={stats.pendingPercent}
-            footerLeft={stats.pendingCount > 0 ? "Action Required" : "All Clear"}
-            footerRight={stats.todayPending ? "Today" : "Up to date"}
-            icon={<ExclamationCircleOutlined />}
-            iconClassName="bg-amber-50 text-amber-500"
-            barClassName="bg-amber-500"
-            percentClassName="text-amber-500"
-          />
-        </Col>
-      </Row>
+          {/* ── Date Filter Bar ─────────────────────────────────────── */}
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-100 dark:border-zinc-800 shadow-sm px-4 py-3 flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</span>
+              <Select
+                value={selectedPeriod}
+                onChange={(val) => setSelectedPeriod(val as PeriodKey)}
+                className="w-40"
+                options={[
+                  { label: "Today", value: "today" },
+                  { label: "Yesterday", value: "yesterday" },
+                  { label: "This Week", value: "this_week" },
+                  { label: "Last Week", value: "last_week" },
+                  { label: "This Month", value: "this_month" },
+                  { label: "Last Month", value: "last_month" },
+                  { label: "Custom", value: "custom" },
+                ]}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Date Range</span>
+              <RangePicker
+                value={[periodFrom, periodTo]}
+                disabled={selectedPeriod !== "custom"}
+                format="YYYY-MM-DD"
+                disabledDate={(d) => d.isAfter(today)}
+                onChange={(dates) => {
+                  if (dates && dates[0] && dates[1]) setCustomRange([dates[0], dates[1]]);
+                }}
+                className="w-60"
+                suffixIcon={<CalendarOutlined className="text-gray-400" />}
+              />
+            </div>
+            <div className="ml-auto flex items-center">
+              <span className="text-xs font-medium text-gray-600 bg-gray-100 dark:bg-zinc-800 rounded-lg px-3 py-1.5">{label}</span>
+            </div>
+          </div>
 
-      <RecentActivityCard activities={recentActivity} />
+          {/* ── Metric Cards ─────────────────────────────────────────── */}
+          <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
+                title="Total Logged Hours"
+                valueLabel={fmtHours(stats.totalHours)}
+                targetLabel={`/ ${fmtHours(stats.targetTotal)} Target`}
+                percent={stats.totalPercent}
+                footerLeft={stats.totalPercent >= 80 ? "On Track" : "Behind Target"}
+                footerRight={`${Math.round(stats.totalPercent)}%`}
+                icon={<ClockCircleOutlined />}
+                iconClassName="bg-blue-50 text-blue-500"
+                barClassName="bg-blue-500"
+                percentClassName="text-blue-500"
+              />
+            </Col>
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
+                title="Timesheet Submission"
+                valueLabel={String(stats.submittedWorkdays)}
+                targetLabel={`/ ${stats.elapsedWorkdays} Workdays`}
+                percent={stats.submissionPercent}
+                footerLeft={`${stats.elapsedWorkdays - stats.submittedWorkdays} Days Pending`}
+                footerRight={`${Math.round(stats.submissionPercent)}%`}
+                icon={<CheckCircleOutlined />}
+                iconClassName="bg-green-50 text-green-500"
+                barClassName="bg-green-500"
+                percentClassName="text-green-500"
+              />
+            </Col>
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
+                title="Avg. Daily Hours"
+                valueLabel={fmtHours(stats.avgDaily)}
+                targetLabel="/ day"
+                percent={stats.avgPercent}
+                footerLeft="Target: 8hrs 30mins / day"
+                footerRight={`${Math.round(stats.avgPercent)}%`}
+                icon={<SyncOutlined />}
+                iconClassName="bg-cyan-50 text-cyan-500"
+                barClassName="bg-cyan-500"
+                percentClassName="text-cyan-500"
+              />
+            </Col>
+            <Col xs={12} sm={12} xl={6}>
+              <DashboardMetricCard
+                title="Pending Submissions"
+                valueLabel={String(stats.pendingCount)}
+                targetLabel={stats.pendingCount === 1 ? "Day" : "Days"}
+                percent={stats.pendingPercent}
+                footerLeft={stats.pendingCount > 0 ? "Action Required" : "All Clear"}
+                footerRight={stats.needsLog ? "Needs Log" : "Up to date"}
+                icon={<ExclamationCircleOutlined />}
+                iconClassName="bg-amber-50 text-amber-500"
+                barClassName="bg-amber-500"
+                percentClassName={stats.needsLog ? "text-amber-500" : "text-green-500"}
+              />
+            </Col>
+          </Row>
+
+          <RecentActivityCard activities={recentActivity} periodLabel={label} />
         </>
       )}
 
@@ -555,7 +582,7 @@ export default function MyDashboardPage() {
               : `Downline snapshot for this week (${weekFrom} – ${weekTo})`}
           </Text>
 
-          {teamError && <Alert type="warning" message={teamError} showIcon />}
+          {teamError && <Alert type="warning" title={teamError} showIcon />}
 
           <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
             <Col xs={12} sm={12} xl={6}>

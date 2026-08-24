@@ -15,6 +15,11 @@ export enum UploadJobStatus {
   FAILED = "failed",
 }
 
+export enum UploadJobType {
+  EMPLOYEE = "employee",
+  SHIFT = "shift",
+}
+
 @Entity("upload_job")
 export class UploadJob {
   @PrimaryColumn("uuid")
@@ -32,6 +37,13 @@ export class UploadJob {
     default: UploadJobStatus.QUEUED,
   })
   status!: UploadJobStatus;
+
+  @Column({
+    type: "enum",
+    enum: UploadJobType,
+    default: UploadJobType.EMPLOYEE,
+  })
+  type!: UploadJobType;
 
   @Column({ default: 0 })
   totalRows!: number;

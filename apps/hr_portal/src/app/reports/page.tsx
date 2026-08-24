@@ -778,7 +778,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {error && <Alert type="error" message={error} showIcon className="mb-4" />}
+      {error && <Alert type="error" title={error} showIcon className="mb-4" />}
 
       {isAdmin && (
         <Card
@@ -833,7 +833,7 @@ export default function ReportsPage() {
                     <div className="flex flex-col gap-3 sm:gap-4">
                       {/* Header: #index + Avatar + Name + Status tag */}
                       <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={() => handleUserClick(record)}>
+                        <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={() => void openEmployeeDetail(record)}>
                           <div className="flex shrink-0 items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-orange-200 text-orange-500 text-[10px] sm:text-xs font-bold bg-orange-50">
                             #{index + 1}
                           </div>
@@ -999,7 +999,7 @@ export default function ReportsPage() {
                 <Spin size="large" />
               </div>
             ) : detailError ? (
-              <Alert type="error" message={detailError} showIcon className="mt-6" />
+              <Alert type="error" title={detailError} showIcon className="mt-6" />
             ) : employeeDetail ? (
               timesheetRows.length > 0 ? (
                 <div className="bg-white dark:bg-zinc-950 rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-zinc-800 p-0 sm:p-4 mt-6">

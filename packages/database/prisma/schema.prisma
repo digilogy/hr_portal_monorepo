@@ -145,6 +145,7 @@ model UploadJob {
   originalName String   @map("originalName")
   storedPath   String   @map("storedPath")
   status       String   @default("queued")
+  type         String   @default("employee")
   totalRows    Int      @default(0) @map("totalRows")
   processed    Int      @default(0)
   successCount Int      @default(0) @map("successCount")

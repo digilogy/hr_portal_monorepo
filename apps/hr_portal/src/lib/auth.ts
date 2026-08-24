@@ -108,6 +108,11 @@ export function getTokenRole(): UserRole | null {
   return "employee";
 }
 
+export function getDefaultDashboardPath(role: UserRole | null): string {
+  if (role === "admin") return "/dashboard";
+  return "/my-dashboard";
+}
+
 export function canAccessTimesheet(role: UserRole | null): boolean {
   return role !== "admin";
 }

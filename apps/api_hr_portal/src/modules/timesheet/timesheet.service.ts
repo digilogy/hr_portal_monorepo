@@ -44,7 +44,14 @@ function calculateSlotHours(timeSlot: string): number {
 
 function calculateTotalHours(slots: TimesheetSlot[]): number {
   const total = slots
-    .filter((slot) => slot.timeSlot && slot.timeSlot.trim().length > 0)
+    .filter((slot) => {
+      if (!slot.timeSlot || !slot.timeSlot.trim()) return false;
+      return !!(
+        slot.task?.trim() ||
+        slot.title?.trim() ||
+        (slot.taskType && slot.taskType !== "Custom")
+      );
+    })
     .reduce((sum, slot) => sum + calculateSlotHours(slot.timeSlot), 0);
   return parseFloat(total.toFixed(1));
 }
