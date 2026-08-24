@@ -7,6 +7,7 @@ export interface UploadJobCreateInput {
   fileName: string;
   filePath: string;
   status: UploadJobStatus;
+  type?: any;
   totalRows: number;
   successCount: number;
   failureCount: number;

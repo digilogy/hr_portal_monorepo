@@ -1,4 +1,4 @@
-import { UserRole } from "@hr-portal/database";
+import { UserRole, AppDataSource, EmployeeShiftAssignment } from "@hr-portal/database";
 import { AccessService } from "../access/access.service";
 import { profileRepository } from "./profile.repository";
 
@@ -15,6 +15,8 @@ export interface EmployeeProfile {
   subDepartment: string;
   role: UserRole;
   alsoManager: boolean;
+  policy?: string;
+  weeklyOff?: string;
 }
 
 function formatValue(value?: string | null): string {
@@ -53,6 +55,17 @@ export class ProfileService {
         ? await AccessService.hasDirectReports(employee.employeeId)
         : false;
 
+    let policy: string | undefined = undefined;
+    let weeklyOff: string | undefined = undefined;
+
+    if (employee.employeeId) {
+      const assignment = await AppDataSource.getRepository(EmployeeShiftAssignment).findOneBy({ employeeId: employee.employeeId });
+      if (assignment) {
+        policy = assignment.policy || undefined;
+        weeklyOff = assignment.weeklyOff || undefined;
+      }
+    }
+
     return {
       name: formatValue(employee.fullName),
       employeeId: formatValue(employee.employeeId),
@@ -66,6 +79,8 @@ export class ProfileService {
       subDepartment: formatValue(employee.subDepartment),
       role,
       alsoManager,
+      policy,
+      weeklyOff,
     };
   }
 }

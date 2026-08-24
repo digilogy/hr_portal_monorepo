@@ -44,7 +44,7 @@ export function TrendChart({
   unitSuffix = "",
   maxXLabels = 8,
 }: TrendChartProps) {
-  const padding = { top: 36, right: 16, bottom: 32, left: 34 };
+  const padding = { top: 36, right: 40, bottom: 32, left: 34 };
   const plotRef = useRef<HTMLDivElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -281,16 +281,16 @@ export function TrendChart({
               return (
                 <div
                   key={s.key}
-                  className="absolute flex flex-col items-center -translate-x-1/2 -translate-y-1/2"
+                  className="absolute -translate-x-1/2 -translate-y-1/2"
                   style={{ left: `${last.x}%`, top: `${last.y}%` }}
                 >
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 text-[11px] font-semibold tabular-nums text-gray-700 dark:text-zinc-200 whitespace-nowrap">
+                    {last.val !== null ? fmtVal(last.val) : ""}
+                  </span>
                   <span
                     className="block rounded-full border-2 border-white dark:border-zinc-900 shadow-sm"
                     style={{ width: 9, height: 9, backgroundColor: s.color }}
                   />
-                  <span className="mt-1 text-[11px] font-semibold tabular-nums text-gray-700 dark:text-zinc-200 whitespace-nowrap">
-                    {last.val !== null ? fmtVal(last.val) : ""}
-                  </span>
                 </div>
               );
             })}
@@ -362,7 +362,7 @@ export function TrendChart({
 
         {/* X-axis labels */}
         <div
-          className="absolute bottom-0 left-0 w-full flex justify-between"
+          className="absolute bottom-0 left-0 w-full flex justify-between pb-3"
           style={{ paddingLeft: padding.left, paddingRight: padding.right }}
         >
           {data.map((d, i) => {

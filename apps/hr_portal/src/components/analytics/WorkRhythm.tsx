@@ -78,7 +78,6 @@ export function WorkRhythm({
   );
 
   const hasData = chartPoints.some((point) => point.hours > 0);
-  const useScrollableBars = chartPoints.length > 31;
 
   if (!hasData) {
     return (
@@ -106,8 +105,14 @@ export function WorkRhythm({
           </h5>
           <p className="text-xs text-gray-400">{copy.barDescription}</p>
         </div>
-        <div className={useScrollableBars ? "overflow-x-auto custom-scrollbar pb-1" : ""}>
-          <div style={{ minWidth: useScrollableBars ? chartPoints.length * 48 : undefined }}>
+        <div className={`custom-scrollbar pb-1 -mx-2 px-2 sm:mx-0 sm:px-0 ${chartPoints.length > 31 ? 'overflow-x-auto' : 'overflow-x-auto md:overflow-x-visible'}`}>
+          <div 
+            className={`w-full ${chartPoints.length > 31 ? 'md:!min-w-[var(--desktop-mw)]' : 'md:!min-w-0'}`}
+            style={{ 
+              minWidth: `max(${chartPoints.length * 85}px, 500px)`,
+              '--desktop-mw': `${chartPoints.length * 48}px` 
+            } as React.CSSProperties}
+          >
             <BarChart
               data={barChartData}
               height={280}
@@ -125,13 +130,23 @@ export function WorkRhythm({
           </h5>
           <p className="text-xs text-gray-400">{copy.trendDescription}</p>
         </div>
-        <TrendChart
-          data={trendData}
-          series={[{ key: "hours", name: "Hours logged", color: BRAND_PRIMARY }]}
-          height={300}
-          unitSuffix="h"
-          maxXLabels={granularity === "hourly" ? 24 : granularity === "daily" ? 10 : 12}
-        />
+        <div className={`custom-scrollbar pb-1 -mx-2 px-2 sm:mx-0 sm:px-0 ${chartPoints.length > 31 ? 'overflow-x-auto' : 'overflow-x-auto md:overflow-x-visible'}`}>
+          <div 
+            className={`w-full ${chartPoints.length > 31 ? 'md:!min-w-[var(--desktop-mw)]' : 'md:!min-w-0'}`}
+            style={{ 
+              minWidth: `max(${chartPoints.length * 85}px, 500px)`,
+              '--desktop-mw': `${chartPoints.length * 48}px` 
+            } as React.CSSProperties}
+          >
+            <TrendChart
+              data={trendData}
+              series={[{ key: "hours", name: "Hours logged", color: BRAND_PRIMARY }]}
+              height={300}
+              unitSuffix="h"
+              maxXLabels={granularity === "hourly" ? 24 : granularity === "daily" ? 10 : 15}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

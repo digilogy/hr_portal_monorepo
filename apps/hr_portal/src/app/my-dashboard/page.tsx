@@ -88,6 +88,8 @@ interface EmployeeProfile {
   department: string;
   jobTitle: string;
   alsoManager?: boolean;
+  weeklyOff?: string;
+  policy?: string;
 }
 
 interface TimesheetRecord {
@@ -176,28 +178,43 @@ interface TeamResponse {
   };
 }
 
-function getWorkingDays(from: dayjs.Dayjs, to: dayjs.Dayjs): number {
-  let count = 0;
-  let current = from.startOf("day");
-  const end = to.startOf("day");
-
-  while (current.isBefore(end) || current.isSame(end, "day")) {
-    const day = current.day();
-    if (day !== 0) count += 1;
-    current = current.add(1, "day");
-  }
-
-  return count;
-}
-
-function getWeekdayDates(from: dayjs.Dayjs, to: dayjs.Dayjs): string[] {
+function getWorkdays(from: dayjs.Dayjs, to: dayjs.Dayjs, weeklyOffRule?: string): string[] {
   const dates: string[] = [];
   let current = from.startOf("day");
   const end = to.startOf("day");
+  
+  const rule = (weeklyOffRule || "").toLowerCase();
+
+  const isDayOff = (dayName: string) => rule.includes(dayName);
+  const excludeSunday = isDayOff("sunday") || !rule; // Default to Sunday if empty
+  const excludeMonday = isDayOff("monday");
+  const excludeTuesday = isDayOff("tuesday");
+  const excludeWednesday = isDayOff("wednesday");
+  const excludeThursday = isDayOff("thursday");
+  const excludeFriday = isDayOff("friday");
+  const excludeSaturday = isDayOff("saturday") && !rule.includes("2nd saturday"); 
+  const excludeSecondSaturday = rule.includes("2nd saturday");
 
   while (current.isBefore(end) || current.isSame(end, "day")) {
-    const day = current.day();
-    if (day !== 0) {
+    const dayOfWeek = current.day(); // 0 = Sunday, 6 = Saturday
+    let isWorkday = true;
+
+    if (dayOfWeek === 0 && excludeSunday) isWorkday = false;
+    else if (dayOfWeek === 1 && excludeMonday) isWorkday = false;
+    else if (dayOfWeek === 2 && excludeTuesday) isWorkday = false;
+    else if (dayOfWeek === 3 && excludeWednesday) isWorkday = false;
+    else if (dayOfWeek === 4 && excludeThursday) isWorkday = false;
+    else if (dayOfWeek === 5 && excludeFriday) isWorkday = false;
+    else if (dayOfWeek === 6) {
+      if (excludeSaturday) isWorkday = false;
+      else if (excludeSecondSaturday) {
+        // Calculate if it's the second Saturday
+        const weekOfMonth = Math.ceil(current.date() / 7);
+        if (weekOfMonth === 2) isWorkday = false;
+      }
+    }
+
+    if (isWorkday) {
       dates.push(current.format("YYYY-MM-DD"));
     }
     current = current.add(1, "day");
@@ -287,12 +304,19 @@ export default function MyDashboardPage() {
   const stats = useMemo(() => {
     const cappedTo = periodTo.isAfter(today) ? today : periodTo;
     const totalHours = periodEntries.reduce((sum, e) => sum + (e.totalHours || 0), 0);
-    const workingDays = getWorkingDays(periodFrom, periodTo);
-    const elapsedWorkdays = getWorkingDays(periodFrom, cappedTo);
+    
+    const weeklyOff = profile?.weeklyOff;
+    
+    const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff);
+    const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff);
+    
+    const workingDays = workingDaysArray.length;
+    const elapsedWorkdays = elapsedWorkdaysArray.length;
+    
     const targetTotal = workingDays * 8.5;
     const avgDaily = elapsedWorkdays > 0 ? totalHours / elapsedWorkdays : 0;
     const loggedDates = new Set(periodEntries.filter((e) => e.totalHours > 0).map((e) => e.date));
-    const weekdayDates = getWeekdayDates(periodFrom, cappedTo);
+    const weekdayDates = elapsedWorkdaysArray;
     const pendingCount = weekdayDates.filter((d) => !loggedDates.has(d)).length;
     const submittedWorkdays = loggedDates.size;
     const totalPercent = targetTotal > 0 ? (totalHours / targetTotal) * 100 : 0;

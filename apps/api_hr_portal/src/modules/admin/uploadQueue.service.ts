@@ -1,6 +1,7 @@
 import path from "path";
 import { UploadJob, UploadJobStatus } from "@hr-portal/database";
 import { EmployeeDataService } from "./employeeData.service";
+import { ShiftUploadService } from "./shiftUpload.service";
 import { logger } from "@hr-portal/logger";
 import { uploadQueueRepository } from "./uploadQueue.repository";
 
@@ -29,10 +30,10 @@ async function processNextJob(): Promise<void> {
     await uploadQueueRepository.save(job);
 
     try {
-      const result = await EmployeeDataService.processBulkUpload(
-        job.filePath ?? "",
-        job,
-      );
+      const result = job.type === "shift"
+        ? await ShiftUploadService.processBulkUpload(job.filePath ?? "", job)
+        : await EmployeeDataService.processBulkUpload(job.filePath ?? "", job);
+
       job.totalRows = result.totalRows;
       job.successCount = result.successCount;
       job.failureCount = result.failureCount;
@@ -67,11 +68,12 @@ async function processNextJob(): Promise<void> {
 }
 
 export class UploadQueueService {
-  static async enqueueUpload(filePath: string): Promise<string> {
+  static async enqueueUpload(filePath: string, jobType: "employee" | "shift" = "employee"): Promise<string> {
     const job = uploadQueueRepository.create({
       fileName: path.basename(filePath),
       filePath,
       status: UploadJobStatus.QUEUED,
+      type: jobType as any,
       totalRows: 0,
       successCount: 0,
       failureCount: 0,

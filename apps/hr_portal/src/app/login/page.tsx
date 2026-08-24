@@ -43,6 +43,7 @@ function LoginPageContent() {
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
   const [verifyingToken, setVerifyingToken] = useState<boolean>(!!tokenFromUrl);
+  const hasVerifiedToken = useRef(false);
 
   const emailInputRef = useRef<InputRef>(null);
   const pinInputRef = useRef<InputRef>(null);
@@ -171,7 +172,8 @@ function LoginPageContent() {
       router.replace(getDefaultDashboardPath(role));
       return;
     }
-    if (tokenFromUrl) {
+    if (tokenFromUrl && !hasVerifiedToken.current) {
+      hasVerifiedToken.current = true;
       verifyTokenAndOpenPinSetup(tokenFromUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -327,23 +329,21 @@ function LoginPageContent() {
           ? "Choose a new 4-digit PIN and confirm it"
           : "Choose a secure 4-digit PIN and confirm it";
 
-  if (verifyingToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] px-4">
-        <div className="rounded-2xl border border-white/80 bg-white/95 px-8 py-10 text-center shadow-[0_8px_40px_rgba(15,23,42,0.08)]">
-          <Text className="text-gray-500">Verifying your secure link...</Text>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4f6f9] px-4 py-10">
+    <>
       {contextHolder}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(37,99,235,0.12),transparent)]"
-      />
+      {verifyingToken ? (
+        <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] px-4">
+          <div className="rounded-2xl border border-white/80 bg-white/95 px-8 py-10 text-center shadow-[0_8px_40px_rgba(15,23,42,0.08)]">
+            <Text className="text-gray-500">Verifying your secure link...</Text>
+          </div>
+        </div>
+      ) : (
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f4f6f9] px-4 py-10">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(37,99,235,0.12),transparent)]"
+          />
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-blue-500/5 blur-3xl"
@@ -615,6 +615,8 @@ function LoginPageContent() {
         <p className="mt-6 text-center text-xs text-gray-400">© 2026 Timesheet Portal</p>
       </div>
     </div>
+    )}
+    </>
   );
 }
 
