@@ -25,28 +25,15 @@ function getString(value: unknown): string {
 }
 
 const fieldAliases: Record<string, string> = {
-  "employee id": "employeeId",
-  employeeid: "employeeId",
-  "emp id": "employeeId",
-  empid: "employeeId",
-  "emp code": "employeeId",
-  empcode: "employeeId",
-  "employee code": "employeeId",
-  policy: "policy",
-  "weekly off": "weeklyOff",
-  "shift name": "shiftName",
-  "shift block": "shiftBlock",
+  "shift name": "name",
+  "allowed timings": "allowedTimings",
+  "working days": "workingDays",
+  "off days": "offDays",
+  "half day": "halfDay",
+  "half day optional": "halfDay",
 };
 
-const EMPLOYEE_ID_HEADERS = new Set([
-  "employee id",
-  "employeeid",
-  "emp id",
-  "empid",
-  "emp code",
-  "empcode",
-  "employee code",
-]);
+const SHIFT_NAME_HEADERS = new Set(["shift name", "shiftname"]);
 
 function mapRow(row: Record<string, unknown>): Record<string, string> {
   const mappedValues: Record<string, string> = {};
@@ -85,6 +72,7 @@ export class ShiftUploadService {
   static async processBulkUpload(
     filePath: string,
     job: UploadJob,
+    options: { deleteFile?: boolean } = { deleteFile: true }
   ): Promise<{
     totalRows: number;
     successCount: number;
@@ -119,7 +107,7 @@ export class ShiftUploadService {
 
     for (const [index, row] of rows.entries()) {
       const mappedValues = mapRow(row);
-      const employeeId = mappedValues.employeeId;
+      const name = mappedValues.name;
 
       const hasData = Object.values(mappedValues).some((value) => value !== "");
       if (!hasData) {
@@ -130,80 +118,41 @@ export class ShiftUploadService {
       totalRows++;
       const rowNumber = index + 2;
 
-      if (!employeeId) {
+      if (!name) {
         failureCount++;
-        const message = "Missing required field: Employee Id";
+        const message = "Missing required field: Shift Name";
         errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
-        await writeUploadLog(
-          job,
-          rowNumber,
-          "",
-          "failed",
-          message,
-          mappedValues,
-        );
-        logger.warn(LOG_CONTEXT, message, {
-          jobId: job.id,
-          rowIndex: rowNumber,
-        });
+        await writeUploadLog(job, rowNumber, "", "failed", message, mappedValues);
+        logger.warn(LOG_CONTEXT, message, { jobId: job.id, rowIndex: rowNumber });
         continue;
       }
 
       try {
-        const shiftName = mappedValues["shiftName"];
-        const shiftBlock = mappedValues["shiftBlock"];
-        const policy = mappedValues["policy"];
-        const weeklyOff = mappedValues["weeklyOff"];
+        const allowedTimings = mappedValues.allowedTimings;
+        const workingDays = mappedValues.workingDays;
+        const offDays = mappedValues.offDays;
+        const halfDay = mappedValues.halfDay;
 
-        let shift = await shiftRepository.findShiftByName(shiftName);
-        if (!shift && shiftName) {
-          let startTime = "09:00:00";
-          let endTime = "18:00:00";
-          if (shiftBlock) {
-            const regex = /(\d{1,2}:\d{2}\s*(?:am|pm)?)/gi;
-            const matches = shiftBlock.match(regex);
-            if (matches && matches.length >= 2) {
-              const parseTime = (timeStr: string) => {
-                const match = timeStr.trim().match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
-                if (match) {
-                  let h = parseInt(match[1], 10);
-                  const minutes = match[2];
-                  const modifier = match[3] ? match[3].toLowerCase() : "";
-                  if (h === 12) h = modifier === "am" ? 0 : 12;
-                  else if (modifier === "pm") h += 12;
-                  return `${h.toString().padStart(2, "0")}:${minutes}:00`;
-                }
-                return timeStr; // Fallback
-              };
-              startTime = parseTime(matches[0]);
-              endTime = parseTime(matches[1]);
-            }
-          }
+        let shift = await shiftRepository.findShiftByName(name);
+        if (!shift) {
           shift = await shiftRepository.createShift({
-            name: shiftName,
-            startTime,
-            endTime,
-          });
-        }
-
-        if (shift) {
-          await shiftRepository.upsertAssignment({
-            employeeId,
-            policy,
-            weeklyOff,
-            shiftId: shift.id,
+            name,
+            allowedTimings,
+            workingDays,
+            offDays,
+            halfDay,
           });
           addedCount++;
-          await writeUploadLog(
-            job,
-            rowNumber,
-            employeeId,
-            "success",
-            "Imported shift successfully",
-            mappedValues,
-          );
+          await writeUploadLog(job, rowNumber, name, "success", "Imported shift successfully", mappedValues);
         } else {
-          throw new Error("Shift name is required");
+          await shiftRepository.updateShift(shift, {
+            allowedTimings,
+            workingDays,
+            offDays,
+            halfDay,
+          });
+          await writeUploadLog(job, rowNumber, name, "success", "Shift updated successfully", mappedValues);
+          updatedCount++;
         }
 
         if (totalRows % PROGRESS_LOG_INTERVAL === 0) {
@@ -223,7 +172,7 @@ export class ShiftUploadService {
         await writeUploadLog(
           job,
           rowNumber,
-          employeeId,
+          name,
           "failed",
           message,
           mappedValues,
@@ -231,13 +180,13 @@ export class ShiftUploadService {
         logger.error(LOG_CONTEXT, "Row import failed", {
           jobId: job.id,
           rowIndex: rowNumber,
-          employeeId,
+          shiftName: name,
           error: message,
         });
       }
     }
 
-    if (isUploadTempFile(filePath)) {
+    if (options.deleteFile !== false && isUploadTempFile(filePath)) {
       try {
         fs.unlinkSync(filePath);
       } catch {}
@@ -276,19 +225,24 @@ export class ShiftUploadService {
     }
 
     const workbook = xlsx.readFile(filePath);
-    const sheet = this.findEmployeeDataSheet(workbook);
+    const sheet = this.findShiftDataSheet(workbook);
     if (!sheet) {
-      throw new Error("Uploaded file does not contain a valid sheet");
+      throw new Error("Uploaded file does not contain a valid shift details sheet");
     }
 
     return xlsx.utils.sheet_to_json(sheet, { defval: "" });
   }
 
-  private static findEmployeeDataSheet(
+  private static findShiftDataSheet(
     workbook: xlsx.WorkBook,
   ): xlsx.WorkSheet | null {
     for (const sheetName of workbook.SheetNames) {
       if (/pivot/i.test(sheetName)) continue;
+      // explicitly look for a sheet containing 'shift'
+      if (/shift details/i.test(sheetName)) {
+         return workbook.Sheets[sheetName];
+      }
+      
       const sheet = workbook.Sheets[sheetName];
       const headerRows = xlsx.utils.sheet_to_json(sheet, {
         defval: "",
@@ -301,7 +255,7 @@ export class ShiftUploadService {
         normalizeHeader(String(header ?? "")),
       );
 
-      if (normalizedHeaders.some((header) => EMPLOYEE_ID_HEADERS.has(header))) {
+      if (normalizedHeaders.some((header) => SHIFT_NAME_HEADERS.has(header))) {
         return sheet;
       }
     }

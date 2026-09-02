@@ -14,11 +14,17 @@ export class Shift {
   @Column({ unique: true })
   name!: string;
 
-  @Column()
-  startTime!: string;
+  @Column({ nullable: true })
+  allowedTimings?: string;
 
-  @Column()
-  endTime!: string;
+  @Column({ nullable: true })
+  workingDays?: string;
+
+  @Column({ nullable: true })
+  offDays?: string;
+
+  @Column({ nullable: true })
+  halfDay?: string;
 
   @CreateDateColumn()
   createdAt!: Date;

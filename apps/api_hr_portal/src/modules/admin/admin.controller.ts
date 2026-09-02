@@ -57,6 +57,24 @@ export class AdminController {
     }
   }
 
+  static async bulkUploadMaster(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.file) {
+        res.status(400).json({ message: "Please upload a CSV or Excel file" });
+        return;
+      }
+
+      const jobId = await UploadQueueService.enqueueUpload(req.file.path, "master");
+      res.status(202).json({
+        message: "Master data upload has been queued. Check status with the job ID.",
+        jobId,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
   static async getUploadStatus(req: Request, res: Response): Promise<void> {
     try {
       const { jobId } = req.params;

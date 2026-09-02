@@ -231,7 +231,7 @@ export default function DashboardPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${API_BASE}/api/admin/bulk-upload`, {
+      const response = await fetch(`${API_BASE}/api/admin/bulk-upload-master`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: formData,
@@ -243,7 +243,7 @@ export default function DashboardPage() {
 
       setJobId(data.jobId ?? null);
       setJobStatus("queued");
-      messageApi.success("Upload queued. Tracking status...");
+      messageApi.success("Master data upload queued. Tracking status...");
       if (data.jobId) {
         pollJobStatus(data.jobId);
       }
@@ -253,38 +253,6 @@ export default function DashboardPage() {
     setUploading(false);
   };
 
-  const handleShiftUpload = async (file: File) => {
-    setUploading(true);
-    setJobId(null);
-    setJobStatus(null);
-    setJobErrors(null);
-    setJobSummary(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch(`${API_BASE}/api/admin/bulk-upload-shifts`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: formData,
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Shift upload failed");
-      }
-
-      setJobId(data.jobId ?? null);
-      setJobStatus("queued");
-      messageApi.success("Shift upload queued. Tracking status...");
-      if (data.jobId) {
-        pollJobStatus(data.jobId);
-      }
-    } catch (error: unknown) {
-      messageApi.error(error instanceof Error ? error.message : "Shift upload failed.");
-    }
-    setUploading(false);
-  };
 
   const submissionRate = useMemo(() => {
     const total = summary?.totalEmployees ?? 0;
@@ -403,23 +371,7 @@ export default function DashboardPage() {
                   loading={uploading}
                   className="w-full sm:w-auto"
                 >
-                  Employee Data
-                </Button>
-              </Upload>
-              <Upload
-                accept=".csv,.xlsx,.xls"
-                beforeUpload={(file) => {
-                  void handleShiftUpload(file);
-                  return false;
-                }}
-                showUploadList={false}
-              >
-                <Button
-                  icon={<UploadOutlined />}
-                  loading={uploading}
-                  className="w-full sm:w-auto"
-                >
-                  Upload Shifts
+                  Upload Master Data
                 </Button>
               </Upload>
             </div>

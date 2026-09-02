@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ProfileHeader } from "@/components/ui/ProfileHeader";
-import { Typography, Divider, Spin } from "antd";
+import { Typography, Divider, Spin, Select } from "antd";
 import { MailOutlined, PhoneOutlined, PushpinOutlined } from "@ant-design/icons";
 import { apiFetch } from "@/lib/api";
 import { getProfileDisplayTitle, type UserRole } from "@/lib/auth";
@@ -21,11 +21,14 @@ interface EmployeeProfile {
   employmentStatus: string;
   subDepartment: string;
   role: UserRole;
+  allowedTimings?: string;
+  preferredTiming?: string;
 }
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [savingTiming, setSavingTiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,16 +76,57 @@ export default function ProfilePage() {
   }
 
   const isActive = profile.employmentStatus.toLowerCase() === "active";
+  const shiftOptions = profile.allowedTimings
+    ? profile.allowedTimings.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const handleUpdateTiming = async (val: string) => {
+    setSavingTiming(true);
+    try {
+      await apiFetch("/api/profile/me/preferred-timing", {
+        method: "PUT",
+        body: JSON.stringify({ preferredTiming: val }),
+      });
+      setProfile((prev) => prev ? { ...prev, preferredTiming: val } : prev);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingTiming(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto pb-32 pt-6 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Profile</h1>
-        <p className="text-gray-500 mt-2">Manage your personal information and preferences.</p>
-        {profile && (
-          <p className="text-sm text-[#F5A623] font-semibold mt-1">
-            {getProfileDisplayTitle(profile.jobTitle, profile.role)}
-          </p>
+      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Profile</h1>
+          <p className="text-gray-500 mt-2">Manage your personal information and preferences.</p>
+          {profile && (
+            <p className="text-sm text-[#F5A623] font-semibold mt-1">
+              {getProfileDisplayTitle(profile.jobTitle, profile.role)}
+            </p>
+          )}
+        </div>
+
+        {shiftOptions.length > 1 && (
+          <div className="w-full sm:w-auto bg-white dark:bg-zinc-900/50 p-4 rounded-xl border border-gray-100 dark:border-zinc-800/50">
+            <p className="text-sm font-bold text-gray-900 dark:text-white mb-2">My Shift Timing</p>
+            <Select
+              value={profile.preferredTiming || undefined}
+              placeholder="Select a shift timing"
+              onChange={(val) => handleUpdateTiming(val)}
+              disabled={savingTiming}
+              placement="bottomRight"
+              className="w-full sm:w-[220px]"
+              size="large"
+            >
+              {shiftOptions.map((opt) => (
+                <Select.Option key={opt} value={opt}>
+                  {opt}
+                </Select.Option>
+              ))}
+            </Select>
+          </div>
         )}
       </div>
 
@@ -180,6 +224,8 @@ export default function ProfilePage() {
                 <p className="text-gray-900 dark:text-gray-100 font-medium">{profile.employeeId}</p>
               </div>
             </div>
+
+
 
             {/* <button className="w-full mt-8 py-3 px-4 rounded-xl border border-gray-200 dark:border-zinc-700 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
               Request Info Update

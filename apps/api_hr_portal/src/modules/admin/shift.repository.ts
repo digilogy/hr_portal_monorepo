@@ -13,6 +13,11 @@ export class ShiftRepository {
     return shiftOrm.save(shift);
   }
 
+  async updateShift(shift: Shift, data: Partial<Shift>): Promise<Shift> {
+    Object.assign(shift, data);
+    return shiftOrm.save(shift);
+  }
+
   async upsertAssignment(data: {
     employeeId: string;
     policy?: string;
@@ -21,8 +26,8 @@ export class ShiftRepository {
   }): Promise<EmployeeShiftAssignment> {
     let assignment = await assignmentOrm.findOneBy({ employeeId: data.employeeId });
     if (assignment) {
-      assignment.policy = data.policy;
-      assignment.weeklyOff = data.weeklyOff;
+      assignment.policy = (data.policy || null) as any;
+      assignment.weeklyOff = (data.weeklyOff || null) as any;
       assignment.shiftId = data.shiftId;
     } else {
       assignment = assignmentOrm.create({ ...data });
