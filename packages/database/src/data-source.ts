@@ -41,23 +41,36 @@ export async function initializeDatabase(): Promise<DataSource> {
       CREATE TABLE IF NOT EXISTS "shifts" (
         "id" SERIAL PRIMARY KEY,
         "name" VARCHAR NOT NULL UNIQUE,
-        "startTime" VARCHAR NOT NULL,
-        "endTime" VARCHAR NOT NULL,
+        "allowedTimings" VARCHAR,
+        "workingDays" VARCHAR,
+        "offDays" VARCHAR,
+        "halfDay" VARCHAR,
         "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
       );
+      
+      -- Alter table in case it already exists with old schema
+      ALTER TABLE "shifts" ADD COLUMN IF NOT EXISTS "allowedTimings" VARCHAR;
+      ALTER TABLE "shifts" ADD COLUMN IF NOT EXISTS "workingDays" VARCHAR;
+      ALTER TABLE "shifts" ADD COLUMN IF NOT EXISTS "offDays" VARCHAR;
+      ALTER TABLE "shifts" ADD COLUMN IF NOT EXISTS "halfDay" VARCHAR;
+      ALTER TABLE "shifts" DROP COLUMN IF EXISTS "startTime";
+      ALTER TABLE "shifts" DROP COLUMN IF EXISTS "endTime";
 
       CREATE TABLE IF NOT EXISTS "employee_shift_assignments" (
         "id" SERIAL PRIMARY KEY,
         "employeeId" VARCHAR NOT NULL,
         "policy" VARCHAR,
         "weeklyOff" VARCHAR,
+        "preferredTiming" VARCHAR,
         "shiftId" INTEGER NOT NULL,
         "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "fk_shift_assignment" FOREIGN KEY ("shiftId") REFERENCES "shifts" ("id") ON DELETE NO ACTION
       );
       
+      ALTER TABLE "employee_shift_assignments" ADD COLUMN IF NOT EXISTS "preferredTiming" VARCHAR;
+
       CREATE INDEX IF NOT EXISTS "idx_emp_shift_employee_id" ON "employee_shift_assignments" ("employeeId");
     `);
   } catch (err) {

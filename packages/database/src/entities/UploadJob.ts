@@ -18,6 +18,7 @@ export enum UploadJobStatus {
 export enum UploadJobType {
   EMPLOYEE = "employee",
   SHIFT = "shift",
+  MASTER = "master",
 }
 
 @Entity("upload_job")

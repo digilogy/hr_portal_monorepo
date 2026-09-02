@@ -25,6 +25,9 @@ export class EmployeeShiftAssignment {
   @Column({ nullable: true })
   weeklyOff?: string;
 
+  @Column({ nullable: true })
+  preferredTiming?: string;
+
   @Column()
   shiftId!: number;
 

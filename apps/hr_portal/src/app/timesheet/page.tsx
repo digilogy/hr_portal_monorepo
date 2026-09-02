@@ -11,7 +11,7 @@ import {
   RightOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import { message, DatePicker, Button, Spin } from "antd";
+import { message, DatePicker, Button, Spin, Select, Modal } from "antd";
 import { apiFetch } from "@/lib/api";
 import { getTokenRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
@@ -59,9 +59,11 @@ function generateSlotKey(timeSlot: string): string {
 }
 
 function normalizeDaySlots(
-  rawSlots?: Array<{ timeSlot: string; task?: string; title?: string }>,
+  rawSlots: Array<{ timeSlot: string; task?: string; title?: string }> | undefined,
+  dynamicDefaultSlots: Array<{ key: string; timeSlot: string; title: string; task: string }>
 ): TimeSlotData[] {
-  const defaultSlots = DEFAULT_TIME_SLOTS.map((s) => ({ ...s, key: generateSlotKey(s.timeSlot) }));
+  const safeSlots = dynamicDefaultSlots || DEFAULT_TIME_SLOTS || [];
+  const defaultSlots = safeSlots.map((s) => ({ ...s, key: generateSlotKey(s.timeSlot) }));
   if (!rawSlots || rawSlots.length === 0) return defaultSlots;
 
   const taskMap = new Map<string, string>();
@@ -89,17 +91,43 @@ function normalizeDaySlots(
     };
   });
 
-  // Append any remaining legacy slots that aren't in the default list so data is never lost
-  for (const [timeSlot, task] of taskMap.entries()) {
-    mergedSlots.push({
+  return mergedSlots;
+}
+
+function generateDynamicSlots(timing: string): Array<{ key: string; timeSlot: string; title: string; task: string }> {
+  if (!timing) return DEFAULT_TIME_SLOTS;
+  const parts = timing.split("-").map(p => p.trim());
+  if (parts.length !== 2) return DEFAULT_TIME_SLOTS;
+
+  const parseTime = (t: string) => {
+    const [h, m] = t.split(":");
+    return parseInt(h) + (parseInt(m) || 0) / 60;
+  };
+
+  const start = parseTime(parts[0]);
+  let end = parseTime(parts[1]);
+  if (Number.isNaN(start) || Number.isNaN(end)) return DEFAULT_TIME_SLOTS;
+  if (end <= start) end += 24;
+
+  const formatTime = (h: number) => {
+    const hr = Math.floor(h) % 24;
+    const min = Math.round((h - Math.floor(h)) * 60);
+    return `${hr.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+  };
+
+  const slots = [];
+  for (let current = start; current < end; current += 1) {
+    const slotEnd = Math.min(current + 1, end);
+    const timeSlot = `${formatTime(current)} - ${formatTime(slotEnd)}`;
+    slots.push({
       key: generateSlotKey(timeSlot),
-      timeSlot: timeSlot,
+      timeSlot,
       title: "",
-      task: task,
+      task: ""
     });
   }
 
-  return mergedSlots;
+  return slots.length > 0 ? slots : DEFAULT_TIME_SLOTS;
 }
 
 function getDurationBadgeLabel(timeSlot: string): string {
@@ -129,18 +157,69 @@ export default function TimesheetPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [shiftOptions, setShiftOptions] = useState<string[]>([]);
+  const [selectedTiming, setSelectedTiming] = useState<string>("");
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [showShiftModal, setShowShiftModal] = useState(false);
+  const [savingTiming, setSavingTiming] = useState(false);
+  const [hasEditedSinceLastManualSave, setHasEditedSinceLastManualSave] = useState(false);
+
   const dateKey = selectedDate.format("YYYY-MM-DD");
   const isReadOnly =
     !selectedDate.isSame(dayjs(), "day") &&
     !selectedDate.isSame(dayjs().subtract(1, "day"), "day");
 
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const data = await apiFetch<{ profile: any }>("/api/profile/me");
+        const timings = data.profile?.allowedTimings;
+        const pref = data.profile?.preferredTiming;
+        if (timings) {
+          const opts = timings.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean);
+          setShiftOptions(opts);
+          if (opts.length > 1) {
+            if (pref && opts.includes(pref)) {
+              setSelectedTiming(pref);
+            } else {
+              setShowShiftModal(true);
+              setSelectedTiming(opts[0]);
+            }
+          } else if (opts.length === 1) {
+            setSelectedTiming(opts[0]);
+          }
+        }
+      } catch (err) {
+        // ignore
+      } finally {
+        setProfileLoaded(true);
+      }
+    };
+    void loadProfile();
+  }, []);
+
+  const handleConfirmShift = async () => {
+    try {
+      await apiFetch("/api/profile/me/preferred-timing", {
+        method: "PUT",
+        body: JSON.stringify({ preferredTiming: selectedTiming }),
+      });
+      setShowShiftModal(false);
+    } catch (err) {
+      messageApi.error("Failed to save shift preference");
+    }
+  };
+
   const fetchTimesheet = useCallback(async () => {
+    if (!profileLoaded) return;
     setLoading(true);
     try {
       const record = await apiFetch<TimesheetRecord | null>(
         `/api/timesheets/day/${dateKey}`,
       );
-      const normalized = normalizeDaySlots(record?.slots);
+
+      const defaultSlots = generateDynamicSlots(selectedTiming);
+      const normalized = normalizeDaySlots(record?.slots, defaultSlots);
       setSlots(normalized);
       setInitialSnapshot(
         JSON.stringify(
@@ -150,7 +229,8 @@ export default function TimesheetPage() {
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Failed to load timesheet";
       messageApi.error(errMsg);
-      const fallback = normalizeDaySlots([]);
+      const defaultSlots = generateDynamicSlots(selectedTiming);
+      const fallback = normalizeDaySlots([], defaultSlots);
       setSlots(fallback);
       setInitialSnapshot(
         JSON.stringify(
@@ -160,7 +240,7 @@ export default function TimesheetPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateKey, messageApi]);
+  }, [dateKey, messageApi, profileLoaded, selectedTiming]);
 
   useEffect(() => {
     void fetchTimesheet();
@@ -168,29 +248,37 @@ export default function TimesheetPage() {
 
   const handleTaskChange = (key: string, value: string) => {
     if (isReadOnly) return;
+    setHasEditedSinceLastManualSave(true);
     setSlots((prev) =>
       prev.map((s) => (s.key === key ? { ...s, task: value } : s)),
     );
   };
 
-  const handleSave = async () => {
+  const performSave = async (slotsToSave: TimeSlotData[], isAutoSave: boolean = false) => {
     if (isReadOnly) {
-      messageApi.warning("You can only edit tasks for today and yesterday.");
+      if (!isAutoSave) messageApi.warning("You can only edit tasks for today and yesterday.");
       return;
     }
 
     const currentSnapshot = JSON.stringify(
-      slots.map((s) => ({ timeSlot: s.timeSlot, task: s.task.trim() })),
+      slotsToSave.map((s) => ({ timeSlot: s.timeSlot, task: s.task.trim() })),
     );
 
     if (currentSnapshot === initialSnapshot) {
-      messageApi.warning("⚠️ No changes to save");
+      if (!isAutoSave) {
+        if (hasEditedSinceLastManualSave) {
+          messageApi.success("Timesheet saved successfully.");
+          setHasEditedSinceLastManualSave(false);
+        } else {
+          messageApi.warning("⚠️ No changes to save");
+        }
+      }
       return;
     }
 
     setSaving(true);
     try {
-      const payloadSlots = slots
+      const payloadSlots = slotsToSave
         .filter((s) => s.task.trim().length > 0)
         .map((s) => ({
           key: s.key,
@@ -207,15 +295,36 @@ export default function TimesheetPage() {
         }),
       });
 
-      messageApi.success("Timesheet saved successfully.");
+      if (!isAutoSave) {
+        messageApi.success("Timesheet saved successfully.");
+        setHasEditedSinceLastManualSave(false);
+      }
       setInitialSnapshot(currentSnapshot);
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Failed to save timesheet";
-      messageApi.error(errMsg);
+      if (!isAutoSave) messageApi.error(errMsg);
     } finally {
       setSaving(false);
     }
   };
+
+  const handleSave = () => performSave(slots, false);
+
+  useEffect(() => {
+    if (loading || isReadOnly || saving) return;
+
+    const currentSnapshot = JSON.stringify(
+      slots.map((s) => ({ timeSlot: s.timeSlot, task: s.task.trim() })),
+    );
+
+    if (currentSnapshot === initialSnapshot) return;
+
+    const timer = setTimeout(() => {
+      void performSave(slots, true);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [slots, loading, isReadOnly, saving, initialSnapshot, dateKey]);
 
   const filledHours = useMemo(() => {
     let total = 0;
@@ -234,6 +343,32 @@ export default function TimesheetPage() {
   return (
     <div className="max-w-6xl mx-auto pb-24 pt-6 px-4 sm:px-6 font-sans">
       {contextHolder}
+
+      <Modal
+        title={<span className="font-bold">Select Your Shift Timing</span>}
+        open={showShiftModal}
+        closable={false}
+        mask={{ closable: false }}
+        footer={[
+          <Button key="submit" type="primary" onClick={handleConfirmShift} className="bg-amber-500 hover:bg-amber-600 rounded-xl font-semibold border-none">
+            Confirm Selection
+          </Button>
+        ]}
+      >
+        <p className="mb-4 text-gray-600 mt-2">
+          Your assigned shift has multiple timing options. Please select your preferred daily schedule. You can always change this later in your Profile settings.
+        </p>
+        <Select
+          value={selectedTiming}
+          onChange={setSelectedTiming}
+          className="w-full h-10"
+          options={shiftOptions.map(opt => ({ label: opt, value: opt }))}
+        />
+      </Modal>
+
+      <div style={{ display: 'none' }} id="debug-info">
+        {JSON.stringify({ shiftOptions, selectedTiming, profileLoaded })}
+      </div>
 
       {/* Target Progress Header Card */}
       <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -302,7 +437,7 @@ export default function TimesheetPage() {
       {/* Daily Timesheet Main Card */}
       <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
         {/* Header Bar */}
-        <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex flex-col gap-4">
+        <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Title & subtitle */}
           <div>
             <div className="flex items-center gap-2">
@@ -322,12 +457,12 @@ export default function TimesheetPage() {
           {/* Desktop: single row with everything right-aligned */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
             {/* Date navigator — full width on mobile */}
-            <div className="flex items-center rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 w-full sm:w-auto">
+            <div className="flex items-center rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 w-full sm:w-auto h-8">
               <Button
                 type="text"
                 size="small"
                 icon={<LeftOutlined />}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-full px-3 rounded-l-xl"
                 onClick={() => setSelectedDate((prev) => prev.subtract(1, "day"))}
               />
               <div className="flex-1 flex justify-center">
@@ -346,7 +481,7 @@ export default function TimesheetPage() {
                 type="text"
                 size="small"
                 icon={<RightOutlined />}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-full px-3 rounded-r-xl"
                 disabled={selectedDate.isSame(dayjs(), "day")}
                 onClick={() => setSelectedDate((prev) => prev.add(1, "day"))}
               />
@@ -354,8 +489,8 @@ export default function TimesheetPage() {
 
             {!selectedDate.isSame(dayjs(), "day") && (
               <Button
-                size="middle"
-                className="rounded-xl font-medium sm:w-auto"
+                size="small"
+                className="rounded-xl font-medium sm:w-auto h-8"
                 onClick={() => setSelectedDate(dayjs())}
               >
                 Today
@@ -365,11 +500,11 @@ export default function TimesheetPage() {
             {/* Save button — full width on mobile */}
             <Button
               type="primary"
-              size="large"
+              size="middle"
               icon={saving ? <SyncOutlined spin /> : <SaveOutlined />}
               onClick={handleSave}
               disabled={isReadOnly || saving}
-              className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white font-semibold shadow-md flex items-center justify-center gap-2 h-12 w-full sm:w-auto sm:h-10 sm:px-6"
+              className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2 h-10 w-full sm:w-auto sm:h-8 sm:px-4"
             >
               Save Timesheet
             </Button>

@@ -5,7 +5,10 @@ const uploadLogOrm = AppDataSource.getRepository(UploadLog);
 
 export class EmployeeDataRepository {
   async findByEmployeeId(employeeId: string): Promise<EmployeeData | null> {
-    return employeeDataOrm.findOneBy({ employeeId });
+    return employeeDataOrm
+      .createQueryBuilder("employee")
+      .where("LOWER(employee.employeeId) = LOWER(:employeeId)", { employeeId })
+      .getOne();
   }
 
   async findByEmailCaseInsensitive(email: string): Promise<EmployeeData | null> {
@@ -41,6 +44,15 @@ export class EmployeeDataRepository {
         payload,
       }),
     );
+  }
+
+  async deleteUnprocessed(processedIds: number[]): Promise<{ affected?: number | null }> {
+    return employeeDataOrm
+      .createQueryBuilder()
+      .delete()
+      .from(EmployeeData)
+      .where("id NOT IN (:...processedIds)", { processedIds })
+      .execute();
   }
 }
 

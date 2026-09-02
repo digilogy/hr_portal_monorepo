@@ -5,6 +5,7 @@ import xlsx from "xlsx";
 import { EmployeeData, UploadJob } from "@hr-portal/database";
 import { logger } from "@hr-portal/logger";
 import { employeeDataRepository } from "./employeeData.repository";
+import { shiftRepository } from "./shift.repository";
 
 const LOG_CONTEXT = "BulkUpload";
 const PROGRESS_LOG_INTERVAL = 500;
@@ -27,6 +28,11 @@ const fieldAliases: Record<string, string> = {
   "employment status": "employmentStatus",
   "employee id": "employeeId",
   employeeid: "employeeId",
+  "emp id": "employeeId",
+  empid: "employeeId",
+  "emp code": "employeeId",
+  empcode: "employeeId",
+  "employee code": "employeeId",
   "full name": "fullName",
   "job title": "jobTitle",
   department: "department",
@@ -39,9 +45,18 @@ const fieldAliases: Record<string, string> = {
   "hod employee name": "hodEmployeeName",
   "official email id": "officialEmailId",
   "office mobile number": "officeMobileNumber",
+  "attendance shift": "attendanceShift",
 };
 
-const EMPLOYEE_ID_HEADERS = new Set(["employee id", "employeeid"]);
+const EMPLOYEE_ID_HEADERS = new Set([
+  "employee id",
+  "employeeid",
+  "emp id",
+  "empid",
+  "emp code",
+  "empcode",
+  "employee code",
+]);
 
 function mapRow(row: Record<string, unknown>): Record<string, string> {
   const mappedValues: Record<string, string> = {};
@@ -69,6 +84,7 @@ function buildEmployeeRecord(mappedValues: Record<string, string>) {
     hodEmployeeName: mappedValues["hodEmployeeName"] || "",
     officialEmailId: mappedValues["officialEmailId"] || "",
     officeMobileNumber: mappedValues["officeMobileNumber"] || "",
+    attendanceShift: mappedValues["attendanceShift"] || "",
   };
 }
 
@@ -99,6 +115,7 @@ export class EmployeeDataService {
   static async processBulkUpload(
     filePath: string,
     job: UploadJob,
+    options: { deleteFile?: boolean } = { deleteFile: true }
   ): Promise<{
     totalRows: number;
     successCount: number;
@@ -130,6 +147,7 @@ export class EmployeeDataService {
     let failureCount = 0;
     let totalRows = 0;
     let skippedEmptyRows = 0;
+    const processedIds: number[] = [];
 
     for (const [index, row] of rows.entries()) {
       const mappedValues = mapRow(row);
@@ -179,6 +197,7 @@ export class EmployeeDataService {
           Object.assign(existing, mappedRow);
           await employeeDataRepository.save(existing);
           updatedCount++;
+          processedIds.push(existing.id);
           const message = "Updated existing record";
           await writeUploadLog(
             job,
@@ -189,9 +208,10 @@ export class EmployeeDataService {
             mappedRow,
           );
         } else {
-          const newEmployeeData = employeeDataRepository.create(mappedRow);
-          await employeeDataRepository.save(newEmployeeData);
+          let newEmployeeData = employeeDataRepository.create(mappedRow);
+          newEmployeeData = await employeeDataRepository.save(newEmployeeData);
           addedCount++;
+          processedIds.push(newEmployeeData.id);
           await writeUploadLog(
             job,
             rowNumber,
@@ -200,6 +220,20 @@ export class EmployeeDataService {
             "Imported successfully",
             mappedRow,
           );
+        }
+
+        const attendanceShift = mappedRow.attendanceShift;
+        if (attendanceShift) {
+          const shift = await shiftRepository.findShiftByName(attendanceShift);
+          if (shift) {
+            const finalEmployeeId = employeeId || existing?.employeeId;
+            if (finalEmployeeId) {
+              await shiftRepository.upsertAssignment({
+                employeeId: finalEmployeeId,
+                shiftId: shift.id,
+              });
+            }
+          }
         }
 
         if (totalRows % PROGRESS_LOG_INTERVAL === 0) {
@@ -233,7 +267,19 @@ export class EmployeeDataService {
       }
     }
 
-    if (isUploadTempFile(filePath)) {
+    if (processedIds.length > 0) {
+      try {
+        const deleteResult = await employeeDataRepository.deleteUnprocessed(processedIds);
+        logger.info(LOG_CONTEXT, "Removed old employee data not present in this upload", {
+          deletedCount: deleteResult.affected,
+          keptCount: processedIds.length
+        });
+      } catch (error) {
+        logger.error(LOG_CONTEXT, "Failed to remove old employee data", { error });
+      }
+    }
+
+    if (options.deleteFile !== false && isUploadTempFile(filePath)) {
       try {
         fs.unlinkSync(filePath);
         logger.info(LOG_CONTEXT, "Temporary upload file deleted", {

@@ -30,9 +30,22 @@ async function processNextJob(): Promise<void> {
     await uploadQueueRepository.save(job);
 
     try {
-      const result = job.type === "shift"
-        ? await ShiftUploadService.processBulkUpload(job.filePath ?? "", job)
-        : await EmployeeDataService.processBulkUpload(job.filePath ?? "", job);
+      let result;
+      if (job.type === "master") {
+        const shiftResult = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
+        const employeeResult = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+        result = {
+          totalRows: employeeResult.totalRows,
+          successCount: employeeResult.successCount,
+          failureCount: employeeResult.failureCount + shiftResult.failureCount,
+          addedCount: employeeResult.addedCount,
+          updatedCount: employeeResult.updatedCount,
+        };
+      } else if (job.type === "shift") {
+        result = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+      } else {
+        result = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+      }
 
       job.totalRows = result.totalRows;
       job.successCount = result.successCount;
@@ -68,7 +81,7 @@ async function processNextJob(): Promise<void> {
 }
 
 export class UploadQueueService {
-  static async enqueueUpload(filePath: string, jobType: "employee" | "shift" = "employee"): Promise<string> {
+  static async enqueueUpload(filePath: string, jobType: "employee" | "shift" | "master" = "employee"): Promise<string> {
     const job = uploadQueueRepository.create({
       fileName: path.basename(filePath),
       filePath,

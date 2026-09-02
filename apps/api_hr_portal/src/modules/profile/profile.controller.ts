@@ -25,4 +25,21 @@ export class ProfileController {
       res.status(500).json({ message });
     }
   }
+
+  static async updatePreferredTiming(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const email = req.user?.email;
+      const { preferredTiming } = req.body;
+      if (!email) {
+        res.status(401).json({ message: "Unauthorized" });
+        return;
+      }
+
+      await ProfileService.updatePreferredTiming(email, preferredTiming);
+      res.status(200).json({ message: "Updated successfully" });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
 }

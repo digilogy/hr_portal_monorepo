@@ -19,6 +19,11 @@ router.post(
   uploadFile.single("file"),
   AdminController.bulkUploadShifts,
 );
+router.post(
+  "/bulk-upload-master",
+  uploadFile.single("file"),
+  AdminController.bulkUploadMaster,
+);
 router.get("/bulk-upload/status/:jobId", AdminController.getUploadStatus);
 router.get("/email-logs", AdminController.listEmailLogs);
 router.get("/email-logs/:emailLogId", AdminController.getEmailLog);
