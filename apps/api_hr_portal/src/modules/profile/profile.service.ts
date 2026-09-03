@@ -20,6 +20,7 @@ export interface EmployeeProfile {
   shiftName?: string;
   allowedTimings?: string;
   preferredTiming?: string;
+  halfDay?: string;
 }
 
 function formatValue(value?: string | null): string {
@@ -63,6 +64,7 @@ export class ProfileService {
     let shiftName: string | undefined = undefined;
     let allowedTimings: string | undefined = undefined;
     let preferredTiming: string | undefined = undefined;
+    let halfDay: string | undefined = undefined;
 
     if (employee.employeeId) {
       const assignment = await AppDataSource.getRepository(EmployeeShiftAssignment).findOne({
@@ -76,6 +78,11 @@ export class ProfileService {
         if (assignment.shift) {
           shiftName = assignment.shift.name;
           allowedTimings = assignment.shift.allowedTimings || undefined;
+          halfDay = assignment.shift.halfDay || undefined;
+          
+          if (!weeklyOff && assignment.shift.offDays) {
+            weeklyOff = assignment.shift.offDays;
+          }
         }
       }
     }
@@ -98,6 +105,7 @@ export class ProfileService {
       shiftName,
       allowedTimings,
       preferredTiming,
+      halfDay,
     };
   }
 
@@ -107,9 +115,19 @@ export class ProfileService {
       throw new Error("Employee not found");
     }
 
-    const assignment = await AppDataSource.getRepository(EmployeeShiftAssignment).findOneBy({ employeeId: employee.employeeId });
+    const assignment = await AppDataSource.getRepository(EmployeeShiftAssignment).findOne({
+      where: { employeeId: employee.employeeId },
+      relations: ["shift"]
+    });
     if (!assignment) {
       throw new Error("No shift assignment found");
+    }
+
+    if (assignment.shift && assignment.shift.allowedTimings) {
+      const opts = assignment.shift.allowedTimings.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean);
+      if (!opts.includes(preferredTiming)) {
+        throw new Error("Invalid preferred timing. Not in allowed timings.");
+      }
     }
 
     assignment.preferredTiming = preferredTiming;

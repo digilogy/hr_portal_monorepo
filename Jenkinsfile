@@ -31,6 +31,7 @@ pipeline {
         FRONTEND_BUCKET          = 'hr-portal-prod-frontend-CHANGE-ME'
         FRONTEND_DISTRIBUTION_ID = 'CHANGE-ME'
         IMAGE_TAG   = "${env.BUILD_NUMBER}-${env.GIT_COMMIT?.take(7) ?: 'manual'}"
+        PATH        = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     }
 
     stages {
