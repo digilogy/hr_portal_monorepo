@@ -65,6 +65,13 @@ export class TimesheetService {
     const user = await timesheetRepository.findUserById(userId);
     if (!user) throw new Error("User not found");
 
+    const inputDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day
+    if (inputDate > today) {
+      throw new Error("Cannot save timesheets for future dates");
+    }
+
     validateTimesheetSlots(slots);
 
     const totalHours = calculateTotalHours(slots);

@@ -159,6 +159,7 @@ export default function TimesheetPage() {
 
   const [shiftOptions, setShiftOptions] = useState<string[]>([]);
   const [selectedTiming, setSelectedTiming] = useState<string>("");
+  const [profile, setProfile] = useState<any>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [savingTiming, setSavingTiming] = useState(false);
@@ -189,6 +190,7 @@ export default function TimesheetPage() {
             setSelectedTiming(opts[0]);
           }
         }
+        setProfile(data.profile);
       } catch (err) {
         // ignore
       } finally {
@@ -336,7 +338,52 @@ export default function TimesheetPage() {
     return parseFloat(total.toFixed(1));
   }, [slots]);
 
-  const targetHours = 8.5;
+  const targetHours = useMemo(() => {
+    if (!profile) return 8.5;
+    
+    const dayOfWeek = selectedDate.day();
+    
+    // Check if it's a half-day
+    if (profile.halfDay) {
+      const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
+      if (match) {
+        const dayStr = match[1].toLowerCase();
+        const start = match[2].trim();
+        const end = match[3].trim();
+        const daysMap: Record<string, number> = {
+          sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+          wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+        };
+        if (daysMap[dayStr] === dayOfWeek) {
+          const parseTime = (t: string) => {
+            const [h, m] = t.split(":").map(Number);
+            return (h || 0) + (m || 0) / 60;
+          };
+          const h1 = parseTime(start);
+          const h2 = parseTime(end);
+          return h2 > h1 ? h2 - h1 : 4.5;
+        }
+      }
+    }
+    
+    // Otherwise standard timing
+    const timingToParse = selectedTiming || profile.allowedTimings?.split(',')[0];
+    if (timingToParse) {
+      const [start, end] = timingToParse.split("-").map((s: string) => s.trim());
+      if (start && end) {
+        const parseTime = (t: string) => {
+          const [h, m] = t.split(":").map(Number);
+          return (h || 0) + (m || 0) / 60;
+        };
+        const h1 = parseTime(start);
+        const h2 = parseTime(end);
+        if (h2 > h1) return h2 - h1;
+      }
+    }
+    
+    return 8.5;
+  }, [profile, selectedDate, selectedTiming]);
+
   const progressPercent = Math.min(100, Math.round((filledHours / targetHours) * 100));
   const isTargetAchieved = filledHours >= targetHours;
 

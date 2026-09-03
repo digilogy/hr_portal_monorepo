@@ -21,6 +21,7 @@ interface EmployeeProfile {
   employmentStatus: string;
   subDepartment: string;
   role: UserRole;
+  shiftName?: string;
   allowedTimings?: string;
   preferredTiming?: string;
 }
@@ -194,7 +195,7 @@ export default function ProfilePage() {
           <div className="bg-white dark:bg-black rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 p-8 h-full">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Account Status</h2>
 
-            <div
+            {/* <div
               className={`border rounded-2xl p-4 mb-6 ${isActive
                   ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
                   : "bg-gray-50 dark:bg-zinc-900/10 border-gray-200 dark:border-zinc-700"
@@ -210,11 +211,15 @@ export default function ProfilePage() {
                   {profile.employmentStatus}
                 </span>
               </div>
-            </div>
+            </div> */}
 
             <Divider className="my-6" />
 
             <div className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-500 mb-1">Shift</p>
+                <p className="text-gray-900 dark:text-gray-100 font-medium">{profile.shiftName || "—"}</p>
+              </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500 mb-1">Job Title</p>
                 <p className="text-gray-900 dark:text-gray-100 font-medium">{profile.jobTitle}</p>

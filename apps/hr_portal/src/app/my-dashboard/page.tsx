@@ -90,6 +90,10 @@ interface EmployeeProfile {
   alsoManager?: boolean;
   weeklyOff?: string;
   policy?: string;
+  shiftName?: string;
+  allowedTimings?: string;
+  preferredTiming?: string;
+  halfDay?: string;
 }
 
 interface TimesheetRecord {
@@ -178,22 +182,95 @@ interface TeamResponse {
   };
 }
 
-function getWorkdays(from: dayjs.Dayjs, to: dayjs.Dayjs, weeklyOffRule?: string): string[] {
-  const dates: string[] = [];
+function parseTimeRangeHours(timeRangeStr?: string): number {
+  if (!timeRangeStr) return 8.5; // fallback
+
+  const parseTime = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return (h || 0) + (m || 0) / 60;
+  };
+
+  const ranges = timeRangeStr.split(',');
+  const possibleHours = ranges.map(range => {
+    const [start, end] = range.split("-").map((s) => s.trim());
+    if (!start || !end) return 8.5;
+    const h1 = parseTime(start);
+    const h2 = parseTime(end);
+    return h2 > h1 ? h2 - h1 : 8.5;
+  });
+
+  // If there are multiple allowed timings and one evaluates to 8.5 (standard), default to it
+  if (possibleHours.includes(8.5)) {
+    return 8.5;
+  }
+
+  return possibleHours[0];
+}
+
+function parseHalfDayInfo(halfDayStr?: string): { day: number; hours: number } | null {
+  if (!halfDayStr) return null;
+  const match = halfDayStr.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
+  if (!match) return null;
+
+  const dayStr = match[1].toLowerCase();
+  const start = match[2].trim();
+  const end = match[3].trim();
+
+  const daysMap: Record<string, number> = {
+    sun: 0, sunday: 0,
+    mon: 1, monday: 1,
+    tue: 2, tuesday: 2,
+    wed: 3, wednesday: 3,
+    thu: 4, thursday: 4,
+    fri: 5, friday: 5,
+    sat: 6, saturday: 6,
+  };
+
+  const day = daysMap[dayStr];
+  if (day === undefined) return null;
+
+  const parseTime = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    return (h || 0) + (m || 0) / 60;
+  };
+  const h1 = parseTime(start);
+  const h2 = parseTime(end);
+  const hours = h2 > h1 ? h2 - h1 : 4.5;
+
+  return { day, hours };
+}
+
+export interface WorkdayTarget {
+  date: string;
+  targetHours: number;
+}
+
+function getWorkdays(
+  from: dayjs.Dayjs, 
+  to: dayjs.Dayjs, 
+  weeklyOffRule?: string,
+  normalHours: number = 8.5,
+  halfDayInfo: { day: number; hours: number } | null = null
+): WorkdayTarget[] {
+  const dates: WorkdayTarget[] = [];
   let current = from.startOf("day");
   const end = to.startOf("day");
   
   const rule = (weeklyOffRule || "").toLowerCase();
 
-  const isDayOff = (dayName: string) => rule.includes(dayName);
-  const excludeSunday = isDayOff("sunday") || !rule; // Default to Sunday if empty
-  const excludeMonday = isDayOff("monday");
-  const excludeTuesday = isDayOff("tuesday");
-  const excludeWednesday = isDayOff("wednesday");
-  const excludeThursday = isDayOff("thursday");
-  const excludeFriday = isDayOff("friday");
-  const excludeSaturday = isDayOff("saturday") && !rule.includes("2nd saturday"); 
-  const excludeSecondSaturday = rule.includes("2nd saturday");
+  const isDayOff = (dayName: string, shortName: string) => {
+    const regex = new RegExp(`\\b(${dayName}|${shortName})\\b`, 'i');
+    return regex.test(rule);
+  };
+  
+  const excludeSunday = isDayOff("sunday", "sun") || !rule; // Default to Sunday if empty
+  const excludeMonday = isDayOff("monday", "mon");
+  const excludeTuesday = isDayOff("tuesday", "tue");
+  const excludeWednesday = isDayOff("wednesday", "wed");
+  const excludeThursday = isDayOff("thursday", "thu");
+  const excludeFriday = isDayOff("friday", "fri");
+  const excludeSaturday = isDayOff("saturday", "sat") && !rule.includes("2nd sat"); 
+  const excludeSecondSaturday = rule.includes("2nd sat");
 
   while (current.isBefore(end) || current.isSame(end, "day")) {
     const dayOfWeek = current.day(); // 0 = Sunday, 6 = Saturday
@@ -215,7 +292,11 @@ function getWorkdays(from: dayjs.Dayjs, to: dayjs.Dayjs, weeklyOffRule?: string)
     }
 
     if (isWorkday) {
-      dates.push(current.format("YYYY-MM-DD"));
+      let hours = normalHours;
+      if (halfDayInfo && dayOfWeek === halfDayInfo.day) {
+        hours = halfDayInfo.hours;
+      }
+      dates.push({ date: current.format("YYYY-MM-DD"), targetHours: hours });
     }
     current = current.add(1, "day");
   }
@@ -306,21 +387,35 @@ export default function MyDashboardPage() {
     const totalHours = periodEntries.reduce((sum, e) => sum + (e.totalHours || 0), 0);
     
     const weeklyOff = profile?.weeklyOff;
+    // Validate preferredTiming against allowedTimings to ignore stale database values
+    let validTiming = profile?.allowedTimings;
+    if (profile?.preferredTiming && profile?.allowedTimings) {
+      const opts = profile.allowedTimings.split(/[\n,]+/).map((s: string) => s.trim());
+      if (opts.includes(profile.preferredTiming)) {
+        validTiming = profile.preferredTiming;
+      }
+    }
+    const normalHours = parseTimeRangeHours(validTiming);
+    const halfDayInfo = parseHalfDayInfo(profile?.halfDay);
     
-    const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff);
-    const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff);
+    const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff, normalHours, halfDayInfo);
+    const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff, normalHours, halfDayInfo);
     
     const workingDays = workingDaysArray.length;
     const elapsedWorkdays = elapsedWorkdaysArray.length;
     
-    const targetTotal = workingDays * 8.5;
+    const targetTotal = workingDaysArray.reduce((sum, d) => sum + d.targetHours, 0);
+    const elapsedTargetTotal = elapsedWorkdaysArray.reduce((sum, d) => sum + d.targetHours, 0);
+    
     const avgDaily = elapsedWorkdays > 0 ? totalHours / elapsedWorkdays : 0;
+    const avgTargetDaily = elapsedWorkdays > 0 ? elapsedTargetTotal / elapsedWorkdays : normalHours;
+    
     const loggedDates = new Set(periodEntries.filter((e) => e.totalHours > 0).map((e) => e.date));
-    const weekdayDates = elapsedWorkdaysArray;
+    const weekdayDates = elapsedWorkdaysArray.map(d => d.date);
     const pendingCount = weekdayDates.filter((d) => !loggedDates.has(d)).length;
     const submittedWorkdays = loggedDates.size;
     const totalPercent = targetTotal > 0 ? (totalHours / targetTotal) * 100 : 0;
-    const avgPercent = (avgDaily / 8.5) * 100;
+    const avgPercent = avgTargetDaily > 0 ? (avgDaily / avgTargetDaily) * 100 : 0;
     const submissionPercent = elapsedWorkdays > 0 ? (submittedWorkdays / elapsedWorkdays) * 100 : 0;
     const pendingPercent = weekdayDates.length > 0
       ? ((weekdayDates.length - pendingCount) / weekdayDates.length) * 100
@@ -330,6 +425,7 @@ export default function MyDashboardPage() {
       targetTotal,
       totalPercent,
       avgDaily: parseFloat(avgDaily.toFixed(2)),
+      avgTargetDaily: parseFloat(avgTargetDaily.toFixed(2)),
       avgPercent,
       submittedWorkdays,
       elapsedWorkdays,
@@ -337,8 +433,9 @@ export default function MyDashboardPage() {
       pendingCount,
       pendingPercent,
       needsLog: pendingCount > 0,
+      normalHours,
     };
-  }, [periodEntries, periodFrom, periodTo, today]);
+  }, [periodEntries, periodFrom, periodTo, today, profile]);
 
   const recentActivity = useMemo(
     () => buildRecentWeekActivity(periodEntries, periodFrom, periodTo.isAfter(today) ? today : periodTo, 7),
@@ -546,7 +643,7 @@ export default function MyDashboardPage() {
                 valueLabel={fmtHours(stats.avgDaily)}
                 targetLabel="/ day"
                 percent={stats.avgPercent}
-                footerLeft="Target: 8hrs 30mins / day"
+                footerLeft={`Target: ${fmtHours(stats.normalHours)} / day`}
                 footerRight={`${Math.round(stats.avgPercent)}%`}
                 icon={<SyncOutlined />}
                 iconClassName="bg-cyan-50 text-cyan-500"
