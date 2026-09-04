@@ -1,0 +1,67 @@
+# HR Portal: Feature & Functionality Improvements
+
+Based on a comprehensive review of the current project architecture, database schema, and frontend capabilities, here is a detailed list of feature improvements and functional additions that would elevate this project into a robust, enterprise-grade HR & Timesheet platform.
+
+---
+
+### 1. Timesheet & Workflow Management
+* **Multi-Tier Approval Workflows**: Currently, timesheets track a basic `status`. Implementing a formal submission and approval pipeline allows Managers and HRBPs to systematically review, approve, or reject (with comments) an employee's timesheet.
+* **Leave & PTO Integration**: The system currently focuses on "hours logged." Integrating a robust Leave Management module would allow employees to log Paid Time Off (PTO), sick leave, and company holidays directly onto their timesheets.
+* **Overtime & Comp-Off Calculations**: Automate the calculation of overtime hours based on configured standard shift times, and introduce a system to bank "Compensatory Time Off" (Comp-Off) for weekend or holiday work.
+* **Automated Reminders**: Implement automated, scheduled email or push notifications (via a cron job) to remind employees who have not submitted their timesheets by Friday afternoon or month-end.
+
+### 2. Time Tracking & Billing
+* **Project & Client Billing Codes**: Expand the timesheet `slots` architecture to associate logged hours with specific internal projects, client names, or cost centers. This unlocks the ability to generate profitability and cost-analysis reports.
+* **Timer / Stopwatch Functionality**: Add a live "Start/Stop" timer in the UI (especially on mobile) so employees can track hours in real-time rather than manually entering them at the end of the day.
+
+### 3. Authentication & Enterprise Security
+* **Single Sign-On (SSO)**: The current 4-digit PIN and magic link flow is functional, but enterprise HR systems should integrate seamlessly with **Google Workspace, Microsoft Entra ID (Azure AD), or Okta** via SAML/OAuth2.
+* **Multi-Factor Authentication (MFA)**: If retaining the PIN system, enforce a secondary verification step (like an Authenticator App TOTP or SMS OTP) when logging in from a new IP address or unrecognized device.
+* **Active Session Management**: Provide users and admins a dashboard to view active login sessions across devices and remotely revoke them if a device is lost.
+
+### 4. Admin, Hierarchy & Compliance
+* **Comprehensive Audit Trail**: While the system logs email and upload events, it lacks a global audit log. Implementing a system-wide log (e.g., *"Admin X changed Employee Y's manager on [Date]"*) is strictly required for HR compliance (SOC2/GDPR).
+* **Delegation / Proxy Approvals**: Add a feature allowing Managers to temporarily delegate their timesheet approval permissions to a Team Lead or another Manager while they are on vacation.
+* **Dynamic RBAC (Role-Based Access Control)**: Move away from hardcoded roles (`ADMIN`, `HRBP`, etc.) to a dynamic permission matrix, allowing custom roles like "Payroll Auditor" who can view reports but cannot edit data.
+
+### 5. Analytics & Export Enhancements
+* **Customizable Manager Dashboards**: Allow managers to pin specific widgets to their dashboard (e.g., "Top 5 Overworked Employees", "Underutilized Departments", "Missing Timesheets").
+* **Payroll Integrations**: Beyond Excel/PDF exports, add native API integrations or specific CSV export formats designed to be ingested directly by standard payroll software (like ADP, Workday, or SAP).
+
+### 6. UI/UX & Quality of Life
+* **Drag-and-Drop Calendar Interface**: Upgrade the timesheet entry UI from standard forms to an interactive weekly/monthly calendar where users can drag to allocate hours.
+* **Offline PWA Support**: Configure the Next.js app as a Progressive Web App (PWA) with local caching so employees can log their hours while commuting on the subway without internet access, automatically syncing when they reconnect.
+* **Accessibility (a11y) & Localization**: Ensure all components are fully keyboard-navigable, screen-reader friendly, and implement an i18n framework to support multiple languages for global offices.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 7. Codebase-Specific Features (Verified Missing)
+* **Formal Timesheet Approval Workflow**: In `timesheet.service.ts`, timesheets are currently only marked as `"saved"`. There is no backend state for `"approved"` or `"rejected"`, nor is there a Manager UI in the `my-team` page to review and action them.
+* **"Copy from Previous Day" / Timesheet Templates**: The `timesheet/page.tsx` UI requires manual entry of each time slot every day. Adding a simple button to duplicate the previous day's slots would significantly improve user experience.
+* **Leave & PTO Tracking Table**: The Postgres database currently only tracks `Timesheet`, `Shift`, and `User`. Adding a `LeaveRequest` table to integrate PTO directly into the dashboard math would prevent approved holidays from looking like missed target hours.
+* **Admin Impersonation Endpoint**: Since the authentication uses standard JWTs mapped to `req.user.id`, adding a specific admin endpoint to safely generate a temporary JWT for another employee would greatly aid your HR team in debugging UI issues.

@@ -170,7 +170,12 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     <>
       <div className="h-16 flex items-center justify-center m-2">
         {(!isMobile && collapsed) ? (
-          <div className="font-bold text-xl text-[#424E60] tracking-widest my-2">CG</div>
+          // <div className="font-bold text-xl text-[#424E60] tracking-widest my-2">CG</div>
+          <img
+            src="/footer_logo.png"
+            alt="Casagrand Logo"
+            className="max-w-full h-6 object-contain"
+          />
         ) : (
           <img
             src="/assets/Casagrand-Logo1.png"
