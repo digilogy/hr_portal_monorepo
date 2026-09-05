@@ -243,7 +243,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         <Layout
           style={{
             minWidth: 0,
-            overflowX: "hidden",
+            overflowX: "clip",
             marginLeft: isMobile ? 0 : collapsed ? 80 : 200,
             transition: "margin-left 0.2s",
           }}
@@ -276,21 +276,21 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
               </Dropdown>
             </div>
           </Header>
-          <Content className="m-0 sm:m-3 md:m-6 min-w-0">
+          <Content className="m-0 min-w-0">
             <div
               style={{
                 background: colorBgContainer,
                 borderRadius: borderRadiusLG,
-                overflowX: "hidden"
+                overflowX: "clip"
               }}
               className="p-3 sm:p-4 md:p-6 min-h-[360px]"
             >
               {children}
             </div>
           </Content>
-          <Footer style={{ textAlign: "center", color: "gray" }}>
+          {/* <Footer style={{ textAlign: "center", color: "gray" }}>
             Casagrand HR Portal ©2026
-          </Footer>
+          </Footer> */}
         </Layout>
       </Layout>
     </ConfigProvider>

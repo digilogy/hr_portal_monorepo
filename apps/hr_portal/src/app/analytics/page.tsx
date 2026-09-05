@@ -225,7 +225,9 @@ export default function AnalyticsPage() {
 
       <div className="relative space-y-6">
         {loading && data && (
-          <div className="absolute inset-0 z-10 rounded-xl bg-white/40 dark:bg-black/20 pointer-events-none" />
+          <div className="absolute -inset-4 z-10 rounded-2xl bg-white/50 dark:bg-black/40 backdrop-blur-[2px] flex items-center justify-center pointer-events-none transition-all duration-300">
+            <Spin size="large" />
+          </div>
         )}
 
         {/* 2-Column Grid: Utilization by Department & Compliance by Manager */}

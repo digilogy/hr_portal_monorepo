@@ -340,9 +340,9 @@ export default function TimesheetPage() {
 
   const targetHours = useMemo(() => {
     if (!profile) return 8.5;
-    
+
     const dayOfWeek = selectedDate.day();
-    
+
     // Check if it's a half-day
     if (profile.halfDay) {
       const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
@@ -365,7 +365,7 @@ export default function TimesheetPage() {
         }
       }
     }
-    
+
     // Otherwise standard timing
     const timingToParse = selectedTiming || profile.allowedTimings?.split(',')[0];
     if (timingToParse) {
@@ -380,7 +380,7 @@ export default function TimesheetPage() {
         if (h2 > h1) return h2 - h1;
       }
     }
-    
+
     return 8.5;
   }, [profile, selectedDate, selectedTiming]);
 
@@ -418,7 +418,7 @@ export default function TimesheetPage() {
       </div>
 
       {/* Target Progress Header Card */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full md:w-auto">
           <div className="flex flex-col">
             <div className="flex items-center gap-2 mb-1">
@@ -482,86 +482,88 @@ export default function TimesheetPage() {
       </div>
 
       {/* Daily Timesheet Main Card */}
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 overflow-hidden">
-        {/* Header Bar */}
-        <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Title & subtitle */}
-          <div>
-            <div className="flex items-center gap-2">
-              <CalendarOutlined className="text-gray-900 dark:text-white text-lg" />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                {selectedDate.isSame(dayjs(), "day")
-                  ? "Today's Timesheet"
-                  : selectedDate.format("MMMM D, YYYY")}
-              </h1>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">
-              Enter task descriptions for each time slot.
-            </p>
-          </div>
+      <div className="bg-white dark:bg-zinc-900 shadow-sm">
+        {/* Sticky Container Wrapper */}
+        <div className="sticky top-[63px] z-10">
+          {/* Scroll Shield to cover rows between site header (64px) and this sticky header (88px) */}
+          {/* <div className="absolute top-[-24px] left-0 right-0 h-6 bg-white dark:bg-zinc-900" aria-hidden="true" /> */}
 
-          {/* Mobile: full-width date picker row then full-width save button */}
-          {/* Desktop: single row with everything right-aligned */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3">
-            {/* Date navigator — full width on mobile */}
-            <div className="flex items-center rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 w-full sm:w-auto h-8">
-              <Button
-                type="text"
-                size="small"
-                icon={<LeftOutlined />}
-                className="flex-shrink-0 h-full px-3 rounded-l-xl"
-                onClick={() => setSelectedDate((prev) => prev.subtract(1, "day"))}
-              />
-              <div className="flex-1 flex justify-center">
-                <DatePicker
-                  value={selectedDate}
-                  onChange={(d) => d && setSelectedDate(d)}
-                  allowClear={false}
-                  disabledDate={(current) => current && current > dayjs().endOf("day")}
-                  format="MMM D, YYYY"
-                  variant="borderless"
-                  className="text-center text-sm font-semibold w-36"
-                  suffixIcon={<CalendarOutlined className="text-gray-400" />}
-                />
+          {/* Actual Header */}
+          <div className="bg-white dark:bg-zinc-900 shadow-sm border-t border-transparent">
+            {/* Header Bar */}
+            <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              {/* Title & subtitle */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <CalendarOutlined className="text-gray-900 dark:text-white text-lg" />
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {selectedDate.isSame(dayjs(), "day")
+                      ? "Today's Timesheet"
+                      : selectedDate.format("MMMM D, YYYY")}
+                  </h1>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Enter task descriptions for each time slot.
+                </p>
               </div>
-              <Button
-                type="text"
-                size="small"
-                icon={<RightOutlined />}
-                className="flex-shrink-0 h-full px-3 rounded-r-xl"
-                disabled={selectedDate.isSame(dayjs(), "day")}
-                onClick={() => setSelectedDate((prev) => prev.add(1, "day"))}
-              />
+
+              {/* Mobile & Desktop: single row, wrapped or scrolling if necessary */}
+              <div className="flex flex-row items-center justify-start sm:justify-end gap-1 w-full sm:w-auto">
+                <div className="flex items-center bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl h-8">
+                  <button
+                    className={`px-2 h-full text-xs font-medium rounded-lg transition-all ${selectedDate.isSame(dayjs().subtract(1, 'day'), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    onClick={() => setSelectedDate(dayjs().subtract(1, "day"))}
+                  >
+                    Yesterday
+                  </button>
+                  <button
+                    className={`px-2 h-full text-xs font-medium rounded-lg transition-all ${selectedDate.isSame(dayjs(), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    onClick={() => setSelectedDate(dayjs())}
+                  >
+                    Today
+                  </button>
+                </div>
+
+                {/* Date navigator — full width on mobile */}
+                <div className="flex items-center rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 w-full sm:w-auto h-8">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<LeftOutlined />}
+                    className="flex-shrink-0 h-full px-2 rounded-l-xl"
+                    onClick={() => setSelectedDate((prev) => prev.subtract(1, "day"))}
+                  />
+                  <div className="flex-1 flex justify-center">
+                    <DatePicker
+                      value={selectedDate}
+                      onChange={(d) => d && setSelectedDate(d)}
+                      allowClear={false}
+                      disabledDate={(current) => current && current > dayjs().endOf("day")}
+                      format="MMM D, YYYY"
+                      variant="borderless"
+                      className="w-[100px] [&_input]:!text-[11px] [&_input]:!font-semibold [&_input]:!text-center [&_input]:!px-0"
+                      suffixIcon={null}
+                    />
+                  </div>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<RightOutlined />}
+                    className="flex-shrink-0 h-full px-2 rounded-r-xl"
+                    disabled={selectedDate.isSame(dayjs(), "day")}
+                    onClick={() => setSelectedDate((prev) => prev.add(1, "day"))}
+                  />
+                </div>
+
+              </div>
             </div>
 
-            {!selectedDate.isSame(dayjs(), "day") && (
-              <Button
-                size="small"
-                className="rounded-xl font-medium sm:w-auto h-8"
-                onClick={() => setSelectedDate(dayjs())}
-              >
-                Today
-              </Button>
-            )}
-
-            {/* Save button — full width on mobile */}
-            <Button
-              type="primary"
-              size="middle"
-              icon={saving ? <SyncOutlined spin /> : <SaveOutlined />}
-              onClick={handleSave}
-              disabled={isReadOnly || saving}
-              className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2 h-10 w-full sm:w-auto sm:h-8 sm:px-4"
-            >
-              Save Timesheet
-            </Button>
+            {/* Table Column Headers */}
+            <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 text-xs font-bold text-gray-400 tracking-wider uppercase">
+              <div className="col-span-3">TIME SLOT</div>
+              <div className="col-span-9">TASK DESCRIPTION</div>
+            </div>
           </div>
-        </div>
-
-        {/* Table Column Headers */}
-        <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 border-b border-gray-100 dark:border-zinc-800 text-xs font-bold text-gray-400 tracking-wider uppercase">
-          <div className="col-span-3">TIME SLOT</div>
-          <div className="col-span-9">TASK DESCRIPTION</div>
         </div>
 
         {/* Timesheet Slot Rows */}
@@ -571,7 +573,7 @@ export default function TimesheetPage() {
             <p className="mt-3 text-sm">Loading timesheet entries...</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-zinc-800">
+          <div className="flex flex-col">
             {slots.map((slot) => {
               const isFilled = slot.task.trim().length > 0;
               const durationLabel = getDurationBadgeLabel(slot.timeSlot);
@@ -633,6 +635,20 @@ export default function TimesheetPage() {
             })}
           </div>
         )}
+
+        {/* Bottom Save Button */}
+        <div className="p-6 flex justify-end">
+          <Button
+            type="primary"
+            size="large"
+            icon={saving ? <SyncOutlined spin /> : <SaveOutlined />}
+            onClick={handleSave}
+            disabled={isReadOnly || saving}
+            className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2 px-8"
+          >
+            Save Timesheet
+          </Button>
+        </div>
       </div>
     </div>
   );

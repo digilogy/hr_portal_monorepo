@@ -7,6 +7,7 @@ import {
   TeamOutlined,
   UserOutlined,
   PartitionOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import { apiFetch } from "@/lib/api";
 import { FilterField } from "@/components/ui/FilterField";
@@ -98,10 +99,12 @@ export function AdminReportFilters({
   const showManager = scopedOptions.managers.length > 1;
   const showEmployee = !hideEmployee && scopedOptions.employees.length > 1;
 
-  const visibleCount = [showDept, showSubDept, showManager, showEmployee].filter(Boolean).length;
+  const showStatus = true;
+
+  const visibleCount = [showDept, showSubDept, showManager, showEmployee, showStatus].filter(Boolean).length;
   const wrapperClass = visibleCount <= 1
     ? "flex flex-col w-full sm:w-80 md:w-96 max-w-md gap-4"
-    : "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full";
+    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full";
 
   return (
     <div className={wrapperClass}>
@@ -190,6 +193,24 @@ export function AdminReportFilters({
               value: 'employeeId' in item ? item.employeeId : (item as any).id, // Handle potential type mismatch just in case, though they should both have employeeId
               label: 'label' in item ? item.label : `${item.name} (${item.employeeId})`,
             }))}
+          />
+        </FilterField>
+      )}
+
+      {showStatus && (
+        <FilterField label="Status" icon={<CheckCircleOutlined />}>
+          <Select
+            allowClear
+            value={value.status === "all" ? undefined : value.status}
+            onChange={(status) => applyChange({ status: status ?? "all" })}
+            onClear={() => applyChange({ status: "all" })}
+            className={selectClassName}
+            placeholder="All Statuses"
+            options={[
+              { value: "all", label: "All Statuses" },
+              { value: "Submitted", label: "Submitted" },
+              { value: "Pending", label: "Pending" },
+            ]}
           />
         </FilterField>
       )}
