@@ -36,6 +36,7 @@ export interface ReportFilters {
   hrbp: string;
   manager: string;
   employee: string;
+  status: string;
 }
 
 export interface DepartmentFilter {
@@ -49,6 +50,7 @@ export const DEFAULT_REPORT_FILTERS: ReportFilters = {
   hrbp: "all",
   manager: "all",
   employee: "all",
+  status: "all",
 };
 
 export const DEFAULT_DEPARTMENT_FILTER: DepartmentFilter = {
@@ -77,6 +79,9 @@ export function appendReportFilters(
   if (filters.employee !== "all") {
     params.set("employee", filters.employee);
   }
+  if (filters.status && filters.status !== "all") {
+    params.set("status", filters.status);
+  }
   return params;
 }
 
@@ -100,6 +105,7 @@ export function parseReportFiltersFromSearchParams(
     hrbp: searchParams.get("hrbp")?.trim() || "all",
     manager: searchParams.get("manager")?.trim() || "all",
     employee: searchParams.get("employee")?.trim() || "all",
+    status: searchParams.get("status")?.trim() || "all",
   };
 }
 
@@ -357,7 +363,8 @@ export function hasActiveReportFilters(filters: ReportFilters): boolean {
     filters.hod !== "all" ||
     filters.hrbp !== "all" ||
     filters.manager !== "all" ||
-    filters.employee !== "all"
+    filters.employee !== "all" ||
+    filters.status !== "all"
   );
 }
 

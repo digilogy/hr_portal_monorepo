@@ -5,6 +5,7 @@ export interface ReportFilters {
   subDepartment: string;
   manager: string;
   employee: string;
+  status: string;
 }
 
 export interface DepartmentFilter {
@@ -24,6 +25,7 @@ export const DEFAULT_REPORT_FILTERS: ReportFilters = {
   subDepartment: "all",
   manager: "all",
   employee: "all",
+  status: "all",
 };
 
 export const DEFAULT_DEPARTMENT_FILTER: DepartmentFilter = {
@@ -35,6 +37,7 @@ export function parseReportFilters(query: {
   subDepartment?: unknown;
   manager?: unknown;
   employee?: unknown;
+  status?: unknown;
 }): ReportFilters {
   return {
     department:
@@ -52,6 +55,10 @@ export function parseReportFilters(query: {
     employee:
       typeof query.employee === "string" && query.employee.trim()
         ? query.employee.trim()
+        : "all",
+    status:
+      typeof query.status === "string" && query.status.trim()
+        ? query.status.trim()
         : "all",
   };
 }
@@ -72,7 +79,8 @@ export function hasActiveReportFilters(filters: ReportFilters): boolean {
     filters.department !== "all" ||
     filters.subDepartment !== "all" ||
     filters.manager !== "all" ||
-    filters.employee !== "all"
+    filters.employee !== "all" ||
+    filters.status !== "all"
   );
 }
 

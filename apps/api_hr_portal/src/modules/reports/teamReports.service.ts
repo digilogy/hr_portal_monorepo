@@ -923,7 +923,13 @@ export class TeamReportsService {
     const workingDays = getWorkingDays(range.from, range.to);
     const expectedHours = workingDays * 8.5;
 
-    return buildUserRows(employees, hoursByEmail, expectedHours);
+    const rows = buildUserRows(employees, hoursByEmail, expectedHours);
+
+    if (filters?.status && filters.status !== "all") {
+      return rows.filter((r) => r.status === filters.status);
+    }
+
+    return rows;
   }
 
   static async getUserWiseReportPaginated(
@@ -941,9 +947,24 @@ export class TeamReportsService {
       role,
       filters,
     );
-    const total = employees.length;
     const safePage = Math.max(1, page);
     const safePageSize = Math.min(100, Math.max(1, pageSize));
+
+    if (filters?.status && filters.status !== "all") {
+      const allRows = await this.getUserWiseReport(email, role, fromDate, toDate, filters);
+      const total = allRows.length;
+      const start = (safePage - 1) * safePageSize;
+      const pagedRows = allRows.slice(start, start + safePageSize);
+
+      return {
+        rows: pagedRows,
+        total,
+        page: safePage,
+        pageSize: safePageSize,
+      };
+    }
+
+    const total = employees.length;
     const start = (safePage - 1) * safePageSize;
     const pagedEmployees = employees.slice(start, start + safePageSize);
     const emails = pagedEmployees
