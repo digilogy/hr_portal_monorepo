@@ -1,6 +1,7 @@
 import { Timesheet, TimesheetSlot } from "@hr-portal/database";
 import { validateTimesheetSlots } from "./timesheetSlots";
 import { timesheetRepository, TimesheetHistoryOptions } from "./timesheet.repository";
+import { ProfileService, EmployeeProfile } from "../profile/profile.service";
 
 function calculateSlotHours(timeSlot: string): number {
   const parts = timeSlot.split(" - ");
@@ -57,6 +58,66 @@ function calculateTotalHours(slots: TimesheetSlot[]): number {
 }
 
 export class TimesheetService {
+  static isNonWorkingDay(dateStr: string, profile: EmployeeProfile): boolean {
+    const date = new Date(dateStr);
+    const dayOfWeek = date.getDay(); // 0 (Sun) to 6 (Sat)
+    
+    if (profile.weeklyOff) {
+      const offDaysMap: Record<string, number> = {
+        sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+        wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+      };
+      
+      const offDays = profile.weeklyOff.split(",").map(d => d.trim().toLowerCase());
+      for (const off of offDays) {
+        if (offDaysMap[off] === dayOfWeek) {
+          return true;
+        }
+        
+        const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
+        if (nthMatch) {
+          const nthMap: Record<string, number> = { 
+            first: 1, '1st': 1, 
+            second: 2, '2nd': 2, 
+            third: 3, '3rd': 3, 
+            fourth: 4, '4th': 4, 
+            fifth: 5, '5th': 5 
+          };
+          const n = nthMap[nthMatch[1]];
+          const targetDay = offDaysMap[nthMatch[2]];
+          if (n && targetDay !== undefined) {
+             const dateNum = date.getDate();
+             const currentNth = Math.ceil(dateNum / 7);
+             if (dayOfWeek === targetDay && currentNth === n) {
+               return true;
+             }
+          }
+        }
+      }
+    }
+
+    if (profile.upcomingHolidays && profile.upcomingHolidays.length > 0) {
+      const holiday = profile.upcomingHolidays.find((h: any) => {
+        if (h.isOptional) return false;
+        
+        // Convert Date objects to YYYY-MM-DD strings for comparison
+        const formatYMD = (d: Date | string) => {
+          const dt = new Date(d);
+          return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        };
+        
+        const start = formatYMD(h.startDate);
+        const end = formatYMD(h.endDate);
+        return dateStr >= start && dateStr <= end;
+      });
+      if (holiday) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   static async saveDay(
     userId: number,
     date: string,
@@ -71,6 +132,12 @@ export class TimesheetService {
     today.setHours(0, 0, 0, 0); // Normalize to start of day
     if (inputDate > today) {
       throw new Error("Cannot save timesheets for future dates");
+    }
+
+    // Block non-working days
+    const profile = await ProfileService.getProfileByEmail(user.email);
+    if (profile && this.isNonWorkingDay(date, profile)) {
+      throw new Error("Cannot log time on a non-working day (weekend or public holiday).");
     }
 
     validateTimesheetSlots(slots);

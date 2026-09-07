@@ -8,6 +8,7 @@ import { UploadLog } from "./entities/UploadLog";
 import { EmailLog } from "./entities/EmailLog";
 import { Shift } from "./entities/Shift";
 import { EmployeeShiftAssignment } from "./entities/EmployeeShiftAssignment";
+import { Holiday } from "./entities/Holiday";
 import { env } from "@hr-portal/config";
 
 export const AppDataSource = new DataSource({
@@ -20,7 +21,7 @@ export const AppDataSource = new DataSource({
   // Disable automatic DDL synchronization in production to prevent "DROP INDEX check that it exists" errors
   synchronize: env.NODE_ENV !== "production" && env.TYPEORM_SYNCHRONIZE === "true",
   logging: false,
-  entities: [User, Timesheet, EmployeeData, UploadJob, UploadLog, EmailLog, Shift, EmployeeShiftAssignment],
+  entities: [User, Timesheet, EmployeeData, UploadJob, UploadLog, EmailLog, Shift, EmployeeShiftAssignment, Holiday],
   migrations: [],
   subscribers: [],
 });
@@ -72,6 +73,21 @@ export async function initializeDatabase(): Promise<DataSource> {
       ALTER TABLE "employee_shift_assignments" ADD COLUMN IF NOT EXISTS "preferredTiming" VARCHAR;
 
       CREATE INDEX IF NOT EXISTS "idx_emp_shift_employee_id" ON "employee_shift_assignments" ("employeeId");
+
+      ALTER TABLE "employee_data" ADD COLUMN IF NOT EXISTS "zone" VARCHAR;
+
+      CREATE TABLE IF NOT EXISTS "holiday" (
+        "id" SERIAL PRIMARY KEY,
+        "name" VARCHAR NOT NULL,
+        "startDate" DATE NOT NULL,
+        "endDate" DATE NOT NULL,
+        "zones" JSON NOT NULL,
+        "isOptional" BOOLEAN NOT NULL DEFAULT false,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS "idx_holiday_start_end" ON "holiday" ("startDate", "endDate");
     `);
   } catch (err) {
     console.warn("Notice: Failed to run automatic upload_log schema patch", err);

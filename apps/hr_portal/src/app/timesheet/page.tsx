@@ -16,6 +16,16 @@ import { apiFetch } from "@/lib/api";
 import { getTokenRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { getSlotDurationHours, parseTimeSlotRange } from "@/lib/timesheetSlots";
+import { getHolidayZoneForCity } from "@/lib/holidayMapping";
+
+interface Holiday {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  zones: string[];
+  isOptional: boolean;
+}
 
 export interface TimeSlotData {
   key: string;
@@ -56,6 +66,90 @@ function mapLegacySlot(timeSlot: string): string {
 
 function generateSlotKey(timeSlot: string): string {
   return "slot-" + timeSlot.replace(/[^0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function isNonWorkingDay(date: Dayjs, profile: any): boolean {
+  if (!profile) return false;
+
+  const dayOfWeek = date.day(); // 0 is Sunday
+  if (profile.weeklyOff) {
+    const offDaysMap: Record<string, number> = {
+      sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+      wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+    };
+      const offDays = profile.weeklyOff.split(",").map((d: string) => d.trim().toLowerCase());
+    for (const off of offDays) {
+      if (offDaysMap[off] === dayOfWeek) return true;
+      
+      const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
+      if (nthMatch) {
+        const nthMap: Record<string, number> = { 
+          first: 1, '1st': 1, 
+          second: 2, '2nd': 2, 
+          third: 3, '3rd': 3, 
+          fourth: 4, '4th': 4, 
+          fifth: 5, '5th': 5 
+        };
+        const n = nthMap[nthMatch[1]];
+        const targetDay = offDaysMap[nthMatch[2]];
+        if (n && targetDay !== undefined) {
+           const dateNum = date.date();
+           const currentNth = Math.ceil(dateNum / 7);
+           if (dayOfWeek === targetDay && currentNth === n) {
+             return true;
+           }
+        }
+      }
+    }
+  }
+
+  // Check holidays
+  if (profile.upcomingHolidays && profile.upcomingHolidays.length > 0) {
+    const dateStr = date.format("YYYY-MM-DD");
+    const holiday = profile.upcomingHolidays.find((h: any) => {
+      if (h.isOptional) return false;
+      const formatYMD = (d: string) => dayjs(d).format("YYYY-MM-DD");
+      const start = formatYMD(h.startDate);
+      const end = formatYMD(h.endDate);
+      return dateStr >= start && dateStr <= end;
+    });
+    if (holiday) return true;
+  }
+
+  return false;
+}
+
+function getLastWorkingDay(startFromDate: Dayjs, profile: any): Dayjs {
+  let date = startFromDate.subtract(1, 'day');
+  // safeguard against infinite loops
+  let iterations = 0;
+  while (isNonWorkingDay(date, profile) && iterations < 30) {
+    date = date.subtract(1, 'day');
+    iterations++;
+  }
+  return date;
+}
+
+function getEffectiveTiming(date: Dayjs, profile: any, defaultTiming: string): string {
+  if (!profile) return defaultTiming;
+  
+  const dayOfWeek = date.day();
+  if (profile.halfDay) {
+    const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
+    if (match) {
+      const dayStr = match[1].toLowerCase();
+      const start = match[2].trim();
+      const end = match[3].trim();
+      const daysMap: Record<string, number> = {
+        sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+        wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+      };
+      if (daysMap[dayStr] === dayOfWeek) {
+        return `${start} - ${end}`;
+      }
+    }
+  }
+  return defaultTiming;
 }
 
 function normalizeDaySlots(
@@ -164,11 +258,41 @@ export default function TimesheetPage() {
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [savingTiming, setSavingTiming] = useState(false);
   const [hasEditedSinceLastManualSave, setHasEditedSinceLastManualSave] = useState(false);
+  const [allHolidays, setAllHolidays] = useState<Holiday[]>([]);
+
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const data = await apiFetch<Holiday[]>("/api/admin/holidays");
+        setAllHolidays(data || []);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchHolidays();
+  }, []);
+
+  const currentHoliday = useMemo(() => {
+    if (!profile?.upcomingHolidays?.length) return null;
+    const dateStr = selectedDate.format("YYYY-MM-DD");
+    
+    return profile.upcomingHolidays.find((h: any) => {
+      const formatYMD = (d: string) => dayjs(d).format("YYYY-MM-DD");
+      const start = formatYMD(h.startDate);
+      const end = formatYMD(h.endDate);
+      return dateStr >= start && dateStr <= end;
+    });
+  }, [selectedDate, profile]);
+
+  const lastWorkingDate = useMemo(() => {
+    return getLastWorkingDay(dayjs(), profile);
+  }, [profile]);
 
   const dateKey = selectedDate.format("YYYY-MM-DD");
   const isReadOnly =
-    !selectedDate.isSame(dayjs(), "day") &&
-    !selectedDate.isSame(dayjs().subtract(1, "day"), "day");
+    !!currentHoliday ||
+    (!selectedDate.isSame(dayjs(), "day") &&
+      !selectedDate.isSame(lastWorkingDate, "day"));
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -220,8 +344,15 @@ export default function TimesheetPage() {
         `/api/timesheets/day/${dateKey}`,
       );
 
-      const defaultSlots = generateDynamicSlots(selectedTiming);
+      const effectiveTiming = getEffectiveTiming(selectedDate, profile, selectedTiming);
+      const defaultSlots = generateDynamicSlots(effectiveTiming);
       const normalized = normalizeDaySlots(record?.slots, defaultSlots);
+
+      // If it's a holiday and no slots are filled, pre-fill with holiday message
+      if (currentHoliday && (!record || record.slots.length === 0)) {
+        normalized.forEach(s => s.task = `Holiday: ${currentHoliday.name}`);
+      }
+
       setSlots(normalized);
       setInitialSnapshot(
         JSON.stringify(
@@ -231,8 +362,14 @@ export default function TimesheetPage() {
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Failed to load timesheet";
       messageApi.error(errMsg);
-      const defaultSlots = generateDynamicSlots(selectedTiming);
+      const effectiveTiming = getEffectiveTiming(selectedDate, profile, selectedTiming);
+      const defaultSlots = generateDynamicSlots(effectiveTiming);
       const fallback = normalizeDaySlots([], defaultSlots);
+
+      if (currentHoliday) {
+        fallback.forEach(s => s.task = `Holiday: ${currentHoliday.name}`);
+      }
+
       setSlots(fallback);
       setInitialSnapshot(
         JSON.stringify(
@@ -242,7 +379,7 @@ export default function TimesheetPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateKey, messageApi, profileLoaded, selectedTiming]);
+  }, [dateKey, messageApi, profileLoaded, selectedTiming, currentHoliday]);
 
   useEffect(() => {
     void fetchTimesheet();
@@ -341,33 +478,7 @@ export default function TimesheetPage() {
   const targetHours = useMemo(() => {
     if (!profile) return 8.5;
 
-    const dayOfWeek = selectedDate.day();
-
-    // Check if it's a half-day
-    if (profile.halfDay) {
-      const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
-      if (match) {
-        const dayStr = match[1].toLowerCase();
-        const start = match[2].trim();
-        const end = match[3].trim();
-        const daysMap: Record<string, number> = {
-          sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
-          wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
-        };
-        if (daysMap[dayStr] === dayOfWeek) {
-          const parseTime = (t: string) => {
-            const [h, m] = t.split(":").map(Number);
-            return (h || 0) + (m || 0) / 60;
-          };
-          const h1 = parseTime(start);
-          const h2 = parseTime(end);
-          return h2 > h1 ? h2 - h1 : 4.5;
-        }
-      }
-    }
-
-    // Otherwise standard timing
-    const timingToParse = selectedTiming || profile.allowedTimings?.split(',')[0];
+    const timingToParse = getEffectiveTiming(selectedDate, profile, selectedTiming || profile.allowedTimings?.split(',')[0]);
     if (timingToParse) {
       const [start, end] = timingToParse.split("-").map((s: string) => s.trim());
       if (start && end) {
@@ -477,6 +588,12 @@ export default function TimesheetPage() {
         </div>
       </div>
 
+      {currentHoliday && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 flex items-center justify-center">
+          <span className="font-semibold text-lg">🎉 Holiday: {currentHoliday.name}</span>
+        </div>
+      )}
+
       {/* Daily Timesheet Main Card */}
       <div className="bg-white dark:bg-zinc-900 shadow-sm">
         {/* Sticky Container Wrapper */}
@@ -528,8 +645,8 @@ export default function TimesheetPage() {
               <div className="flex flex-row items-center justify-start sm:justify-end gap-1 w-full sm:w-auto">
                 <div className="flex items-center bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl h-8">
                   <button
-                    className={`px-2 h-full text-xs font-medium cursor-pointer rounded-lg transition-all ${selectedDate.isSame(dayjs().subtract(1, 'day'), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 hover:bg-white hover:shadow-sm dark:hover:text-gray-200 dark:hover:bg-zinc-700'}`}
-                    onClick={() => setSelectedDate(dayjs().subtract(1, "day"))}
+                    className={`px-2 h-full text-xs font-medium cursor-pointer rounded-lg transition-all ${selectedDate.isSame(lastWorkingDate, 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 hover:bg-white hover:shadow-sm dark:hover:text-gray-200 dark:hover:bg-zinc-700'}`}
+                    onClick={() => setSelectedDate(lastWorkingDate)}
                   >
                     Yesterday
                   </button>
@@ -555,7 +672,11 @@ export default function TimesheetPage() {
                       value={selectedDate}
                       onChange={(d) => d && setSelectedDate(d)}
                       allowClear={false}
-                      disabledDate={(current) => current && current > dayjs().endOf("day")}
+                      disabledDate={(current) => {
+                        if (current && current > dayjs().endOf("day")) return true;
+                        if (current && isNonWorkingDay(current, profile)) return true;
+                        return false;
+                      }}
                       format="MMM D, YYYY"
                       variant="borderless"
                       className="w-[100px] [&_input]:!text-[11px] [&_input]:!font-semibold [&_input]:!text-center [&_input]:!px-0"
@@ -598,11 +719,10 @@ export default function TimesheetPage() {
               return (
                 <div
                   key={slot.key}
-                  className={`flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors border-l-4 ${
-                    isFilled
+                  className={`flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors border-l-4 ${isFilled
                       ? "border-l-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
                       : "border-l-transparent hover:bg-gray-50/40 dark:hover:bg-zinc-800/20"
-                  }`}
+                    }`}
                 >
                   {/* Left Column: Time slot details & badges */}
                   <div className="col-span-1 md:col-span-3 flex flex-row md:flex-col justify-between md:justify-start items-center md:items-start w-full gap-2 md:pt-2">
