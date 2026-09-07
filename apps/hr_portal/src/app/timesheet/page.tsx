@@ -511,13 +511,13 @@ export default function TimesheetPage() {
               <div className="flex flex-row items-center justify-start sm:justify-end gap-1 w-full sm:w-auto">
                 <div className="flex items-center bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl h-8">
                   <button
-                    className={`px-2 h-full text-xs font-medium rounded-lg transition-all ${selectedDate.isSame(dayjs().subtract(1, 'day'), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    className={`px-2 h-full text-xs font-medium cursor-pointer rounded-lg transition-all ${selectedDate.isSame(dayjs().subtract(1, 'day'), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 hover:bg-white hover:shadow-sm dark:hover:text-gray-200 dark:hover:bg-zinc-700'}`}
                     onClick={() => setSelectedDate(dayjs().subtract(1, "day"))}
                   >
                     Yesterday
                   </button>
                   <button
-                    className={`px-2 h-full text-xs font-medium rounded-lg transition-all ${selectedDate.isSame(dayjs(), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                    className={`px-2 h-full text-xs font-medium cursor-pointer rounded-lg transition-all ${selectedDate.isSame(dayjs(), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 hover:bg-white hover:shadow-sm dark:hover:text-gray-200 dark:hover:bg-zinc-700'}`}
                     onClick={() => setSelectedDate(dayjs())}
                   >
                     Today
