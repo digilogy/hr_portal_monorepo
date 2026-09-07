@@ -379,7 +379,7 @@ export default function TimesheetPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateKey, messageApi, profileLoaded, selectedTiming, currentHoliday]);
+  }, [dateKey, messageApi, profileLoaded, selectedTiming, currentHoliday, profile, selectedDate]);
 
   useEffect(() => {
     void fetchTimesheet();
@@ -393,7 +393,7 @@ export default function TimesheetPage() {
     );
   };
 
-  const performSave = async (slotsToSave: TimeSlotData[], isAutoSave: boolean = false) => {
+  const performSave = useCallback(async (slotsToSave: TimeSlotData[], isAutoSave: boolean = false) => {
     if (isReadOnly) {
       if (!isAutoSave) messageApi.warning("You can only edit tasks for today and yesterday.");
       return;
@@ -445,7 +445,7 @@ export default function TimesheetPage() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [isReadOnly, messageApi, initialSnapshot, hasEditedSinceLastManualSave, dateKey]);
 
   const handleSave = () => performSave(slots, false);
 
@@ -463,7 +463,7 @@ export default function TimesheetPage() {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [slots, loading, isReadOnly, saving, initialSnapshot, dateKey]);
+  }, [slots, loading, isReadOnly, saving, initialSnapshot, dateKey, performSave]);
 
   const filledHours = useMemo(() => {
     let total = 0;

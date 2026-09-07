@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Table, Button, Modal, Form, Input, DatePicker, Select, Switch, Space, message, Typography } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -43,20 +43,16 @@ export default function HolidaysAdminPage() {
     setCurrentPage(1);
   }, [selectedZone]);
 
-  useEffect(() => {
-    fetchHolidays();
-  }, []);
-
-  const getAuthHeaders = () => {
+  const getAuthHeaders = useCallback(() => {
     // Attempt to get token from localStorage if auth is implemented this way
     const token = localStorage.getItem("token");
     return {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     };
-  };
+  }, []);
 
-  const fetchHolidays = async () => {
+  const fetchHolidays = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/admin/holidays`, {
@@ -71,7 +67,11 @@ export default function HolidaysAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeaders, messageApi]);
+
+  useEffect(() => {
+    fetchHolidays();
+  }, [fetchHolidays]);
 
   const handleAdd = () => {
     setEditingHoliday(null);
