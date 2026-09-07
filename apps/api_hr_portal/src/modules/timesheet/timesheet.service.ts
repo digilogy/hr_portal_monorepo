@@ -65,7 +65,8 @@ export class TimesheetService {
     const user = await timesheetRepository.findUserById(userId);
     if (!user) throw new Error("User not found");
 
-    const inputDate = new Date(date);
+    const [year, month, day] = date.split("-").map(Number);
+    const inputDate = new Date(year, month - 1, day);
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Normalize to start of day
     if (inputDate > today) {
