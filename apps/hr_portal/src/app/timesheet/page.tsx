@@ -16,6 +16,16 @@ import { apiFetch } from "@/lib/api";
 import { getTokenRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { getSlotDurationHours, parseTimeSlotRange } from "@/lib/timesheetSlots";
+import { getHolidayZoneForCity } from "@/lib/holidayMapping";
+
+interface Holiday {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  zones: string[];
+  isOptional: boolean;
+}
 
 export interface TimeSlotData {
   key: string;
@@ -56,6 +66,90 @@ function mapLegacySlot(timeSlot: string): string {
 
 function generateSlotKey(timeSlot: string): string {
   return "slot-" + timeSlot.replace(/[^0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function isNonWorkingDay(date: Dayjs, profile: any): boolean {
+  if (!profile) return false;
+
+  const dayOfWeek = date.day(); // 0 is Sunday
+  if (profile.weeklyOff) {
+    const offDaysMap: Record<string, number> = {
+      sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+      wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+    };
+      const offDays = profile.weeklyOff.split(",").map((d: string) => d.trim().toLowerCase());
+    for (const off of offDays) {
+      if (offDaysMap[off] === dayOfWeek) return true;
+      
+      const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
+      if (nthMatch) {
+        const nthMap: Record<string, number> = { 
+          first: 1, '1st': 1, 
+          second: 2, '2nd': 2, 
+          third: 3, '3rd': 3, 
+          fourth: 4, '4th': 4, 
+          fifth: 5, '5th': 5 
+        };
+        const n = nthMap[nthMatch[1]];
+        const targetDay = offDaysMap[nthMatch[2]];
+        if (n && targetDay !== undefined) {
+           const dateNum = date.date();
+           const currentNth = Math.ceil(dateNum / 7);
+           if (dayOfWeek === targetDay && currentNth === n) {
+             return true;
+           }
+        }
+      }
+    }
+  }
+
+  // Check holidays
+  if (profile.upcomingHolidays && profile.upcomingHolidays.length > 0) {
+    const dateStr = date.format("YYYY-MM-DD");
+    const holiday = profile.upcomingHolidays.find((h: any) => {
+      if (h.isOptional) return false;
+      const formatYMD = (d: string) => dayjs(d).format("YYYY-MM-DD");
+      const start = formatYMD(h.startDate);
+      const end = formatYMD(h.endDate);
+      return dateStr >= start && dateStr <= end;
+    });
+    if (holiday) return true;
+  }
+
+  return false;
+}
+
+function getLastWorkingDay(startFromDate: Dayjs, profile: any): Dayjs {
+  let date = startFromDate.subtract(1, 'day');
+  // safeguard against infinite loops
+  let iterations = 0;
+  while (isNonWorkingDay(date, profile) && iterations < 30) {
+    date = date.subtract(1, 'day');
+    iterations++;
+  }
+  return date;
+}
+
+function getEffectiveTiming(date: Dayjs, profile: any, defaultTiming: string): string {
+  if (!profile) return defaultTiming;
+  
+  const dayOfWeek = date.day();
+  if (profile.halfDay) {
+    const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
+    if (match) {
+      const dayStr = match[1].toLowerCase();
+      const start = match[2].trim();
+      const end = match[3].trim();
+      const daysMap: Record<string, number> = {
+        sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+        wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+      };
+      if (daysMap[dayStr] === dayOfWeek) {
+        return `${start} - ${end}`;
+      }
+    }
+  }
+  return defaultTiming;
 }
 
 function normalizeDaySlots(
@@ -164,11 +258,41 @@ export default function TimesheetPage() {
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [savingTiming, setSavingTiming] = useState(false);
   const [hasEditedSinceLastManualSave, setHasEditedSinceLastManualSave] = useState(false);
+  const [allHolidays, setAllHolidays] = useState<Holiday[]>([]);
+
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const data = await apiFetch<Holiday[]>("/api/admin/holidays");
+        setAllHolidays(data || []);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchHolidays();
+  }, []);
+
+  const currentHoliday = useMemo(() => {
+    if (!profile?.upcomingHolidays?.length) return null;
+    const dateStr = selectedDate.format("YYYY-MM-DD");
+    
+    return profile.upcomingHolidays.find((h: any) => {
+      const formatYMD = (d: string) => dayjs(d).format("YYYY-MM-DD");
+      const start = formatYMD(h.startDate);
+      const end = formatYMD(h.endDate);
+      return dateStr >= start && dateStr <= end;
+    });
+  }, [selectedDate, profile]);
+
+  const lastWorkingDate = useMemo(() => {
+    return getLastWorkingDay(dayjs(), profile);
+  }, [profile]);
 
   const dateKey = selectedDate.format("YYYY-MM-DD");
   const isReadOnly =
-    !selectedDate.isSame(dayjs(), "day") &&
-    !selectedDate.isSame(dayjs().subtract(1, "day"), "day");
+    !!currentHoliday ||
+    (!selectedDate.isSame(dayjs(), "day") &&
+      !selectedDate.isSame(lastWorkingDate, "day"));
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -220,8 +344,15 @@ export default function TimesheetPage() {
         `/api/timesheets/day/${dateKey}`,
       );
 
-      const defaultSlots = generateDynamicSlots(selectedTiming);
+      const effectiveTiming = getEffectiveTiming(selectedDate, profile, selectedTiming);
+      const defaultSlots = generateDynamicSlots(effectiveTiming);
       const normalized = normalizeDaySlots(record?.slots, defaultSlots);
+
+      // If it's a holiday and no slots are filled, pre-fill with holiday message
+      if (currentHoliday && (!record || record.slots.length === 0)) {
+        normalized.forEach(s => s.task = `Holiday: ${currentHoliday.name}`);
+      }
+
       setSlots(normalized);
       setInitialSnapshot(
         JSON.stringify(
@@ -231,8 +362,14 @@ export default function TimesheetPage() {
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Failed to load timesheet";
       messageApi.error(errMsg);
-      const defaultSlots = generateDynamicSlots(selectedTiming);
+      const effectiveTiming = getEffectiveTiming(selectedDate, profile, selectedTiming);
+      const defaultSlots = generateDynamicSlots(effectiveTiming);
       const fallback = normalizeDaySlots([], defaultSlots);
+
+      if (currentHoliday) {
+        fallback.forEach(s => s.task = `Holiday: ${currentHoliday.name}`);
+      }
+
       setSlots(fallback);
       setInitialSnapshot(
         JSON.stringify(
@@ -242,7 +379,7 @@ export default function TimesheetPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateKey, messageApi, profileLoaded, selectedTiming]);
+  }, [dateKey, messageApi, profileLoaded, selectedTiming, currentHoliday]);
 
   useEffect(() => {
     void fetchTimesheet();
@@ -341,33 +478,7 @@ export default function TimesheetPage() {
   const targetHours = useMemo(() => {
     if (!profile) return 8.5;
 
-    const dayOfWeek = selectedDate.day();
-
-    // Check if it's a half-day
-    if (profile.halfDay) {
-      const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
-      if (match) {
-        const dayStr = match[1].toLowerCase();
-        const start = match[2].trim();
-        const end = match[3].trim();
-        const daysMap: Record<string, number> = {
-          sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
-          wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
-        };
-        if (daysMap[dayStr] === dayOfWeek) {
-          const parseTime = (t: string) => {
-            const [h, m] = t.split(":").map(Number);
-            return (h || 0) + (m || 0) / 60;
-          };
-          const h1 = parseTime(start);
-          const h2 = parseTime(end);
-          return h2 > h1 ? h2 - h1 : 4.5;
-        }
-      }
-    }
-
-    // Otherwise standard timing
-    const timingToParse = selectedTiming || profile.allowedTimings?.split(',')[0];
+    const timingToParse = getEffectiveTiming(selectedDate, profile, selectedTiming || profile.allowedTimings?.split(',')[0]);
     if (timingToParse) {
       const [start, end] = timingToParse.split("-").map((s: string) => s.trim());
       if (start && end) {
@@ -386,6 +497,19 @@ export default function TimesheetPage() {
 
   const progressPercent = Math.min(100, Math.round((filledHours / targetHours) * 100));
   const isTargetAchieved = filledHours >= targetHours;
+
+  const progressStyle = useMemo(() => {
+    if (progressPercent < 33) {
+      return { stroke: "#ef4444", textClass: "text-red-500", bgClass: "bg-red-500", bgGradient: "bg-gradient-to-r from-red-500 to-red-400 shadow-[0_0_8px_rgba(239,68,68,0.35)]" };
+    }
+    if (progressPercent < 66) {
+      return { stroke: "#f97316", textClass: "text-orange-500", bgClass: "bg-orange-500", bgGradient: "bg-gradient-to-r from-orange-500 to-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.35)]" };
+    }
+    if (progressPercent < 100) {
+      return { stroke: "#f59e0b", textClass: "text-amber-500", bgClass: "bg-amber-400", bgGradient: "bg-gradient-to-r from-amber-500 to-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.35)]" };
+    }
+    return { stroke: "#10b981", textClass: "text-emerald-500", bgClass: "bg-emerald-500", bgGradient: "bg-gradient-to-r from-emerald-500 to-green-400 shadow-[0_0_8px_rgba(34,197,94,0.35)]" };
+  }, [progressPercent]);
 
   return (
     <div className="max-w-6xl mx-auto pb-24 pt-6 px-4 sm:px-6 font-sans">
@@ -418,68 +542,57 @@ export default function TimesheetPage() {
       </div>
 
       {/* Target Progress Header Card */}
-      <div className="bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full md:w-auto">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                DAILY LOGGED HOURS
-              </span>
-              {!isTargetAchieved ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60">
-                  In Progress
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Target Achieved
-                </span>
-              )}
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
-                {(() => {
-                  const h = Math.floor(filledHours);
-                  const m = Math.round((filledHours - h) * 60);
-                  if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-                  if (h > 0) return `${h}hrs`;
-                  if (m > 0) return `${m}mins`;
-                  return "0hrs";
-                })()}
-              </span>
-              <span className="text-sm text-gray-400 dark:text-gray-500 font-semibold">
-                / {(() => {
-                  const h = Math.floor(targetHours);
-                  const m = Math.round((targetHours - h) * 60);
-                  if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-                  if (h > 0) return `${h}hrs`;
-                  if (m > 0) return `${m}mins`;
-                  return "0hrs";
-                })()} Target
-              </span>
-            </div>
-          </div>
-
-          <div className="w-full sm:w-64 flex flex-col gap-2">
-            <div className="flex justify-between text-xs font-medium text-gray-500">
-              <span>Progress</span>
-              <span className={isTargetAchieved ? "text-emerald-500 font-bold" : "text-amber-500 font-bold"}>
-                {progressPercent}%
-              </span>
-            </div>
-            <div className="h-2.5 w-full bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${isTargetAchieved
-                  ? "bg-gradient-to-r from-emerald-500 to-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]"
-                  : "bg-amber-500"
-                  }`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
-
+      <div className="bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            DAILY LOGGED HOURS
+          </span>
+          {!isTargetAchieved ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60">
+              In Progress
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Target Achieved
+            </span>
+          )}
+        </div>
+        <div className="flex items-baseline gap-1.5 mb-3">
+          <span className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
+            {(() => {
+              const h = Math.floor(filledHours);
+              const m = Math.round((filledHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()}
+          </span>
+          <span className="text-sm text-gray-400 dark:text-gray-500 font-semibold">
+            / {(() => {
+              const h = Math.floor(targetHours);
+              const m = Math.round((targetHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()} Target
+          </span>
+        </div>
+        <div className="h-1.5 w-full max-w-xs bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${progressStyle.bgGradient}`}
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
       </div>
+
+      {currentHoliday && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 flex items-center justify-center">
+          <span className="font-semibold text-lg">🎉 Holiday: {currentHoliday.name}</span>
+        </div>
+      )}
 
       {/* Daily Timesheet Main Card */}
       <div className="bg-white dark:bg-zinc-900 shadow-sm">
@@ -489,18 +602,39 @@ export default function TimesheetPage() {
           {/* <div className="absolute top-[-24px] left-0 right-0 h-6 bg-white dark:bg-zinc-900" aria-hidden="true" /> */}
 
           {/* Actual Header */}
-          <div className="bg-white dark:bg-zinc-900 shadow-sm border-t border-transparent">
+          <div className="bg-white dark:bg-zinc-900">
             {/* Header Bar */}
             <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               {/* Title & subtitle */}
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <CalendarOutlined className="text-gray-900 dark:text-white text-lg" />
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                     {selectedDate.isSame(dayjs(), "day")
                       ? "Today's Timesheet"
                       : selectedDate.format("MMMM D, YYYY")}
                   </h1>
+                  {/* Circular Donut Ring — compact, beside the title */}
+                  <div className="relative flex-shrink-0 w-10 h-10">
+                    <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke={isTargetAchieved ? "#d1fae5" : "#f1f5f9"} strokeWidth="3.5" />
+                      <circle
+                        cx="18" cy="18" r="15.9"
+                        fill="none"
+                        stroke={progressStyle.stroke}
+                        strokeWidth="3.5"
+                        strokeDasharray={`${progressPercent} ${100 - progressPercent}`}
+                        strokeDashoffset="0"
+                        strokeLinecap="round"
+                        style={{ transition: "stroke-dasharray 0.7s ease, stroke 0.7s ease" }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className={`text-[9px] font-bold leading-none ${progressStyle.textClass}`}>
+                        {progressPercent}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
                   Enter task descriptions for each time slot.
@@ -511,8 +645,8 @@ export default function TimesheetPage() {
               <div className="flex flex-row items-center justify-start sm:justify-end gap-1 w-full sm:w-auto">
                 <div className="flex items-center bg-gray-100 dark:bg-zinc-800 p-1 rounded-xl h-8">
                   <button
-                    className={`px-2 h-full text-xs font-medium cursor-pointer rounded-lg transition-all ${selectedDate.isSame(dayjs().subtract(1, 'day'), 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 hover:bg-white hover:shadow-sm dark:hover:text-gray-200 dark:hover:bg-zinc-700'}`}
-                    onClick={() => setSelectedDate(dayjs().subtract(1, "day"))}
+                    className={`px-2 h-full text-xs font-medium cursor-pointer rounded-lg transition-all ${selectedDate.isSame(lastWorkingDate, 'day') ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60 shadow-sm' : 'border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-800 hover:bg-white hover:shadow-sm dark:hover:text-gray-200 dark:hover:bg-zinc-700'}`}
+                    onClick={() => setSelectedDate(lastWorkingDate)}
                   >
                     Yesterday
                   </button>
@@ -538,7 +672,11 @@ export default function TimesheetPage() {
                       value={selectedDate}
                       onChange={(d) => d && setSelectedDate(d)}
                       allowClear={false}
-                      disabledDate={(current) => current && current > dayjs().endOf("day")}
+                      disabledDate={(current) => {
+                        if (current && current > dayjs().endOf("day")) return true;
+                        if (current && isNonWorkingDay(current, profile)) return true;
+                        return false;
+                      }}
                       format="MMM D, YYYY"
                       variant="borderless"
                       className="w-[100px] [&_input]:!text-[11px] [&_input]:!font-semibold [&_input]:!text-center [&_input]:!px-0"
@@ -559,7 +697,7 @@ export default function TimesheetPage() {
             </div>
 
             {/* Table Column Headers */}
-            <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 text-xs font-bold text-gray-400 tracking-wider uppercase">
+            <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 text-xs font-bold text-gray-400 tracking-wider uppercase border-b-1 border-gray-300 dark:border-zinc-700">
               <div className="col-span-3">TIME SLOT</div>
               <div className="col-span-9">TASK DESCRIPTION</div>
             </div>
@@ -581,7 +719,10 @@ export default function TimesheetPage() {
               return (
                 <div
                   key={slot.key}
-                  className="flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors hover:bg-gray-50/30 dark:hover:bg-zinc-800/20"
+                  className={`flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors border-l-4 ${isFilled
+                      ? "border-l-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
+                      : "border-l-transparent hover:bg-gray-50/40 dark:hover:bg-zinc-800/20"
+                    }`}
                 >
                   {/* Left Column: Time slot details & badges */}
                   <div className="col-span-1 md:col-span-3 flex flex-row md:flex-col justify-between md:justify-start items-center md:items-start w-full gap-2 md:pt-2">
@@ -623,7 +764,7 @@ export default function TimesheetPage() {
                       value={slot.task}
                       onChange={(e) => handleTaskChange(slot.key, e.target.value)}
                       disabled={isReadOnly}
-                      placeholder="Enter task description..."
+                      placeholder={`What did you work on during ${slot.timeSlot}?`}
                       className={`w-full rounded-xl p-2.5 text-xs transition-all duration-200 resize-none outline-none ${isFilled
                         ? "border border-emerald-300 dark:border-emerald-800/80 text-gray-900 dark:text-zinc-100 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                         : "bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-100 placeholder-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
@@ -637,7 +778,10 @@ export default function TimesheetPage() {
         )}
 
         {/* Bottom Save Button */}
-        <div className="p-6 flex justify-end">
+        <div className="p-6 flex flex-col sm:flex-row items-center justify-end gap-3">
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+            {slots.filter(s => s.task.trim().length > 0).length} of {slots.length} slots filled
+          </span>
           <Button
             type="primary"
             size="large"

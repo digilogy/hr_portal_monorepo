@@ -1,6 +1,7 @@
 import { UserRole, AppDataSource, EmployeeShiftAssignment, EmployeeData } from "@hr-portal/database";
 import { AccessService } from "../access/access.service";
 import { profileRepository } from "./profile.repository";
+import { holidayRepository } from "../admin/holiday.repository";
 
 export interface EmployeeProfile {
   name: string;
@@ -21,6 +22,9 @@ export interface EmployeeProfile {
   allowedTimings?: string;
   preferredTiming?: string;
   halfDay?: string;
+  zone?: string;
+  mappedZone?: string;
+  upcomingHolidays?: any[];
 }
 
 function formatValue(value?: string | null): string {
@@ -87,6 +91,37 @@ export class ProfileService {
       }
     }
 
+    const zoneMap: Record<string, string> = {
+      "chennai": "Tamil Nadu Zone",
+      "coimbatore": "Tamil Nadu Zone",
+      "bangalore": "Karnataka Zone",
+      "hyderabad": "Telangana Zone",
+      "vizag": "Telangana Zone",
+      "pune": "Maharashtra Zone",
+      "mumbai": "Maharashtra Zone",
+      "delhi": "Delhi Zone",
+      "dubai": "Dubai Zone"
+    };
+
+    let mappedZone: string | undefined = undefined;
+    let upcomingHolidays: any[] = [];
+
+    if (employee.zone) {
+      mappedZone = zoneMap[employee.zone.toLowerCase()];
+      if (mappedZone) {
+        const allHolidays = await holidayRepository.findAll();
+        
+        upcomingHolidays = allHolidays.filter(h => {
+          return h.zones && h.zones.includes(mappedZone as string);
+        }).map(h => ({
+          name: h.name,
+          startDate: h.startDate,
+          endDate: h.endDate,
+          isOptional: h.isOptional
+        }));
+      }
+    }
+
     return {
       name: formatValue(employee.fullName),
       employeeId: formatValue(employee.employeeId),
@@ -98,6 +133,7 @@ export class ProfileService {
       jobTitle: formatValue(employee.jobTitle),
       employmentStatus: formatValue(employee.employmentStatus),
       subDepartment: formatValue(employee.subDepartment),
+      zone: formatValue(employee.zone),
       role,
       alsoManager,
       policy,
@@ -106,6 +142,8 @@ export class ProfileService {
       allowedTimings,
       preferredTiming,
       halfDay,
+      mappedZone,
+      upcomingHolidays,
     };
   }
 

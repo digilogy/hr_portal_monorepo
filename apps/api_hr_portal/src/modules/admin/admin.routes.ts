@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AdminController } from "./admin.controller";
+import { HolidayController } from "./holiday.controller";
 import { authenticateJWT, authorizeRole } from "../../middlewares/auth.middleware";
 import { uploadFile } from "../../middlewares/upload.middleware";
 import { UserRole } from "@hr-portal/database";
@@ -28,5 +29,11 @@ router.get("/bulk-upload/status/:jobId", AdminController.getUploadStatus);
 router.get("/email-logs", AdminController.listEmailLogs);
 router.get("/email-logs/:emailLogId", AdminController.getEmailLog);
 router.post("/email-logs/:emailLogId/retry", AdminController.retryEmailLog);
+
+// Holiday Routes
+router.get("/holidays", HolidayController.getAllHolidays);
+router.post("/holidays", HolidayController.createHoliday);
+router.put("/holidays/:id", HolidayController.updateHoliday);
+router.delete("/holidays/:id", HolidayController.deleteHoliday);
 
 export default router;

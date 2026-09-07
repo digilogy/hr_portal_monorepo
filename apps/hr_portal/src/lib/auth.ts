@@ -133,6 +133,10 @@ export function canAccessAnalytics(role: UserRole | null): boolean {
   return role === "admin" || role === "hrbp" || role === "manager";
 }
 
+export function canAccessHolidays(role: UserRole | null): boolean {
+  return role === "admin";
+}
+
 export function canAccessPersonalDashboard(role: UserRole | null): boolean {
   return role === "employee" || role === "manager" || role === "hrbp";
 }

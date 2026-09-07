@@ -46,6 +46,7 @@ const fieldAliases: Record<string, string> = {
   "official email id": "officialEmailId",
   "office mobile number": "officeMobileNumber",
   "attendance shift": "attendanceShift",
+  zone: "zone",
 };
 
 const EMPLOYEE_ID_HEADERS = new Set([
@@ -85,6 +86,7 @@ function buildEmployeeRecord(mappedValues: Record<string, string>) {
     officialEmailId: mappedValues["officialEmailId"] || "",
     officeMobileNumber: mappedValues["officeMobileNumber"] || "",
     attendanceShift: mappedValues["attendanceShift"] || "",
+    zone: mappedValues["zone"] || "",
   };
 }
 

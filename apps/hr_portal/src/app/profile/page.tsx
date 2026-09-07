@@ -24,6 +24,13 @@ interface EmployeeProfile {
   shiftName?: string;
   allowedTimings?: string;
   preferredTiming?: string;
+  mappedZone?: string;
+  upcomingHolidays?: Array<{
+    name: string;
+    startDate: string;
+    endDate: string;
+    isOptional: boolean;
+  }>;
 }
 
 export default function ProfilePage() {
@@ -238,6 +245,62 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Public Holidays Section */}
+      {profile.mappedZone && profile.upcomingHolidays && (
+        <div className="mt-6 bg-white dark:bg-black rounded-3xl shadow-sm border border-gray-100 dark:border-zinc-800 p-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Public Holidays</h2>
+            <div className="mt-2 sm:mt-0 px-3 py-1 bg-orange-50 dark:bg-orange-900/20 text-[#F5A623] rounded-full text-sm font-semibold border border-orange-100 dark:border-orange-900/30">
+              {profile.mappedZone}
+            </div>
+          </div>
+          
+          {profile.upcomingHolidays.length === 0 ? (
+            <p className="text-gray-500">No holidays scheduled for your zone.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-100 dark:border-zinc-800">
+                    <th className="pb-3 text-sm font-semibold text-gray-500">Holiday</th>
+                    <th className="pb-3 text-sm font-semibold text-gray-500">Date</th>
+                    <th className="pb-3 text-sm font-semibold text-gray-500">Type</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
+                  {profile.upcomingHolidays.map((holiday, idx) => {
+                    const start = new Date(holiday.startDate);
+                    const end = new Date(holiday.endDate);
+                    const dateStr = start.getTime() === end.getTime() 
+                      ? start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })
+                      : `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}`;
+                    
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-zinc-900/30 transition-colors">
+                        <td className="py-4 text-gray-900 dark:text-gray-100 font-medium">
+                          {holiday.name}
+                        </td>
+                        <td className="py-4 text-gray-600 dark:text-gray-400">
+                          {dateStr}
+                        </td>
+                        <td className="py-4">
+                          {holiday.isOptional ? (
+                            <span className="px-2 py-1 bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 rounded-md text-xs font-medium">Optional</span>
+                          ) : (
+                            <span className="px-2 py-1 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-md text-xs font-medium border border-green-100 dark:border-green-900/30">Mandatory</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

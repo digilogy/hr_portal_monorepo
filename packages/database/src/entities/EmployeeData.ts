@@ -56,6 +56,9 @@ export class EmployeeData {
   @Column({ nullable: true })
   officeMobileNumber?: string;
 
+  @Column({ nullable: true })
+  zone?: string;
+
   @CreateDateColumn()
   createdAt!: Date;
 
