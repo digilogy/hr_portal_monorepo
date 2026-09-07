@@ -93,6 +93,7 @@ model EmployeeData {
   hodEmployeeName         String?  @map("hodEmployeeName")
   officialEmailId         String?  @map("officialEmailId")
   officeMobileNumber      String?  @map("officeMobileNumber")
+  zone                    String?  @map("zone")
   createdAt               DateTime @default(now()) @map("createdAt")
   updatedAt               DateTime @default(now()) @updatedAt @map("updatedAt")
 
@@ -105,6 +106,20 @@ model EmployeeData {
   @@index([department, subDepartment])
   @@index([employmentStatus])
   @@map("employee_data")
+}
+
+model Holiday {
+  id         Int      @id @default(autoincrement())
+  name       String
+  startDate  DateTime @map("startDate")
+  endDate    DateTime @map("endDate")
+  zones      Json     // Array of zones (e.g. ["Tamil Nadu Zone", "Dubai Zone"])
+  isOptional Boolean  @default(false) @map("isOptional")
+  createdAt  DateTime @default(now()) @map("createdAt")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updatedAt")
+
+  @@index([startDate, endDate])
+  @@map("holiday")
 }
 
 model EmailLog {

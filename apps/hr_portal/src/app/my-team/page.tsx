@@ -27,6 +27,7 @@ import {
   AppstoreOutlined,
   TableOutlined,
 } from "@ant-design/icons";
+import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { canAccessTeam, getNameInitials, getTokenRole } from "@/lib/auth";
@@ -160,9 +161,12 @@ export default function MyTeamPage() {
       setLoading(true);
       setError(null);
       try {
+        const todayStr = dayjs().format("YYYY-MM-DD");
         const params = new URLSearchParams({
           page: String(page),
           pageSize: String(pageSize),
+          fromDate: todayStr,
+          toDate: todayStr,
         });
         if (cardFilter !== "all") {
           params.set("rosterFilter", cardFilter);
@@ -295,9 +299,9 @@ export default function MyTeamPage() {
           <Title level={2} className="!mb-1 text-gray-900 dark:text-gray-100">
             My Team
           </Title>
-          <p className="text-gray-500 text-sm md:text-base">
+          {/* <p className="text-gray-500 text-sm md:text-base">
             Direct reports and full downline hierarchy with current timesheet status.
-          </p>
+          </p> */}
         </div>
         {isAdmin && (
           <AdminDepartmentFilter
@@ -337,7 +341,7 @@ export default function MyTeamPage() {
             valueLabel={String(teamStats.submitted)}
             targetLabel={`/ ${teamStats.total}`}
             percent={teamStats.submissionRate}
-            footerLeft="This week"
+            footerLeft="Today"
             footerRight={`${Math.round(teamStats.submissionRate)}%`}
             icon={<CheckCircleOutlined />}
             iconClassName="bg-green-50 text-green-500"

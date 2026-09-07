@@ -333,8 +333,7 @@ export default function MyDashboardPage() {
       label: rangeLabel(from, to),
     };
   }, [selectedPeriod, customRange]);
-  const weekFrom = today.startOf("week").format("YYYY-MM-DD");
-  const weekTo = today.format("YYYY-MM-DD");
+  const todayStr = today.format("YYYY-MM-DD");
 
   const fetchPeriodData = useCallback(async () => {
     setLoading(true);
@@ -367,7 +366,7 @@ export default function MyDashboardPage() {
     void fetchPeriodData();
     setMounted(true);
     if (managerView) {
-      apiFetch<TeamResponse>(`/api/team/roster?fromDate=${weekFrom}&toDate=${weekTo}`)
+      apiFetch<TeamResponse>(`/api/team/roster?fromDate=${todayStr}&toDate=${todayStr}`)
         .then((teamRes) => { setTeamMembers(teamRes.members); setTeamSummary(teamRes.summary); })
         .catch((err: unknown) => {
           setTeamError(err instanceof Error ? err.message : "Failed to load team overview");
@@ -542,17 +541,12 @@ export default function MyDashboardPage() {
       {isManager && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <Segmented
-            block
-            className="max-w-md"
             value={dashboardView}
             onChange={(value) => setDashboardView(value as "personal" | "team")}
             options={[
               { label: "My Timesheet", value: "personal" },
               {
-                label:
-                  teamStats.pending > 0
-                    ? `Team Overview (${teamStats.pending})`
-                    : "Team Overview",
+                label: "Team Overview",
                 value: "team",
               },
             ]}
@@ -675,8 +669,8 @@ export default function MyDashboardPage() {
         <>
           <Text className="text-sm text-gray-500 block -mt-2">
             {userRole === "hrbp"
-              ? `${profile?.alsoManager ? "HR portfolio & team" : "HR portfolio"} snapshot for this week (${weekFrom} – ${weekTo})`
-              : `Downline snapshot for this week (${weekFrom} – ${weekTo})`}
+              ? `${profile?.alsoManager ? "HR portfolio & team" : "HR portfolio"} snapshot for today (${today.format("YYYY-MM-DD")})`
+              : `Downline snapshot for today (${today.format("YYYY-MM-DD")})`}
           </Text>
 
           {teamError && <Alert type="warning" title={teamError} showIcon />}
@@ -702,7 +696,7 @@ export default function MyDashboardPage() {
                 valueLabel={String(teamStats.submitted)}
                 targetLabel={`/ ${teamStats.total}`}
                 percent={teamStats.submissionRate}
-                footerLeft="This week"
+                footerLeft="Today"
                 footerRight={`${Math.round(teamStats.submissionRate)}%`}
                 icon={<CheckCircleOutlined />}
                 iconClassName="bg-green-50 text-green-500"
@@ -825,7 +819,7 @@ export default function MyDashboardPage() {
                 ]}
               />
             ) : (
-              <Empty description="No team members need attention this week." />
+              <Empty description="No team members need attention today." />
             )}
           </Card>
         </>

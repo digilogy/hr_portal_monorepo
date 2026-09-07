@@ -742,11 +742,11 @@ export default function ReportsPage() {
           <Title level={2} className="!mb-1 text-xl md:text-3xl">
             {isAdmin ? "Organization Reports" : "Team Reports"}
           </Title>
-          <p className="text-gray-500 text-sm md:text-base">
+          {/* <p className="text-gray-500 text-sm md:text-base">
             {isAdmin
               ? "Full access to utilization reports across the organization."
               : "Timesheet and utilization reports for your direct reports and downline."}
-          </p>
+          </p> */}
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Select

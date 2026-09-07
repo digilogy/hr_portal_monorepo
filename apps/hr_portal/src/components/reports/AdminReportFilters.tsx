@@ -27,6 +27,7 @@ interface AdminReportFiltersProps {
   options: ReportFilterOptions | null;
   loading?: boolean;
   hideEmployee?: boolean;
+  hideStatus?: boolean;
   onChange: (value: ReportFilters) => void;
 }
 
@@ -41,6 +42,7 @@ export function AdminReportFilters({
   options,
   loading = false,
   hideEmployee = false,
+  hideStatus = false,
   onChange,
 }: AdminReportFiltersProps) {
   const [scopedEmployees, setScopedEmployees] = useState<ReportFilterEmployee[]>(
@@ -99,7 +101,7 @@ export function AdminReportFilters({
   const showManager = scopedOptions.managers.length > 1;
   const showEmployee = !hideEmployee && scopedOptions.employees.length > 1;
 
-  const showStatus = true;
+  const showStatus = !hideStatus;
 
   const visibleCount = [showDept, showSubDept, showManager, showEmployee, showStatus].filter(Boolean).length;
   const wrapperClass = visibleCount <= 1

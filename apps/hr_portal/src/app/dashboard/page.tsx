@@ -296,9 +296,9 @@ export default function DashboardPage() {
         <Title level={2} className="!mb-0 text-xl md:text-3xl">
           Admin Dashboard
         </Title>
-        <Text className="text-gray-500">
+        {/* <Text className="text-gray-500">
           Organization utilization from employee master and timesheet data.
-        </Text>
+        </Text> */}
       </div>
 
 

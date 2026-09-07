@@ -72,7 +72,7 @@ interface AnalyticsData {
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("this_month");
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("this_week");
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [adminFilters, setAdminFilters] = useState<ReportFilters>(
     DEFAULT_REPORT_FILTERS,
@@ -150,10 +150,10 @@ export default function AnalyticsPage() {
         <Title level={2} className="!mb-0 text-xl md:text-3xl">
           Analytics Dashboard
         </Title>
-        <Text className="text-gray-500">
+        {/* <Text className="text-gray-500">
           Logging activity across your organization. Short ranges show daily detail;
           longer ranges group by week or month so charts stay readable.
-        </Text>
+        </Text> */}
       </div>
 
       <Card
@@ -166,6 +166,7 @@ export default function AnalyticsPage() {
             value={adminFilters}
             options={filterOptions}
             loading={!filterOptions && loading}
+            hideStatus={true}
             onChange={setAdminFilters}
           />
           <div className="flex flex-col sm:flex-row flex-wrap items-end gap-4">
@@ -196,7 +197,7 @@ export default function AnalyticsPage() {
                     setCustomRange([dates[0], dates[1]]);
                   } else {
                     setCustomRange(null);
-                    setPeriodPreset("this_month");
+                    setPeriodPreset("this_week");
                   }
                 }}
                 disabled={periodPreset !== "custom"}

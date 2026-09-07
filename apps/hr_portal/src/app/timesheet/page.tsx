@@ -387,6 +387,19 @@ export default function TimesheetPage() {
   const progressPercent = Math.min(100, Math.round((filledHours / targetHours) * 100));
   const isTargetAchieved = filledHours >= targetHours;
 
+  const progressStyle = useMemo(() => {
+    if (progressPercent < 33) {
+      return { stroke: "#ef4444", textClass: "text-red-500", bgClass: "bg-red-500", bgGradient: "bg-gradient-to-r from-red-500 to-red-400 shadow-[0_0_8px_rgba(239,68,68,0.35)]" };
+    }
+    if (progressPercent < 66) {
+      return { stroke: "#f97316", textClass: "text-orange-500", bgClass: "bg-orange-500", bgGradient: "bg-gradient-to-r from-orange-500 to-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.35)]" };
+    }
+    if (progressPercent < 100) {
+      return { stroke: "#f59e0b", textClass: "text-amber-500", bgClass: "bg-amber-400", bgGradient: "bg-gradient-to-r from-amber-500 to-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.35)]" };
+    }
+    return { stroke: "#10b981", textClass: "text-emerald-500", bgClass: "bg-emerald-500", bgGradient: "bg-gradient-to-r from-emerald-500 to-green-400 shadow-[0_0_8px_rgba(34,197,94,0.35)]" };
+  }, [progressPercent]);
+
   return (
     <div className="max-w-6xl mx-auto pb-24 pt-6 px-4 sm:px-6 font-sans">
       {contextHolder}
@@ -418,66 +431,49 @@ export default function TimesheetPage() {
       </div>
 
       {/* Target Progress Header Card */}
-      <div className="bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 w-full md:w-auto">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                DAILY LOGGED HOURS
-              </span>
-              {!isTargetAchieved ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60">
-                  In Progress
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Target Achieved
-                </span>
-              )}
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
-                {(() => {
-                  const h = Math.floor(filledHours);
-                  const m = Math.round((filledHours - h) * 60);
-                  if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-                  if (h > 0) return `${h}hrs`;
-                  if (m > 0) return `${m}mins`;
-                  return "0hrs";
-                })()}
-              </span>
-              <span className="text-sm text-gray-400 dark:text-gray-500 font-semibold">
-                / {(() => {
-                  const h = Math.floor(targetHours);
-                  const m = Math.round((targetHours - h) * 60);
-                  if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-                  if (h > 0) return `${h}hrs`;
-                  if (m > 0) return `${m}mins`;
-                  return "0hrs";
-                })()} Target
-              </span>
-            </div>
-          </div>
-
-          <div className="w-full sm:w-64 flex flex-col gap-2">
-            <div className="flex justify-between text-xs font-medium text-gray-500">
-              <span>Progress</span>
-              <span className={isTargetAchieved ? "text-emerald-500 font-bold" : "text-amber-500 font-bold"}>
-                {progressPercent}%
-              </span>
-            </div>
-            <div className="h-2.5 w-full bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${isTargetAchieved
-                  ? "bg-gradient-to-r from-emerald-500 to-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]"
-                  : "bg-amber-500"
-                  }`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
-
+      <div className="bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            DAILY LOGGED HOURS
+          </span>
+          {!isTargetAchieved ? (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60">
+              In Progress
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Target Achieved
+            </span>
+          )}
+        </div>
+        <div className="flex items-baseline gap-1.5 mb-3">
+          <span className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
+            {(() => {
+              const h = Math.floor(filledHours);
+              const m = Math.round((filledHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()}
+          </span>
+          <span className="text-sm text-gray-400 dark:text-gray-500 font-semibold">
+            / {(() => {
+              const h = Math.floor(targetHours);
+              const m = Math.round((targetHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()} Target
+          </span>
+        </div>
+        <div className="h-1.5 w-full max-w-xs bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${progressStyle.bgGradient}`}
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
       </div>
 
@@ -494,13 +490,34 @@ export default function TimesheetPage() {
             <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               {/* Title & subtitle */}
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <CalendarOutlined className="text-gray-900 dark:text-white text-lg" />
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                     {selectedDate.isSame(dayjs(), "day")
                       ? "Today's Timesheet"
                       : selectedDate.format("MMMM D, YYYY")}
                   </h1>
+                  {/* Circular Donut Ring — compact, beside the title */}
+                  <div className="relative flex-shrink-0 w-10 h-10">
+                    <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke={isTargetAchieved ? "#d1fae5" : "#f1f5f9"} strokeWidth="3.5" />
+                      <circle
+                        cx="18" cy="18" r="15.9"
+                        fill="none"
+                        stroke={progressStyle.stroke}
+                        strokeWidth="3.5"
+                        strokeDasharray={`${progressPercent} ${100 - progressPercent}`}
+                        strokeDashoffset="0"
+                        strokeLinecap="round"
+                        style={{ transition: "stroke-dasharray 0.7s ease, stroke 0.7s ease" }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className={`text-[9px] font-bold leading-none ${progressStyle.textClass}`}>
+                        {progressPercent}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
                   Enter task descriptions for each time slot.
@@ -581,7 +598,11 @@ export default function TimesheetPage() {
               return (
                 <div
                   key={slot.key}
-                  className="flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors hover:bg-gray-50/30 dark:hover:bg-zinc-800/20"
+                  className={`flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors border-l-4 ${
+                    isFilled
+                      ? "border-l-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
+                      : "border-l-transparent hover:bg-gray-50/40 dark:hover:bg-zinc-800/20"
+                  }`}
                 >
                   {/* Left Column: Time slot details & badges */}
                   <div className="col-span-1 md:col-span-3 flex flex-row md:flex-col justify-between md:justify-start items-center md:items-start w-full gap-2 md:pt-2">
@@ -623,7 +644,7 @@ export default function TimesheetPage() {
                       value={slot.task}
                       onChange={(e) => handleTaskChange(slot.key, e.target.value)}
                       disabled={isReadOnly}
-                      placeholder="Enter task description..."
+                      placeholder={`What did you work on during ${slot.timeSlot}?`}
                       className={`w-full rounded-xl p-2.5 text-xs transition-all duration-200 resize-none outline-none ${isFilled
                         ? "border border-emerald-300 dark:border-emerald-800/80 text-gray-900 dark:text-zinc-100 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
                         : "bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-100 placeholder-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
@@ -637,7 +658,10 @@ export default function TimesheetPage() {
         )}
 
         {/* Bottom Save Button */}
-        <div className="p-6 flex justify-end">
+        <div className="p-6 flex flex-col sm:flex-row items-center justify-end gap-3">
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+            {slots.filter(s => s.task.trim().length > 0).length} of {slots.length} slots filled
+          </span>
           <Button
             type="primary"
             size="large"
