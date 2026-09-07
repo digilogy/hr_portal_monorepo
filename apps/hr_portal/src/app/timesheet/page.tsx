@@ -489,7 +489,7 @@ export default function TimesheetPage() {
           {/* <div className="absolute top-[-24px] left-0 right-0 h-6 bg-white dark:bg-zinc-900" aria-hidden="true" /> */}
 
           {/* Actual Header */}
-          <div className="bg-white dark:bg-zinc-900 shadow-sm border-t border-transparent">
+          <div className="bg-white dark:bg-zinc-900">
             {/* Header Bar */}
             <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               {/* Title & subtitle */}
@@ -559,7 +559,7 @@ export default function TimesheetPage() {
             </div>
 
             {/* Table Column Headers */}
-            <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 text-xs font-bold text-gray-400 tracking-wider uppercase">
+            <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 text-xs font-bold text-gray-400 tracking-wider uppercase border-b-1 border-gray-300 dark:border-zinc-700">
               <div className="col-span-3">TIME SLOT</div>
               <div className="col-span-9">TASK DESCRIPTION</div>
             </div>

@@ -106,13 +106,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   const menuItems = [
-    ...(canAccessTimesheet(role)
-      ? [{
-        key: "/timesheet",
-        icon: <ClockCircleOutlined />,
-        label: <Link href="/timesheet" onClick={() => setMobileMenuOpen(false)}>Timesheet</Link>,
-      }]
-      : []),
     ...(canAccessPersonalDashboard(role)
       ? [{
         key: "/my-dashboard",
@@ -125,6 +118,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         key: "/dashboard",
         icon: <DashboardOutlined />,
         label: <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>,
+      }]
+      : []),
+    ...(canAccessTimesheet(role)
+      ? [{
+        key: "/timesheet",
+        icon: <ClockCircleOutlined />,
+        label: <Link href="/timesheet" onClick={() => setMobileMenuOpen(false)}>Timesheet</Link>,
       }]
       : []),
     ...(canAccessTeam(role)
@@ -248,7 +248,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             transition: "margin-left 0.2s",
           }}
         >
-          <Header style={{ padding: 0, background: colorBgContainer }} className="shadow-sm flex items-center justify-between md:justify-end px-4 md:px-6 z-10 sticky top-0 border-b border-gray-100 dark:border-zinc-800">
+          <Header style={{ padding: 0, background: colorBgContainer }} className="shadow-sm flex items-center justify-between md:justify-end px-4 md:px-6 z-40 sticky top-0 border-b border-gray-100 dark:border-zinc-800">
             {isMobile && (
               <Button
                 type="text"
