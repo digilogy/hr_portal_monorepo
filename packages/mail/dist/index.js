@@ -14,6 +14,9 @@ function getCleanEnv(key, fallback = "") {
     return val.trim().replace(/^["']|["']$/g, "");
 }
 function getSesClient() {
+    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+        dotenv_1.default.config({ override: true });
+    }
     const awsRegion = getCleanEnv("AWS_REGION", "ap-south-2");
     const awsAccessKeyId = getCleanEnv("AWS_ACCESS_KEY_ID");
     const awsSecretAccessKey = getCleanEnv("AWS_SECRET_ACCESS_KEY");

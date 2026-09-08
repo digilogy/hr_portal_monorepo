@@ -5,4 +5,7 @@ export * from "./entities/EmployeeData";
 export * from "./entities/UploadJob";
 export * from "./entities/UploadLog";
 export * from "./entities/EmailLog";
+export * from "./entities/Shift";
+export * from "./entities/EmployeeShiftAssignment";
+export * from "./entities/Holiday";
 //# sourceMappingURL=index.d.ts.map

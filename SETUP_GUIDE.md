@@ -17,6 +17,17 @@ Run the following command in the terminal to start PostgreSQL, Redis, the API, t
 docker-compose up -d
 npm run dev --workspace=@hr-portal/hr-portal
 docker-compose up -d --build api
+
+
+
+# 1. Build the database package to expose the new Holiday and Shift entities
+npm run build --workspace=@hr-portal/database
+
+# 2. Then build the rest of the project
+npm run build --workspaces --if-present
+
+
+
 /opt/homebrew/opt/openjdk@21/bin/java -Dmail.smtp.starttls.enable=true -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true -jar /opt/homebrew/opt/jenkins-lts/libexec/jenkins.war --httpListenAddress=127.0.0.1 --httpPort=8080
 
 ```

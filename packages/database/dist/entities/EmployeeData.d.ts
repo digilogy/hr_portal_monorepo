@@ -14,6 +14,7 @@ export declare class EmployeeData {
     hodEmployeeName?: string;
     officialEmailId?: string;
     officeMobileNumber?: string;
+    zone?: string;
     createdAt: Date;
     updatedAt: Date;
 }

@@ -1,13 +1,26 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.env = void 0;
-require("dotenv/config");
+const dotenv_1 = __importDefault(require("dotenv"));
+const fs_1 = __importDefault(require("fs"));
+const path_1 = __importDefault(require("path"));
+const envName = process.env.NODE_ENV || "development";
+const envPath = path_1.default.resolve(process.cwd(), `.env.${envName}`);
+if (fs_1.default.existsSync(envPath)) {
+    dotenv_1.default.config({ path: envPath });
+}
+else {
+    dotenv_1.default.config();
+}
 const zod_1 = require("zod");
 const envSchema = zod_1.z.object({
     NODE_ENV: zod_1.z.enum(["development", "production", "test"]).default("development"),
     PORT: zod_1.z.coerce.number().default(5111),
     DB_HOST: zod_1.z.string().default("localhost"),
-    DB_PORT: zod_1.z.coerce.number().default(3306),
+    DB_PORT: zod_1.z.coerce.number().default(5435),
     DB_USER: zod_1.z.string().default("root"),
     DB_PASSWORD: zod_1.z.string().default(""),
     DB_NAME: zod_1.z.string().default("hr-portal"),
@@ -16,8 +29,8 @@ const envSchema = zod_1.z.object({
     // production secret is 20 chars, and raising the bar here would refuse to boot until it's
     // rotated. Rotating it is a separate, deliberate step (it invalidates all live sessions).
     JWT_SECRET: zod_1.z.string().min(1, "JWT_SECRET is required"),
-    ADMIN_USER: zod_1.z.string().default("admin@gmail.com"),
-    ADMIN_PIN: zod_1.z.string().default("admin@123"),
+    ADMIN_USER: zod_1.z.string().default("admin@casagrand.co.in"),
+    ADMIN_PIN: zod_1.z.string().default("1234"),
     FRONTEND_URL: zod_1.z.string().default("http://localhost:3661"),
     ALLOWED_ORIGINS: zod_1.z.string().default(""),
     REDIS_HOST: zod_1.z.string().default("localhost"),

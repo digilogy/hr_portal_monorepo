@@ -85,11 +85,11 @@ __decorate([
     __metadata("design:type", String)
 ], EmailLog.prototype, "sesMessageId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, type: "datetime" }),
+    (0, typeorm_1.Column)({ nullable: true, type: "timestamp" }),
     __metadata("design:type", Date)
 ], EmailLog.prototype, "sentAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, type: "datetime" }),
+    (0, typeorm_1.Column)({ nullable: true, type: "timestamp" }),
     __metadata("design:type", Date)
 ], EmailLog.prototype, "nextRetryAt", void 0);
 __decorate([
