@@ -27,6 +27,7 @@ let EmployeeData = class EmployeeData {
     hodEmployeeName;
     officialEmailId;
     officeMobileNumber;
+    zone;
     createdAt;
     updatedAt;
 };
@@ -93,6 +94,10 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], EmployeeData.prototype, "officeMobileNumber", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], EmployeeData.prototype, "zone", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

@@ -45,8 +45,8 @@ export function DashboardMetricCard({
       onClick={onClick}
       hoverable={!!onClick}
       className={`shadow-sm rounded-2xl border h-full transition-all [&>.ant-card-body]:!p-2 sm:[&>.ant-card-body]:!p-3 ${active
-          ? "border-[#F5A623] ring-2 ring-[#F5A623]/20"
-          : "border-gray-100 dark:border-zinc-800"
+        ? "border-[#F5A623] ring-2 ring-[#F5A623]/20"
+        : "border-gray-100 dark:border-zinc-800"
         } ${onClick ? "cursor-pointer hover:shadow-md" : "hover:shadow-md"}`}
     >
       <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">

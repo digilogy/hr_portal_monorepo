@@ -31,7 +31,7 @@ export class HolidayController {
         const hStart = new Date(h.startDate);
         const hEnd = new Date(h.endDate);
         const datesOverlap = sDate <= hEnd && eDate >= hStart;
-        const zonesIntersect = h.zones.some(z => zones.includes(z));
+        const zonesIntersect = h.zones.some((z: string) => zones.includes(z));
         return datesOverlap && zonesIntersect;
       });
 
@@ -78,7 +78,7 @@ export class HolidayController {
         const hStart = new Date(h.startDate);
         const hEnd = new Date(h.endDate);
         const datesOverlap = updatedStartDate <= hEnd && updatedEndDate >= hStart;
-        const zonesIntersect = h.zones.some(z => updatedZones.includes(z));
+        const zonesIntersect = h.zones.some((z: string) => updatedZones.includes(z));
         return datesOverlap && zonesIntersect;
       });
 

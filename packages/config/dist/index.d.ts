@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { z } from "zod";
 declare const envSchema: z.ZodObject<{
     NODE_ENV: z.ZodDefault<z.ZodEnum<["development", "production", "test"]>>;

@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UploadJob = exports.UploadJobStatus = void 0;
+exports.UploadJob = exports.UploadJobType = exports.UploadJobStatus = void 0;
 const typeorm_1 = require("typeorm");
 const UploadLog_1 = require("./UploadLog");
 var UploadJobStatus;
@@ -19,14 +19,22 @@ var UploadJobStatus;
     UploadJobStatus["COMPLETED"] = "completed";
     UploadJobStatus["FAILED"] = "failed";
 })(UploadJobStatus || (exports.UploadJobStatus = UploadJobStatus = {}));
+var UploadJobType;
+(function (UploadJobType) {
+    UploadJobType["EMPLOYEE"] = "employee";
+    UploadJobType["SHIFT"] = "shift";
+    UploadJobType["MASTER"] = "master";
+})(UploadJobType || (exports.UploadJobType = UploadJobType = {}));
 let UploadJob = class UploadJob {
     id;
     fileName;
     filePath;
     status;
+    type;
     totalRows;
     successCount;
     failureCount;
+    processed;
     errorMessage;
     logs;
     createdAt;
@@ -34,15 +42,15 @@ let UploadJob = class UploadJob {
 };
 exports.UploadJob = UploadJob;
 __decorate([
-    (0, typeorm_1.PrimaryGeneratedColumn)("uuid"),
+    (0, typeorm_1.PrimaryColumn)("uuid"),
     __metadata("design:type", String)
 ], UploadJob.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
+    (0, typeorm_1.Column)({ name: "originalName", nullable: true }),
     __metadata("design:type", String)
 ], UploadJob.prototype, "fileName", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
+    (0, typeorm_1.Column)({ name: "storedPath", nullable: true }),
     __metadata("design:type", String)
 ], UploadJob.prototype, "filePath", void 0);
 __decorate([
@@ -54,6 +62,14 @@ __decorate([
     __metadata("design:type", String)
 ], UploadJob.prototype, "status", void 0);
 __decorate([
+    (0, typeorm_1.Column)({
+        type: "enum",
+        enum: UploadJobType,
+        default: UploadJobType.EMPLOYEE,
+    }),
+    __metadata("design:type", String)
+], UploadJob.prototype, "type", void 0);
+__decorate([
     (0, typeorm_1.Column)({ default: 0 }),
     __metadata("design:type", Number)
 ], UploadJob.prototype, "totalRows", void 0);
@@ -62,9 +78,13 @@ __decorate([
     __metadata("design:type", Number)
 ], UploadJob.prototype, "successCount", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ default: 0 }),
+    (0, typeorm_1.Column)({ name: "errorCount", default: 0 }),
     __metadata("design:type", Number)
 ], UploadJob.prototype, "failureCount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], UploadJob.prototype, "processed", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: true, type: "text" }),
     __metadata("design:type", String)
@@ -74,11 +94,11 @@ __decorate([
     __metadata("design:type", Array)
 ], UploadJob.prototype, "logs", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)(),
+    (0, typeorm_1.Column)(),
     __metadata("design:type", Date)
 ], UploadJob.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)(),
+    (0, typeorm_1.Column)(),
     __metadata("design:type", Date)
 ], UploadJob.prototype, "updatedAt", void 0);
 exports.UploadJob = UploadJob = __decorate([
