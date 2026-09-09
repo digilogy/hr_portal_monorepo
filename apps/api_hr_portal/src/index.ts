@@ -11,7 +11,6 @@ initializeDatabase()
   .then(async () => {
     console.log("Database connected successfully");
     echoConfig();
-    
     app.listen(PORT, () => {
       logger.info("Server", "API listening", { port: PORT });
       

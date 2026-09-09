@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { Worker, Job } from "bullmq";
-import { redisClient, MAIL_QUEUE_NAME, MailJobPayload } from "@hr-portal/queue";
+import { redisClient, MAIL_QUEUE_NAME, QUEUE_PREFIX, MailJobPayload } from "@hr-portal/queue";
 import { EmailService } from "@hr-portal/mail";
 import { logger } from "@hr-portal/logger";
 import { initializeDatabase, AppDataSource, EmailLog, EmailStatus } from "@hr-portal/database";
@@ -64,6 +64,7 @@ export function startMailWorker(): Worker<MailJobPayload> {
       }
     },
     {
+      prefix: QUEUE_PREFIX,
       connection: redisClient,
       concurrency: 20, // High concurrency for enterprise throughput
     }

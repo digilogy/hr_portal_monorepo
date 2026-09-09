@@ -21,7 +21,7 @@ function getSesClient() {
     const awsAccessKeyId = getCleanEnv("AWS_ACCESS_KEY_ID");
     const awsSecretAccessKey = getCleanEnv("AWS_SECRET_ACCESS_KEY");
     const awsSessionToken = getCleanEnv("AWS_SESSION_TOKEN");
-    const fromEmail = getCleanEnv("SES_FROM_EMAIL", getCleanEnv("AWS_SES_FROM_EMAIL", "support@cgworkflow.com"));
+    const fromEmail = getCleanEnv("SES_FROM_EMAIL", getCleanEnv("AWS_SES_FROM_EMAIL", "timesheet@cgworkflow.com"));
     const hasExplicitCredentials = !!(awsAccessKeyId && awsSecretAccessKey);
     // If explicit keys exist, use them. Otherwise, let AWS SDK resolve via IAM Task Role / Container / ECS credentials.
     const client = new client_ses_1.SESClient({

@@ -6,6 +6,7 @@ import { redisClient, isRedisConnected } from "./redis-connection";
 const LOG_CONTEXT = "MailQueue";
 
 export const MAIL_QUEUE_NAME = "mail-queue";
+export const QUEUE_PREFIX = "{bull}";
 
 export interface MailJobPayload {
   emailLogId: string;
@@ -21,6 +22,7 @@ export function getBullMailQueue(): Queue<MailJobPayload> | null {
   if (!bullMailQueue) {
     try {
       bullMailQueue = new Queue<MailJobPayload>(MAIL_QUEUE_NAME, {
+        prefix: QUEUE_PREFIX,
         connection: redisClient,
         defaultJobOptions: {
           attempts: env.EMAIL_MAX_ATTEMPTS,

@@ -32,19 +32,28 @@ async function enqueueTrackedEmail(input) {
     if (!bQueue) {
         return { log: saved, queuedToBullMq: false };
     }
-    await bQueue.add(`send-${input.emailType.toLowerCase()}-${saved.id}`, {
-        emailLogId: saved.id,
-        toEmail: input.toEmail,
-        subject: input.subject,
-        link: input.link,
-        description: input.description,
-    });
-    logger_1.logger.info(LOG_CONTEXT, "Email queued to BullMQ", {
-        emailLogId: saved.id,
-        toEmail: saved.toEmail,
-        emailType: saved.emailType,
-    });
-    return { log: saved, queuedToBullMq: true };
+    try {
+        await bQueue.add(`send-${input.emailType.toLowerCase()}-${saved.id}`, {
+            emailLogId: saved.id,
+            toEmail: input.toEmail,
+            subject: input.subject,
+            link: input.link,
+            description: input.description,
+        });
+        logger_1.logger.info(LOG_CONTEXT, "Email queued to BullMQ", {
+            emailLogId: saved.id,
+            toEmail: saved.toEmail,
+            emailType: saved.emailType,
+        });
+        return { log: saved, queuedToBullMq: true };
+    }
+    catch (err) {
+        logger_1.logger.error(LOG_CONTEXT, "Failed to enqueue email to BullMQ, falling back to local queue", {
+            emailLogId: saved.id,
+            error: err?.message || String(err),
+        });
+        return { log: saved, queuedToBullMq: false };
+    }
 }
 /**
  * Re-enqueues an existing tracked EmailLog row (recovery / manual retry) to
@@ -56,13 +65,23 @@ async function enqueueExistingTrackedEmail(log, jobName) {
     const payload = log.payload;
     if (!bQueue || !payload?.link)
         return false;
-    await bQueue.add(jobName, {
-        emailLogId: log.id,
-        toEmail: log.toEmail,
-        subject: log.subject,
-        link: payload.link,
-        description: payload.description,
-    });
-    return true;
+    try {
+        await bQueue.add(jobName, {
+            emailLogId: log.id,
+            toEmail: log.toEmail,
+            subject: log.subject,
+            link: payload.link,
+            description: payload.description,
+        });
+        return true;
+    }
+    catch (err) {
+        logger_1.logger.error(LOG_CONTEXT, "Failed to re-enqueue existing email to BullMQ", {
+            emailLogId: log.id,
+            jobName,
+            error: err?.message || String(err),
+        });
+        return false;
+    }
 }
 //# sourceMappingURL=index.js.map
