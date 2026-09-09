@@ -18,7 +18,7 @@ wildcard_domain = "*.timesheet.cgworkflow.com"   # Wildcard SAN
 
 # --- REQUIRED: application settings ---
 allowed_origins = "https://timesheet.cgworkflow.com"
-ses_from_email  = "support@cgworkflow.com"
+ses_from_email  = "timesheet@cgworkflow.com"
 admin_user      = "admin@cgworkflow.com"
 admin_pin       = "CHANGE-ME"
 s3_bucket_name  = "hr-portal-prod-uploads-CHANGE-ME" # globally unique
