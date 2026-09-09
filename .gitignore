@@ -42,3 +42,7 @@ Thumbs.db
 /*.sql
 *.sqlite
 *.sqlite3
+
+# ignored user files
+/improvements
+/SETUP_GUIDE.md
