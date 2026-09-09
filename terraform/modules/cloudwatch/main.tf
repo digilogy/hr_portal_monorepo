@@ -136,7 +136,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_memory" {
 }
 
 # ---------------------------------------------------------------------------
-# RDS alarms
+# RDS Aurora PostgreSQL alarms
 # ---------------------------------------------------------------------------
 resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   alarm_name          = "${var.name_prefix}-rds-cpu-high"
@@ -148,32 +148,18 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
   threshold           = 80
   comparison_operator = "GreaterThanThreshold"
 
-  dimensions = { DBInstanceIdentifier = var.rds_instance_id }
+  dimensions = {
+    DBClusterIdentifier = var.rds_cluster_id != "" ? var.rds_cluster_id : var.rds_instance_id
+  }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
   tags          = var.tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "rds_storage" {
-  alarm_name          = "${var.name_prefix}-rds-storage-low"
-  namespace           = "AWS/RDS"
-  metric_name         = "FreeStorageSpace"
-  statistic           = "Minimum"
-  period              = 300
-  evaluation_periods  = 2
-  threshold           = 5368709120 # 5 GB
-  comparison_operator = "LessThanThreshold"
-
-  dimensions = { DBInstanceIdentifier = var.rds_instance_id }
-
-  alarm_actions = [aws_sns_topic.alarms.arn]
-  tags          = var.tags
-}
-
 resource "aws_cloudwatch_metric_alarm" "rds_connections" {
   alarm_name          = "${var.name_prefix}-rds-connections-high"
-  alarm_description   = "Approaching MySQL max_connections; check TypeORM pool size"
+  alarm_description   = "Approaching Aurora connection limit; check pool size"
   namespace           = "AWS/RDS"
   metric_name         = "DatabaseConnections"
   statistic           = "Maximum"
@@ -182,44 +168,30 @@ resource "aws_cloudwatch_metric_alarm" "rds_connections" {
   threshold           = 300
   comparison_operator = "GreaterThanThreshold"
 
-  dimensions = { DBInstanceIdentifier = var.rds_instance_id }
+  dimensions = {
+    DBClusterIdentifier = var.rds_cluster_id != "" ? var.rds_cluster_id : var.rds_instance_id
+  }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
   tags          = var.tags
 }
 
 # ---------------------------------------------------------------------------
-# ElastiCache alarms
+# ElastiCache Serverless Redis alarms
 # ---------------------------------------------------------------------------
-resource "aws_cloudwatch_metric_alarm" "redis_memory" {
-  alarm_name          = "${var.name_prefix}-redis-memory-high"
-  alarm_description   = "Redis memory pressure — with noeviction BullMQ writes will fail at 100%"
-  namespace           = "AWS/ElastiCache"
-  metric_name         = "DatabaseMemoryUsagePercentage"
-  statistic           = "Average"
-  period              = 300
-  evaluation_periods  = 2
-  threshold           = 80
-  comparison_operator = "GreaterThanThreshold"
-
-  dimensions = { ReplicationGroupId = var.redis_replication_group_id }
-
-  alarm_actions = [aws_sns_topic.alarms.arn]
-  ok_actions    = [aws_sns_topic.alarms.arn]
-  tags          = var.tags
-}
-
 resource "aws_cloudwatch_metric_alarm" "redis_cpu" {
   alarm_name          = "${var.name_prefix}-redis-cpu-high"
   namespace           = "AWS/ElastiCache"
-  metric_name         = "EngineCPUUtilization"
+  metric_name         = "ElastiCacheProcessingUnits"
   statistic           = "Average"
   period              = 300
   evaluation_periods  = 3
-  threshold           = 80
+  threshold           = 4000
   comparison_operator = "GreaterThanThreshold"
 
-  dimensions = { ReplicationGroupId = var.redis_replication_group_id }
+  dimensions = {
+    ServerlessCacheName = var.serverless_cache_name != "" ? var.serverless_cache_name : var.redis_replication_group_id
+  }
 
   alarm_actions = [aws_sns_topic.alarms.arn]
   tags          = var.tags
@@ -305,20 +277,19 @@ resource "aws_cloudwatch_dashboard" "this" {
           region = var.region
           period = 300
           metrics = [
-            ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", var.rds_instance_id, { stat = "Average" }],
-            [".", "DatabaseConnections", ".", ".", { stat = "Maximum", yAxis = "right" }]
+            ["AWS/RDS", "CPUUtilization", "DBClusterIdentifier", var.rds_cluster_id != "" ? var.rds_cluster_id : var.rds_instance_id],
+            [".", "DatabaseConnections", ".", "."]
           ]
         }
       },
       {
         type = "metric", x = 16, y = 12, width = 8, height = 6
         properties = {
-          title  = "Redis: Memory / CPU"
+          title  = "Redis: ElastiCache Processing Units"
           region = var.region
           period = 300
           metrics = [
-            ["AWS/ElastiCache", "DatabaseMemoryUsagePercentage", "ReplicationGroupId", var.redis_replication_group_id, { stat = "Average" }],
-            [".", "EngineCPUUtilization", ".", ".", { stat = "Average" }]
+            ["AWS/ElastiCache", "ElastiCacheProcessingUnits", "ServerlessCacheName", var.serverless_cache_name != "" ? var.serverless_cache_name : var.redis_replication_group_id]
           ]
         }
       }

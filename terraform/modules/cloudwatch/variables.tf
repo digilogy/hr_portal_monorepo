@@ -28,12 +28,24 @@ variable "all_service_names" {
   type        = list(string)
 }
 
+variable "rds_cluster_id" {
+  type    = string
+  default = ""
+}
+
 variable "rds_instance_id" {
-  type = string
+  type    = string
+  default = ""
+}
+
+variable "serverless_cache_name" {
+  type    = string
+  default = ""
 }
 
 variable "redis_replication_group_id" {
-  type = string
+  type    = string
+  default = ""
 }
 
 variable "tags" {

@@ -6,12 +6,17 @@ output "api_url" {
   value = "https://${var.api_domain}"
 }
 
-output "jenkins_url" {
-  value = "https://${var.jenkins_domain}"
+output "github_actions_user_name" {
+  value = module.iam.github_actions_user_name
 }
 
-output "jenkins_public_ip" {
-  value = module.jenkins.public_ip
+output "github_actions_access_key_id" {
+  value = module.iam.github_actions_access_key_id
+}
+
+output "github_actions_secret_access_key" {
+  value     = module.iam.github_actions_secret_access_key
+  sensitive = true
 }
 
 output "ecr_repository_urls" {
@@ -34,7 +39,7 @@ output "rds_endpoint" {
 }
 
 output "redis_endpoint" {
-  value = module.elasticache.primary_endpoint
+  value = var.create_redis ? module.elasticache[0].primary_endpoint : var.existing_redis_host
 }
 
 output "s3_bucket" {

@@ -14,13 +14,21 @@ const Shift_1 = require("./entities/Shift");
 const EmployeeShiftAssignment_1 = require("./entities/EmployeeShiftAssignment");
 const Holiday_1 = require("./entities/Holiday");
 const config_1 = require("@hr-portal/config");
+const dbUrl = config_1.env.DATABASE_URL || process.env.DATABASE_URL;
+const isProduction = config_1.env.NODE_ENV === "production";
+const useSsl = config_1.env.DB_SSL === "true" || (isProduction && !config_1.env.DB_HOST?.includes("localhost") && !config_1.env.DB_HOST?.includes("postgres") && !dbUrl?.includes("localhost") && !dbUrl?.includes("@postgres:"));
 exports.AppDataSource = new typeorm_1.DataSource({
     type: "postgres",
-    host: config_1.env.DB_HOST,
-    port: config_1.env.DB_PORT,
-    username: config_1.env.DB_USER,
-    password: config_1.env.DB_PASSWORD,
-    database: config_1.env.DB_NAME,
+    ...(dbUrl
+        ? { url: dbUrl }
+        : {
+            host: config_1.env.DB_HOST,
+            port: config_1.env.DB_PORT,
+            username: config_1.env.DB_USER,
+            password: config_1.env.DB_PASSWORD,
+            database: config_1.env.DB_NAME,
+        }),
+    ssl: useSsl ? { rejectUnauthorized: false } : false,
     // Disable automatic DDL synchronization in production to prevent "DROP INDEX check that it exists" errors
     synchronize: config_1.env.NODE_ENV !== "production" && config_1.env.TYPEORM_SYNCHRONIZE === "true",
     logging: false,

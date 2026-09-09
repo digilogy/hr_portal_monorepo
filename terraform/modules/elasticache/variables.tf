@@ -11,20 +11,16 @@ variable "security_group_ids" {
   type = list(string)
 }
 
-variable "node_type" {
-  type    = string
-  default = "cache.t4g.micro"
-}
-
-variable "num_cache_nodes" {
-  description = "1 = single node (cost), 2 = primary + replica with failover"
+variable "max_data_storage_gb" {
+  description = "Maximum storage limit in GB for serverless redis"
   type        = number
-  default     = 1
+  default     = 5
 }
 
-variable "engine_version" {
-  type    = string
-  default = "7.1"
+variable "max_ecpu_per_second" {
+  description = "Maximum ECPU per second for serverless redis"
+  type        = number
+  default     = 5000
 }
 
 variable "tags" {

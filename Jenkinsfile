@@ -1,12 +1,6 @@
 // =============================================================================
-// hr-portal — production CI/CD pipeline
-//
-// Flow: checkout -> install -> lint/test -> build+push 2 images ->
-//       DB migration (one-off ECS task) -> deploy 2 ECS services ->
-//       health check -> (automatic rollback on failure) -> cleanup -> notify
-//
-// Requirements on the Jenkins host (provisioned by terraform/modules/jenkins):
-//   docker, aws cli v2, node 22, git; instance profile with ECR/ECS permissions
+// DEPRECATED: CI/CD has migrated to GitHub Actions (.github/workflows/deploy-production.yml)
+// This file is retained for historical reference only.
 // =============================================================================
 pipeline {
     agent any

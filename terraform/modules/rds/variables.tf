@@ -13,29 +13,30 @@ variable "security_group_ids" {
 
 variable "engine_version" {
   type    = string
-  default = "8.0"
+  default = "16.8"
 }
 
-variable "instance_class" {
-  description = "db.t3.medium is a sane baseline for HR-portal-scale traffic; size up if load testing shows otherwise"
-  type        = string
-  default     = "db.t3.medium"
-}
-
-variable "allocated_storage" {
-  type    = number
-  default = 20
-}
-
-variable "max_allocated_storage" {
-  description = "Storage autoscaling ceiling (GB)"
+variable "serverless_min_capacity" {
+  description = "Minimum Aurora capacity units (0.5 ACU is lowest possible)"
   type        = number
-  default     = 100
+  default     = 0.5
+}
+
+variable "serverless_max_capacity" {
+  description = "Maximum Aurora capacity units"
+  type        = number
+  default     = 4.0
+}
+
+variable "cluster_instances_count" {
+  description = "Number of cluster instances to deploy across private data subnets"
+  type        = number
+  default     = 1
 }
 
 variable "db_name" {
   type    = string
-  default = "hr-portal"
+  default = "timesheet"
 }
 
 variable "db_username" {
@@ -46,11 +47,6 @@ variable "db_username" {
 variable "db_password" {
   type      = string
   sensitive = true
-}
-
-variable "multi_az" {
-  type    = bool
-  default = false
 }
 
 variable "backup_retention_days" {

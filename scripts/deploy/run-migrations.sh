@@ -14,8 +14,8 @@
 set -euo pipefail
 
 TAG="${1:-}"
-AWS_REGION="${AWS_REGION:-ap-south-1}"
-NAME_PREFIX="${NAME_PREFIX:-hr-portal-prod}"
+AWS_REGION="${AWS_REGION:-ap-south-2}"
+NAME_PREFIX="${NAME_PREFIX:-timesheet}"
 CLUSTER="${CLUSTER:-${NAME_PREFIX}-cluster}"
 FAMILY="${NAME_PREFIX}-api"
 

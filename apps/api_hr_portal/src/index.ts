@@ -1,5 +1,5 @@
 import app from "./app";
-import { AppDataSource } from "@hr-portal/database";
+import { initializeDatabase } from "@hr-portal/database";
 import { EmailQueueService } from "./services/emailQueue.service";
 import { logger } from "@hr-portal/logger";
 import { echoConfig } from "./utils/echoconf";
@@ -7,7 +7,7 @@ import { env } from "@hr-portal/config";
 
 const PORT = env.PORT;
 
-AppDataSource.initialize()
+initializeDatabase()
   .then(async () => {
     console.log("Database connected successfully");
     echoConfig();

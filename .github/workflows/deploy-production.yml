@@ -1,0 +1,140 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_images:
+        description: "Build and deploy ECS backend images"
+        type: boolean
+        default: true
+      deploy_frontend:
+        description: "Build and deploy static Next.js frontend to S3/CloudFront"
+        type: boolean
+        default: true
+
+env:
+  AWS_REGION: ap-south-2
+  NAME_PREFIX: timesheet
+  CLUSTER: timesheet-cluster
+  API_DOMAIN: api.timesheet.cgworkflow.com
+  FRONTEND_DOMAIN: timesheet.cgworkflow.com
+  NEXT_PUBLIC_API_URL: https://api.timesheet.cgworkflow.com
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy to AWS Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Configure AWS Credentials (Deploy Key)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set Image Tag
+        id: vars
+        run: |
+          IMAGE_TAG="${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "Selected Image Tag: ${IMAGE_TAG}"
+
+      - name: Make deploy scripts executable
+        run: chmod +x scripts/deploy/*.sh
+
+      # =========================================================================
+      # Backend Deployment (ECR + Migrations + ECS Services)
+      # =========================================================================
+      - name: Build and Push Docker Images
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        run: |
+          ./scripts/deploy/build-and-push.sh "${IMAGE_TAG}"
+
+      - name: Run Database Migrations
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        run: |
+          ./scripts/deploy/run-migrations.sh "${IMAGE_TAG}"
+
+      - name: Deploy ECS Services (Mail Worker & API)
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        run: |
+          ./scripts/deploy/deploy-service.sh mail-worker "${IMAGE_TAG}"
+          ./scripts/deploy/deploy-service.sh api "${IMAGE_TAG}"
+
+      - name: Verify Backend API Health
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        run: |
+          ./scripts/deploy/health-check.sh "${API_DOMAIN}"
+
+      # =========================================================================
+      # Frontend Deployment (Next.js Static Export -> S3 + CloudFront)
+      # =========================================================================
+      - name: Discover Frontend S3 Bucket & CloudFront Distribution
+        if: ${{ github.event_name == 'push' || inputs.deploy_frontend }}
+        id: frontend-discovery
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          FRONTEND_BUCKET="${NAME_PREFIX}-frontend-${ACCOUNT_ID}"
+          
+          echo "FRONTEND_BUCKET=${FRONTEND_BUCKET}" >> $GITHUB_ENV
+          echo "Discovered Frontend Bucket: ${FRONTEND_BUCKET}"
+
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Aliases.Items && contains(Aliases.Items, '${FRONTEND_DOMAIN}')].Id | [0]" \
+            --output text)
+          
+          if [ -z "${DISTRIBUTION_ID}" ] || [ "${DISTRIBUTION_ID}" = "None" ]; then
+            echo "Warning: Could not automatically detect CloudFront distribution by domain '${FRONTEND_DOMAIN}'."
+            echo "Falling back to listing distributions by comment prefix '${NAME_PREFIX}'."
+            DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?contains(Comment, '${NAME_PREFIX}')].Id | [0]" \
+              --output text)
+          fi
+          
+          echo "FRONTEND_DISTRIBUTION_ID=${DISTRIBUTION_ID}" >> $GITHUB_ENV
+          echo "Discovered CloudFront Distribution: ${DISTRIBUTION_ID}"
+
+      - name: Install Frontend Dependencies & Build Static Export
+        if: ${{ github.event_name == 'push' || inputs.deploy_frontend }}
+        run: |
+          npm ci --ignore-scripts
+          npm run build --workspace=@hr-portal/common --if-present
+          npm run build --workspace=@hr-portal/hr-portal
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+
+      - name: Sync Static Frontend to S3
+        if: ${{ github.event_name == 'push' || inputs.deploy_frontend }}
+        run: |
+          echo "Syncing apps/hr_portal/out/ to s3://${FRONTEND_BUCKET}/"
+          aws s3 sync apps/hr_portal/out/ "s3://${FRONTEND_BUCKET}/" --delete --region "${AWS_REGION}"
+
+      - name: Invalidate CloudFront Cache
+        if: ${{ (github.event_name == 'push' || inputs.deploy_frontend) && env.FRONTEND_DISTRIBUTION_ID != 'None' && env.FRONTEND_DISTRIBUTION_ID != '' }}
+        run: |
+          echo "Creating CloudFront cache invalidation for distribution ${FRONTEND_DISTRIBUTION_ID}..."
+          aws cloudfront create-invalidation \
+            --distribution-id "${FRONTEND_DISTRIBUTION_ID}" \
+            --paths "/*"

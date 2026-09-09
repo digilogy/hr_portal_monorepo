@@ -46,3 +46,5 @@ Thumbs.db
 # ignored user files
 /improvements
 /SETUP_GUIDE.md
+exclude/
+*.csv

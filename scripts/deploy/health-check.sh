@@ -8,9 +8,9 @@
 # =============================================================================
 set -euo pipefail
 
-API_DOMAIN="${1:-${API_DOMAIN:-api.example.com}}"
-AWS_REGION="${AWS_REGION:-ap-south-1}"
-NAME_PREFIX="${NAME_PREFIX:-hr-portal-prod}"
+API_DOMAIN="${1:-${API_DOMAIN:-api.timesheet.cgworkflow.com}}"
+AWS_REGION="${AWS_REGION:-ap-south-2}"
+NAME_PREFIX="${NAME_PREFIX:-timesheet}"
 RETRIES="${RETRIES:-10}"
 SLEEP_SECONDS="${SLEEP_SECONDS:-15}"
 

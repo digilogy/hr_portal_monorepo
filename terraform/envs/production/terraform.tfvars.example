@@ -4,43 +4,38 @@
 # =============================================================================
 
 aws_region = "ap-south-1"
-ses_region = "ap-south-2"
+ses_region = "ap-south-1"
 
-project     = "hr-portal"
-environment = "prod"
+project            = "timesheet"
+environment        = "prod"
+custom_name_prefix = "timesheet" # All AWS resources will be prefixed with 'timesheet'
 
 # --- DNS (hosted zone must already exist in Route 53) ---
-root_domain     = "example.com"          # REQUIRED
-api_domain      = "api.example.com"      # REQUIRED
-frontend_domain = "hr.example.com"       # REQUIRED
-jenkins_domain  = "jenkins.example.com"  # REQUIRED
+root_domain     = "cgworkflow.com"               # Hosted zone in Route 53
+api_domain      = "api.timesheet.cgworkflow.com" # API domain
+frontend_domain = "timesheet.cgworkflow.com"     # Frontend domain
+wildcard_domain = "*.timesheet.cgworkflow.com"   # Wildcard SAN
 
 # --- REQUIRED: application settings ---
-allowed_origins = "https://hr.example.com"
-ses_from_email  = "no-reply@example.com" # must be SES-verified in ap-south-2
-admin_user      = "admin@example.com"
+allowed_origins = "https://timesheet.cgworkflow.com"
+ses_from_email  = "support@cgworkflow.com"
+admin_user      = "admin@cgworkflow.com"
 admin_pin       = "CHANGE-ME"
 s3_bucket_name  = "hr-portal-prod-uploads-CHANGE-ME" # globally unique
 
 # --- REQUIRED: operations ---
-alarm_email       = "ops@example.com"
-letsencrypt_email = "ops@example.com"
+alarm_email = "ops@cgworkflow.com"
 
-# SECURITY: restrict to your office/VPN IPs, e.g. ["203.0.113.10/32"]
-jenkins_admin_cidrs = ["0.0.0.0/0"]
-
-# Optional: existing EC2 key pair name for SSH (SSM Session Manager works without it)
-# jenkins_key_name = "my-keypair"
-
-# --- Sizing (defaults are conservative for HR-portal-scale traffic) ---
+# --- Serverless Sizing (defaults are cost-effective for HR-portal scale) ---
+# aurora_min_capacity       = 0.5
+# aurora_max_capacity       = 4.0
+# aurora_instances_count    = 1
+# redis_max_data_storage_gb = 5
+# redis_max_ecpu_per_second = 5000
 # api_cpu                   = 512
 # api_memory                = 1024
 # api_min_tasks             = 2
 # api_max_tasks             = 6
-# api_requests_per_target   = null
-# rds_instance_class        = "db.t3.medium"
-# rds_multi_az              = false
-# redis_node_type           = "cache.t4g.micro"
-# redis_num_nodes           = 1
-# nat_gateway_count         = 1
 # mail_worker_desired_count = 1
+# nat_gateway_count         = 1
+
