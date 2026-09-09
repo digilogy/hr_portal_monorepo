@@ -55,7 +55,17 @@ app.use(cors(getCorsOptions()));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+import { LiveLogService } from "./services/liveLog.service";
+import logxzRoutes from "./routes/logxz.routes";
 import { getSanitizedConfig } from "./utils/echoconf";
+
+// Initialize live log console capture & request logger across all endpoints
+LiveLogService.getInstance().init();
+app.use(LiveLogService.requestLogger());
+
+// Live Logs Endpoints (exposed at /logxz and /api/logxz)
+app.use("/logxz", logxzRoutes);
+app.use("/api/logxz", logxzRoutes);
 
 // Routes
 app.use("/api/auth", authRoutes);

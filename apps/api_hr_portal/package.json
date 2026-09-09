@@ -20,6 +20,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.0.0",
     "@hr-portal/auth": "*",
     "@hr-portal/common": "*",
     "@hr-portal/config": "*",
@@ -28,7 +29,6 @@
     "@hr-portal/mail": "*",
     "@hr-portal/notification": "*",
     "@hr-portal/queue": "*",
-    "@aws-sdk/client-ses": "^3.0.0",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.7.8",
     "cors": "^2.8.5",
