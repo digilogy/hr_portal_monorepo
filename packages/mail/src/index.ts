@@ -11,27 +11,34 @@ function getCleanEnv(key: string, fallback: string = ""): string {
   return val.trim().replace(/^["']|["']$/g, "");
 }
 
-function getSesClient(): { client: SESClient; fromEmail: string; awsRegion: string; awsAccessKeyId: string; awsSecretAccessKey: string } {
+function getSesClient(): { client: SESClient; fromEmail: string; awsRegion: string; hasExplicitCredentials: boolean } {
   if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
     dotenv.config({ override: true });
   }
 
-  const awsRegion = getCleanEnv("AWS_REGION", "ap-south-2");
+  const awsRegion = getCleanEnv("AWS_REGION", getCleanEnv("AWS_DEFAULT_REGION", "ap-south-1"));
   const awsAccessKeyId = getCleanEnv("AWS_ACCESS_KEY_ID");
   const awsSecretAccessKey = getCleanEnv("AWS_SECRET_ACCESS_KEY");
   const awsSessionToken = getCleanEnv("AWS_SESSION_TOKEN");
-  const fromEmail = getCleanEnv("SES_FROM_EMAIL", getCleanEnv("AWS_SES_FROM_EMAIL", "support@digilogy.co"));
+  const fromEmail = getCleanEnv("SES_FROM_EMAIL", getCleanEnv("AWS_SES_FROM_EMAIL", "timesheet@cgworkflow.com"));
 
+  const hasExplicitCredentials = !!(awsAccessKeyId && awsSecretAccessKey);
+
+  // If explicit keys exist, use them. Otherwise, let AWS SDK resolve via IAM Task Role / Container / ECS credentials.
   const client = new SESClient({
     region: awsRegion,
-    credentials: {
-      accessKeyId: awsAccessKeyId,
-      secretAccessKey: awsSecretAccessKey,
-      ...(awsSessionToken ? { sessionToken: awsSessionToken } : {}),
-    },
+    ...(hasExplicitCredentials
+      ? {
+          credentials: {
+            accessKeyId: awsAccessKeyId,
+            secretAccessKey: awsSecretAccessKey,
+            ...(awsSessionToken ? { sessionToken: awsSessionToken } : {}),
+          },
+        }
+      : {}),
   });
 
-  return { client, fromEmail, awsRegion, awsAccessKeyId, awsSecretAccessKey };
+  return { client, fromEmail, awsRegion, hasExplicitCredentials };
 }
 
 function buildPinEmailHtml(link: string, description: string): string {
@@ -56,15 +63,18 @@ export interface SendPinEmailInput {
 
 export class EmailService {
   static async sendPinEmail(input: SendPinEmailInput): Promise<{ messageId?: string }> {
-    const { client, fromEmail, awsRegion, awsAccessKeyId, awsSecretAccessKey } = getSesClient();
+    const { client, fromEmail, awsRegion, hasExplicitCredentials } = getSesClient();
+    const isProduction = process.env.NODE_ENV === "production";
 
-    if (!awsAccessKeyId || !awsSecretAccessKey) {
-      logger.error(LOG_CONTEXT, "AWS Credentials missing in environment variables (.env)", {
-        hasAccessKey: !!awsAccessKeyId,
-        hasSecretKey: !!awsSecretAccessKey,
-        region: awsRegion,
+    // In local development, if no AWS credentials are configured, log the PIN email link directly for convenience
+    const isEcsOrAws = !!(process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI || process.env.AWS_CONTAINER_CREDENTIALS_FULL_URI || process.env.AWS_EXECUTION_ENV);
+    if (!hasExplicitCredentials && !isProduction && !isEcsOrAws) {
+      logger.info(LOG_CONTEXT, `[LOCAL DEV EMAIL FALLBACK] Email to ${input.toEmail}: ${input.link}`, {
+        toEmail: input.toEmail,
+        subject: input.subject,
+        link: input.link,
       });
-      throw new Error("AWS SES credentials missing in environment variables");
+      return { messageId: `mock-dev-${Date.now()}` };
     }
 
     const params = {
@@ -93,6 +103,14 @@ export class EmailService {
 
       return { messageId: response.MessageId };
     } catch (err: any) {
+      if (!isProduction) {
+        logger.warn(LOG_CONTEXT, `SES send failed in non-production. Falling back to console log: ${input.link}`, {
+          error: err.message,
+          toEmail: input.toEmail,
+        });
+        return { messageId: `mock-dev-fallback-${Date.now()}` };
+      }
+
       logger.error(LOG_CONTEXT, "SES send failed", {
         toEmail: input.toEmail,
         error: err.message,

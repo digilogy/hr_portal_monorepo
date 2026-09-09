@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { UploadQueueService } from "./uploadQueue.service";
 import { EmailQueueService } from "../../services/emailQueue.service";
 import { UploadLog, EmailStatus } from "@hr-portal/database";
+import { logger } from "@hr-portal/logger";
 
 function formatJobResponse(job: NonNullable<Awaited<ReturnType<typeof UploadQueueService.getJobStatus>>>) {
   const failedLogs = (job.logs ?? []).filter(
@@ -142,6 +143,16 @@ export class AdminController {
         message: "Email re-queued for delivery",
         emailLog: log,
       });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
+  static async getLogs(req: Request, res: Response): Promise<void> {
+    try {
+      const logs = logger.getLogs();
+      res.status(200).json({ logs });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ message });

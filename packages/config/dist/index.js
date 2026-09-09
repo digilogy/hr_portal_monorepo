@@ -24,6 +24,8 @@ const envSchema = zod_1.z.object({
     DB_USER: zod_1.z.string().default("root"),
     DB_PASSWORD: zod_1.z.string().default(""),
     DB_NAME: zod_1.z.string().default("hr-portal"),
+    DATABASE_URL: zod_1.z.string().optional(),
+    DB_SSL: zod_1.z.string().optional(),
     TYPEORM_SYNCHRONIZE: zod_1.z.string().optional(),
     // Not enforcing a minimum length (unlike ideas-staging-backend's 32-char rule): the current
     // production secret is 20 chars, and raising the bar here would refuse to boot until it's
@@ -36,6 +38,7 @@ const envSchema = zod_1.z.object({
     REDIS_HOST: zod_1.z.string().default("localhost"),
     REDIS_PORT: zod_1.z.coerce.number().default(6379),
     REDIS_PASSWORD: zod_1.z.string().optional(),
+    REDIS_TLS: zod_1.z.string().optional().default("false"),
     AWS_REGION: zod_1.z.string().optional(),
     AWS_DEFAULT_REGION: zod_1.z.string().optional(),
     AWS_ACCESS_KEY_ID: zod_1.z.string().optional(),

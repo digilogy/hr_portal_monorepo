@@ -25,7 +25,7 @@ resource "aws_secretsmanager_secret_version" "jwt_secret" {
 
 resource "aws_secretsmanager_secret" "database_url" {
   name                    = "${var.name_prefix}/database-url"
-  description             = "Full MySQL connection string for Prisma (migrations only — TypeORM is the runtime ORM)"
+  description             = "Full PostgreSQL connection string for Prisma & TypeORM"
   recovery_window_in_days = 7
   tags                    = var.tags
 }
@@ -35,12 +35,10 @@ resource "aws_secretsmanager_secret_version" "database_url" {
   secret_string = var.database_url
 }
 
-# TypeORM (the runtime ORM) connects with discrete DB_HOST/DB_PORT/DB_USER/
-# DB_NAME/DB_PASSWORD env vars rather than a single connection string, so the
-# password needs its own secret distinct from Prisma's DATABASE_URL above.
+# TypeORM and Prisma both support discrete DB env vars or DATABASE_URL
 resource "aws_secretsmanager_secret" "db_password" {
   name                    = "${var.name_prefix}/db-password"
-  description             = "MySQL password for the app's TypeORM connection"
+  description             = "PostgreSQL password for the app connection"
   recovery_window_in_days = 7
   tags                    = var.tags
 }

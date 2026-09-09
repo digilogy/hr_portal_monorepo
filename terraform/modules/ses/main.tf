@@ -10,54 +10,45 @@ terraform {
   }
 }
 
-resource "aws_sesv2_email_identity" "domain" {
+data "aws_sesv2_email_identity" "domain" {
   email_identity = var.domain
-  tags           = var.tags
-}
-
-# Three DKIM CNAMEs — once these resolve, SES marks the domain verified
-resource "aws_route53_record" "dkim" {
-  count = 3
-
-  zone_id = var.route53_zone_id
-  name    = "${aws_sesv2_email_identity.domain.dkim_signing_attributes[0].tokens[count.index]}._domainkey.${var.domain}"
-  type    = "CNAME"
-  ttl     = 600
-  records = ["${aws_sesv2_email_identity.domain.dkim_signing_attributes[0].tokens[count.index]}.dkim.amazonses.com"]
 }
 
 # Custom MAIL FROM domain (SPF alignment / deliverability)
 resource "aws_sesv2_email_identity_mail_from_attributes" "this" {
-  email_identity   = aws_sesv2_email_identity.domain.email_identity
+  email_identity   = data.aws_sesv2_email_identity.domain.email_identity
   mail_from_domain = "${var.mail_from_subdomain}.${var.domain}"
 }
 
 data "aws_region" "current" {}
 
 resource "aws_route53_record" "mail_from_mx" {
-  zone_id = var.route53_zone_id
-  name    = "${var.mail_from_subdomain}.${var.domain}"
-  type    = "MX"
-  ttl     = 600
-  records = ["10 feedback-smtp.${data.aws_region.current.name}.amazonses.com"]
+  zone_id         = var.route53_zone_id
+  name            = "${var.mail_from_subdomain}.${var.domain}"
+  type            = "MX"
+  ttl             = 600
+  records         = ["10 feedback-smtp.${data.aws_region.current.name}.amazonses.com"]
+  allow_overwrite = true
 }
 
 resource "aws_route53_record" "mail_from_spf" {
-  zone_id = var.route53_zone_id
-  name    = "${var.mail_from_subdomain}.${var.domain}"
-  type    = "TXT"
-  ttl     = 600
-  records = ["v=spf1 include:amazonses.com ~all"]
+  zone_id         = var.route53_zone_id
+  name            = "${var.mail_from_subdomain}.${var.domain}"
+  type            = "TXT"
+  ttl             = 600
+  records         = ["v=spf1 include:amazonses.com ~all"]
+  allow_overwrite = true
 }
 
 # DMARC: improves acceptance at strict receivers (Google/Microsoft tenants).
 # p=none = monitor mode; tighten to quarantine/reject once reports look clean.
 resource "aws_route53_record" "dmarc" {
-  zone_id = var.route53_zone_id
-  name    = "_dmarc.${var.domain}"
-  type    = "TXT"
-  ttl     = 600
-  records = ["v=DMARC1; p=none; rua=mailto:${var.dmarc_report_email}; fo=1"]
+  zone_id         = var.route53_zone_id
+  name            = "_dmarc.${var.domain}"
+  type            = "TXT"
+  ttl             = 600
+  records         = ["v=DMARC1; p=none; rua=mailto:${var.dmarc_report_email}; fo=1"]
+  allow_overwrite = true
 }
 
 # ---------------------------------------------------------------------------

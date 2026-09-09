@@ -63,27 +63,19 @@ resource "aws_security_group_rule" "app_from_alb_api" {
 }
 
 # ---------------------------------------------------------------------------
-# RDS MySQL
+# RDS PostgreSQL
 # ---------------------------------------------------------------------------
 resource "aws_security_group" "rds" {
   name        = "${var.name_prefix}-rds-sg"
-  description = "MySQL from ECS tasks and Jenkins (migrations) only"
+  description = "PostgreSQL from ECS tasks only"
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "MySQL from ECS tasks"
-    from_port       = 3306
-    to_port         = 3306
+    description     = "PostgreSQL from ECS tasks"
+    from_port       = 5432
+    to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.app.id]
-  }
-
-  ingress {
-    description     = "MySQL from Jenkins (emergency ops/migrations)"
-    from_port       = 3306
-    to_port         = 3306
-    protocol        = "tcp"
-    security_groups = [aws_security_group.jenkins.id]
   }
 
   # No egress needed for RDS

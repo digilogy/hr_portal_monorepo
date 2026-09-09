@@ -23,9 +23,12 @@ function getCorsOptions(): cors.CorsOptions {
   if (frontendUrl) allowedOrigins.add(frontendUrl);
 
   if (env.NODE_ENV !== "production") {
+    allowedOrigins.add("http://localhost:3661");
     allowedOrigins.add("http://localhost:3600");
     allowedOrigins.add("http://localhost:3000");
     allowedOrigins.add("http://localhost:3001");
+  } else {
+    allowedOrigins.add("https://timesheet.cgworkflow.com");
   }
 
   const origins = [...allowedOrigins];

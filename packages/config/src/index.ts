@@ -20,6 +20,8 @@ const envSchema = z.object({
   DB_USER: z.string().default("root"),
   DB_PASSWORD: z.string().default(""),
   DB_NAME: z.string().default("hr-portal"),
+  DATABASE_URL: z.string().optional(),
+  DB_SSL: z.string().optional(),
   TYPEORM_SYNCHRONIZE: z.string().optional(),
 
   // Not enforcing a minimum length (unlike ideas-staging-backend's 32-char rule): the current
@@ -36,6 +38,7 @@ const envSchema = z.object({
   REDIS_HOST: z.string().default("localhost"),
   REDIS_PORT: z.coerce.number().default(6379),
   REDIS_PASSWORD: z.string().optional(),
+  REDIS_TLS: z.string().optional().default("false"),
 
   AWS_REGION: z.string().optional(),
   AWS_DEFAULT_REGION: z.string().optional(),

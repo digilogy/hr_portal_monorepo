@@ -11,13 +11,22 @@ import { EmployeeShiftAssignment } from "./entities/EmployeeShiftAssignment";
 import { Holiday } from "./entities/Holiday";
 import { env } from "@hr-portal/config";
 
+const dbUrl = env.DATABASE_URL || process.env.DATABASE_URL;
+const isProduction = env.NODE_ENV === "production";
+const useSsl = env.DB_SSL === "true" || (isProduction && !env.DB_HOST?.includes("localhost") && !env.DB_HOST?.includes("postgres") && !dbUrl?.includes("localhost") && !dbUrl?.includes("@postgres:"));
+
 export const AppDataSource = new DataSource({
   type: "postgres",
-  host: env.DB_HOST,
-  port: env.DB_PORT,
-  username: env.DB_USER,
-  password: env.DB_PASSWORD,
-  database: env.DB_NAME,
+  ...(dbUrl
+    ? { url: dbUrl }
+    : {
+        host: env.DB_HOST,
+        port: env.DB_PORT,
+        username: env.DB_USER,
+        password: env.DB_PASSWORD,
+        database: env.DB_NAME,
+      }),
+  ssl: useSsl ? { rejectUnauthorized: false } : false,
   // Disable automatic DDL synchronization in production to prevent "DROP INDEX check that it exists" errors
   synchronize: env.NODE_ENV !== "production" && env.TYPEORM_SYNCHRONIZE === "true",
   logging: false,

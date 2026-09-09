@@ -48,6 +48,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_TLS: "false"
       JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
       ADMIN_USER: ${ADMIN_USER:-admin@casagrand.co.in}
       ADMIN_PIN: ${ADMIN_PIN:-1234}
@@ -80,6 +81,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_TLS: "false"
       JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
       AWS_REGION: ${AWS_REGION:-ap-south-2}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-AKIAQIJRSM7V3VJV3MME}

@@ -10,7 +10,7 @@ const LOG_CONTEXT = "MailQueue";
 exports.MAIL_QUEUE_NAME = "mail-queue";
 let bullMailQueue = null;
 function getBullMailQueue() {
-    if (!bullMailQueue && redis_connection_1.isRedisConnected) {
+    if (!bullMailQueue) {
         try {
             bullMailQueue = new bullmq_1.Queue(exports.MAIL_QUEUE_NAME, {
                 connection: redis_connection_1.redisClient,
@@ -30,6 +30,6 @@ function getBullMailQueue() {
             bullMailQueue = null;
         }
     }
-    return redis_connection_1.isRedisConnected ? bullMailQueue : null;
+    return bullMailQueue;
 }
 //# sourceMappingURL=mail-queue.js.map

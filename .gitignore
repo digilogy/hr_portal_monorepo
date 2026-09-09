@@ -51,3 +51,5 @@ Thumbs.db
 /manager-dashboard.mov
 /New login.mov
 /Archive.zip
+exclude/
+*.csv

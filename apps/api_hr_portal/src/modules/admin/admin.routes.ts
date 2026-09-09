@@ -29,6 +29,7 @@ router.get("/bulk-upload/status/:jobId", AdminController.getUploadStatus);
 router.get("/email-logs", AdminController.listEmailLogs);
 router.get("/email-logs/:emailLogId", AdminController.getEmailLog);
 router.post("/email-logs/:emailLogId/retry", AdminController.retryEmailLog);
+router.get("/logs", AdminController.getLogs);
 
 // Holiday Routes
 router.get("/holidays", HolidayController.getAllHolidays);

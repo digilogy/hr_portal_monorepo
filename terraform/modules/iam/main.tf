@@ -115,27 +115,11 @@ resource "aws_iam_role_policy" "mail_worker_task" {
 }
 
 # ===========================================================================
-# Jenkins EC2 instance role — CI/CD: push to ECR, deploy to ECS.
+# GitHub Actions Deployer — CI/CD: push to ECR, deploy to ECS, sync S3, CloudFront
 # ===========================================================================
-data "aws_iam_policy_document" "ec2_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "jenkins" {
-  name               = "${var.name_prefix}-jenkins"
-  assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
-  tags               = var.tags
-}
-
-resource "aws_iam_role_policy" "jenkins" {
-  name = "jenkins-cicd"
-  role = aws_iam_role.jenkins.id
+resource "aws_iam_policy" "github_actions" {
+  name        = "${var.name_prefix}-github-actions-deploy"
+  description = "Permissions for GitHub Actions to build/deploy to ECR, ECS, S3, and CloudFront"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -197,17 +181,30 @@ resource "aws_iam_role_policy" "jenkins" {
       {
         Sid    = "OpsBuckets"
         Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"]
         Resource = concat(
           var.ops_bucket_arns,
           [for arn in var.ops_bucket_arns : "${arn}/*"]
         )
       },
+      },
       {
-        Sid      = "FrontendInvalidation"
+        Sid    = "FrontendCloudFront"
+        Effect = "Allow"
+        Action = [
+          "cloudfront:ListDistributions",
+          "cloudfront:GetDistribution",
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+          "cloudfront:ListInvalidations"
+        ]
+        Resource = ["*"]
+      },
+      {
+        Sid      = "StsIdentity"
         Effect   = "Allow"
-        Action   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
-        Resource = length(var.cloudfront_distribution_arns) > 0 ? var.cloudfront_distribution_arns : ["arn:aws:cloudfront::${local.account_id}:distribution/none"]
+        Action   = ["sts:GetCallerIdentity"]
+        Resource = ["*"]
       },
       {
         Sid    = "DeployValidation"
@@ -225,16 +222,20 @@ resource "aws_iam_role_policy" "jenkins" {
       }
     ]
   })
-}
 
-# SSM Session Manager access to the Jenkins box (no SSH key dependence)
-resource "aws_iam_role_policy_attachment" "jenkins_ssm" {
-  role       = aws_iam_role.jenkins.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_instance_profile" "jenkins" {
-  name = "${var.name_prefix}-jenkins"
-  role = aws_iam_role.jenkins.name
   tags = var.tags
+}
+
+resource "aws_iam_user" "github_actions" {
+  name = "${var.name_prefix}-github-actions"
+  tags = var.tags
+}
+
+resource "aws_iam_user_policy_attachment" "github_actions" {
+  user       = aws_iam_user.github_actions.name
+  policy_arn = aws_iam_policy.github_actions.arn
+}
+
+resource "aws_iam_access_key" "github_actions" {
+  user = aws_iam_user.github_actions.name
 }

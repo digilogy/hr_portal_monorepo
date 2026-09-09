@@ -38,7 +38,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const rawPathname = usePathname();
   // trailingSlash: true (static export) means usePathname() always returns e.g. "/login/",
   // so normalize before comparing against route strings like "/login".
-  const pathname = rawPathname.length > 1 ? rawPathname.replace(/\/+$/, "") : rawPathname;
+  const pathname = (rawPathname && rawPathname.length > 1) ? rawPathname.replace(/\/+$/, "") : (rawPathname || "");
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
 
@@ -53,7 +53,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }, [pathname]);
 
   useEffect(() => {
-    if (!mounted || pathname === "/login") return;
+    if (!mounted || pathname === "/login" || pathname === "/login/") return;
 
     // Initial check
     if (!isAuthenticated()) {
@@ -93,7 +93,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     void loadProfileInitials();
   }, [pathname]);
 
-  const isLoginPage = pathname === "/login";
+  const isLoginPage = pathname === "/login" || pathname === "/login/";
 
   if (!mounted) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
 

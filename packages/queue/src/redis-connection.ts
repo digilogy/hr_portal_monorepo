@@ -7,6 +7,7 @@ const LOG_CONTEXT = "RedisConfig";
 const REDIS_HOST = env.REDIS_HOST;
 const REDIS_PORT = env.REDIS_PORT;
 const REDIS_PASSWORD = env.REDIS_PASSWORD;
+const useTls = env.REDIS_TLS === "true" || process.env.REDIS_TLS === "true" || (env.NODE_ENV === "production" && !REDIS_HOST.includes("localhost") && !REDIS_HOST.includes("redis"));
 
 export let isRedisConnected = false;
 
@@ -14,6 +15,7 @@ export const redisClient = new Redis({
   host: REDIS_HOST,
   port: REDIS_PORT,
   password: REDIS_PASSWORD,
+  ...(useTls ? { tls: {} } : {}),
   maxRetriesPerRequest: null, // Required by BullMQ
   enableReadyCheck: false,
   lazyConnect: true,
