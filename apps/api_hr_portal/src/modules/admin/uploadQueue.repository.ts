@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { AppDataSource, UploadJob, UploadJobStatus } from "@hr-portal/database";
+import { AppDataSource, UploadJob, UploadJobStatus, UploadLog } from "@hr-portal/database";
 
 const uploadJobOrm = AppDataSource.getRepository(UploadJob);
 
@@ -19,10 +19,16 @@ export class UploadQueueRepository {
   }
 
   async findByIdWithLogs(jobId: string): Promise<UploadJob | null> {
-    return uploadJobOrm.findOne({
-      where: { id: jobId },
-      relations: ["logs"],
+    const job = await uploadJobOrm.findOneBy({ id: jobId });
+    if (!job) return null;
+
+    // Only fetch failed logs to prevent OOM / 502 Bad Gateway on large uploads
+    const failedLogs = await AppDataSource.getRepository(UploadLog).find({
+      where: { job: { id: jobId }, status: "failed" },
     });
+    
+    job.logs = failedLogs;
+    return job;
   }
 
   create(data: UploadJobCreateInput): UploadJob {
