@@ -22,9 +22,9 @@ export class UploadQueueRepository {
     const job = await uploadJobOrm.findOneBy({ id: jobId });
     if (!job) return null;
 
-    // Only fetch failed logs to prevent OOM / 502 Bad Gateway on large uploads
     const failedLogs = await AppDataSource.getRepository(UploadLog).find({
       where: { job: { id: jobId }, status: "failed" },
+      take: 100, // Limit to 100 to prevent OOM when parsing job status
     });
     
     job.logs = failedLogs;

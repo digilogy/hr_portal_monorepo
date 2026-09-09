@@ -121,7 +121,9 @@ export class ShiftUploadService {
       if (!name) {
         failureCount++;
         const message = "Missing required field: Shift Name";
-        errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
+        if (errors.length < 100) {
+          errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
+        }
         await writeUploadLog(job, rowNumber, "", "failed", message, mappedValues);
         logger.warn(LOG_CONTEXT, message, { jobId: job.id, rowIndex: rowNumber });
         continue;
@@ -168,7 +170,9 @@ export class ShiftUploadService {
         failureCount++;
         const message =
           error instanceof Error ? error.message : "Unknown error";
-        errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
+        if (errors.length < 100) {
+          errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
+        }
         await writeUploadLog(
           job,
           rowNumber,
