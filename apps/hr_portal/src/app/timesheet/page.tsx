@@ -467,6 +467,8 @@ export default function TimesheetPage() {
       if (!isAutoSave) {
         messageApi.success("Timesheet saved successfully.");
         setHasEditedSinceLastManualSave(false);
+      } else {
+        messageApi.success("Timesheet auto-saved.");
       }
       setInitialSnapshot(currentSnapshot);
     } catch (error: unknown) {
@@ -477,7 +479,18 @@ export default function TimesheetPage() {
     }
   }, [isReadOnly, messageApi, initialSnapshot, hasEditedSinceLastManualSave, dateKey]);
 
-  const handleSave = () => performSave(slots, false);
+  const handleSave = useCallback(() => performSave(slots, false), [performSave, slots]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave]);
 
   useEffect(() => {
     if (loading || isReadOnly || saving) return;
