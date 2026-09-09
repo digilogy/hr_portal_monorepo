@@ -364,14 +364,15 @@ export default function DashboardPage() {
                   return false;
                 }}
                 showUploadList={false}
+                disabled={uploading || (Boolean(jobStatus) && jobStatus !== "completed" && jobStatus !== "failed")}
               >
                 <Button
                   type="primary"
                   icon={<UploadOutlined />}
-                  loading={uploading}
+                  loading={uploading || (Boolean(jobStatus) && jobStatus !== "completed" && jobStatus !== "failed")}
                   className="w-full sm:w-auto"
                 >
-                  Upload Master Data
+                  {uploading ? "Uploading..." : (Boolean(jobStatus) && jobStatus !== "completed" && jobStatus !== "failed") ? "Processing..." : "Upload Master Data"}
                 </Button>
               </Upload>
             </div>
@@ -397,17 +398,23 @@ export default function DashboardPage() {
           {jobStatus && (
             <div className="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 dark:bg-zinc-900 px-4 py-3">
               <span className="text-sm text-gray-500">Upload status:</span>
-              <Tag
-                color={
-                  jobStatus === "completed"
-                    ? "success"
-                    : jobStatus === "failed"
-                      ? "error"
-                      : "processing"
-                }
-              >
-                {jobStatus.toUpperCase()}
-              </Tag>
+              <div className="flex items-center gap-2">
+                <Tag
+                  className="!m-0"
+                  color={
+                    jobStatus === "completed"
+                      ? "success"
+                      : jobStatus === "failed"
+                        ? "error"
+                        : "processing"
+                  }
+                >
+                  {jobStatus.toUpperCase()}
+                </Tag>
+                {jobStatus !== "completed" && jobStatus !== "failed" && (
+                  <Spin size="small" />
+                )}
+              </div>
               {jobId && (
                 <span className="text-sm text-gray-500">Job ID: {jobId}</span>
               )}
