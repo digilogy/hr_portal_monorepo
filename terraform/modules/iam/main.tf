@@ -181,17 +181,30 @@ resource "aws_iam_policy" "github_actions" {
       {
         Sid    = "OpsBuckets"
         Effect = "Allow"
-        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+        Action = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket", "s3:GetBucketLocation"]
         Resource = concat(
           var.ops_bucket_arns,
           [for arn in var.ops_bucket_arns : "${arn}/*"]
         )
       },
+      },
       {
-        Sid      = "FrontendInvalidation"
+        Sid    = "FrontendCloudFront"
+        Effect = "Allow"
+        Action = [
+          "cloudfront:ListDistributions",
+          "cloudfront:GetDistribution",
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+          "cloudfront:ListInvalidations"
+        ]
+        Resource = ["*"]
+      },
+      {
+        Sid      = "StsIdentity"
         Effect   = "Allow"
-        Action   = ["cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"]
-        Resource = length(var.cloudfront_distribution_arns) > 0 ? var.cloudfront_distribution_arns : ["arn:aws:cloudfront::${local.account_id}:distribution/none"]
+        Action   = ["sts:GetCallerIdentity"]
+        Resource = ["*"]
       },
       {
         Sid    = "DeployValidation"
