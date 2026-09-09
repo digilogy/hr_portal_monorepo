@@ -136,7 +136,6 @@ const timesheetColumns: ColumnsType<TimesheetTableRow> = [
     render: (date: string) => dayjs(date).format("MMM D, YYYY"),
   },
   { title: "Time Slot", dataIndex: "timeSlot", key: "timeSlot", width: 130 },
-  { title: "Title", dataIndex: "title", key: "title", width: 140 },
   {
     title: "Description",
     dataIndex: "description",
