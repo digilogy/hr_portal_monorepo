@@ -171,7 +171,7 @@ module "secrets" {
   db_password = random_password.db.result
 
   database_url = format(
-    "postgresql://%s:%s@%s:%d/%s?sslmode=require",
+    "postgresql://%s:%s@%s:%d/%s?sslmode=no-verify",
     module.rds.db_username,
     random_password.db.result,
     module.rds.address,
