@@ -160,10 +160,20 @@ function normalizeDaySlots(
   const defaultSlots = safeSlots.map((s) => ({ ...s, key: generateSlotKey(s.timeSlot) }));
   if (!rawSlots || rawSlots.length === 0) return defaultSlots;
 
+  const defaultSlotSet = new Set(defaultSlots.map(s => s.timeSlot));
+
   const taskMap = new Map<string, string>();
   for (const s of rawSlots) {
     if (!s.task?.trim()) continue; // Discards obsolete empty rows
-    const targetSlot = mapLegacySlot(s.timeSlot);
+    
+    let targetSlot = s.timeSlot.trim();
+    // Only map legacy slots if the exact original slot doesn't exist in our default list
+    if (!defaultSlotSet.has(targetSlot)) {
+      const mapped = mapLegacySlot(targetSlot);
+      if (defaultSlotSet.has(mapped)) {
+        targetSlot = mapped;
+      }
+    }
 
     // If multiple legacy slots map to the same target slot, append them
     const existing = taskMap.get(targetSlot);
@@ -183,6 +193,26 @@ function normalizeDaySlots(
       ...ds,
       task: task ?? "",
     };
+  });
+
+  // Append any remaining raw slots that weren't matched to avoid data loss
+  for (const [timeSlot, task] of taskMap.entries()) {
+    mergedSlots.push({
+      key: generateSlotKey(timeSlot) + "-extra",
+      timeSlot,
+      title: "",
+      task
+    });
+  }
+
+  // Sort slots chronologically to ensure extra slots appear in correct order
+  mergedSlots.sort((a, b) => {
+    const timeA = a.timeSlot.split('-')[0].trim();
+    const timeB = b.timeSlot.split('-')[0].trim();
+    const [hA, mA] = timeA.split(':').map(Number);
+    const [hB, mB] = timeB.split(':').map(Number);
+    if (hA !== hB) return (hA || 0) - (hB || 0);
+    return (mA || 0) - (mB || 0);
   });
 
   return mergedSlots;
