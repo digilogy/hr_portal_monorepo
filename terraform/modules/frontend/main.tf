@@ -121,6 +121,30 @@ resource "aws_cloudfront_origin_access_control" "frontend" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "url_rewrite" {
+  name    = "${var.name_prefix}-url-rewrite"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite URIs for static HTML export index files"
+  publish = true
+  code    = <<-EOT
+    function handler(event) {
+        var request = event.request;
+        var uri = request.uri;
+        
+        // Check whether the URI is missing a file extension.
+        if (uri.endsWith('/')) {
+            request.uri += 'index.html';
+        } 
+        // Check whether the URI is missing a trailing slash and extension.
+        else if (!uri.includes('.')) {
+            request.uri += '/index.html';
+        }
+
+        return request;
+    }
+  EOT
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -143,22 +167,26 @@ resource "aws_cloudfront_distribution" "frontend" {
     compress               = true
     # AWS managed CachingOptimized policy
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.url_rewrite.arn
+    }
   }
 
-  # Next.js static export serves its own 404.html; forward 404s there
-  # instead of CloudFront's default XML error page.
+  # SPA fallback for client-side routing
   custom_error_response {
     error_code            = 403
-    response_code         = 404
-    response_page_path    = "/404.html"
-    error_caching_min_ttl = 60
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
   }
 
   custom_error_response {
     error_code            = 404
-    response_code         = 404
-    response_page_path    = "/404.html"
-    error_caching_min_ttl = 60
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
   }
 
   restrictions {
