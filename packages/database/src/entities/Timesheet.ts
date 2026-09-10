@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Unique,
+  Index,
 } from "typeorm";
 import { User } from "./User";
 
@@ -27,6 +28,7 @@ export class Timesheet {
   @ManyToOne(() => User, (user) => user.timesheets, { onDelete: "CASCADE" })
   user!: User;
 
+  @Index()
   @Column({ type: "date" })
   date!: string;
 

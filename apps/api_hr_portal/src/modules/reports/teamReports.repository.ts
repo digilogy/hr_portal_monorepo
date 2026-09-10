@@ -22,7 +22,7 @@ export class TeamReportsRepository {
   async findUserByEmail(email: string): Promise<User | null> {
     return userOrm
       .createQueryBuilder("user")
-      .where("LOWER(user.email) = LOWER(:email)", { email })
+      .where("user.email = :email", { email: email.toLowerCase() })
       .getOne();
   }
 
@@ -31,7 +31,7 @@ export class TeamReportsRepository {
     const lowerEmails = emails.map((e) => e.toLowerCase());
     return userOrm
       .createQueryBuilder("user")
-      .where("LOWER(user.email) IN (:...emails)", { emails: lowerEmails })
+      .where("user.email IN (:...emails)", { emails: lowerEmails })
       .getMany();
   }
 
@@ -67,7 +67,8 @@ export class TeamReportsRepository {
       const emailBatch = normalizedEmails.slice(index, index + batchSize);
       const users = await userOrm
         .createQueryBuilder("user")
-        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
+        .select(["user.id", "user.email"])
+        .where("user.email IN (:...emails)", { emails: emailBatch })
         .getMany();
 
       if (users.length === 0) continue;
@@ -124,7 +125,8 @@ export class TeamReportsRepository {
       const emailBatch = normalizedEmails.slice(index, index + batchSize);
       const users = await userOrm
         .createQueryBuilder("user")
-        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
+        .select(["user.id", "user.email"])
+        .where("user.email IN (:...emails)", { emails: emailBatch })
         .getMany();
 
       if (users.length === 0) continue;
@@ -176,7 +178,8 @@ export class TeamReportsRepository {
       const emailBatch = normalizedEmails.slice(index, index + batchSize);
       const users = await userOrm
         .createQueryBuilder("user")
-        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
+        .select(["user.id", "user.email"])
+        .where("user.email IN (:...emails)", { emails: emailBatch })
         .getMany();
 
       if (users.length === 0) continue;
@@ -196,6 +199,7 @@ export class TeamReportsRepository {
 
       const entries = await timesheetOrm
         .createQueryBuilder("timesheet")
+        .select(["timesheet.date", "timesheet.totalHours", "timesheet.slots"])
         .where("timesheet.userId IN (:...userIds)", { userIds })
         .andWhere("timesheet.date BETWEEN :from AND :to", { from, to })
         .getMany();
