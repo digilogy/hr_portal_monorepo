@@ -1266,7 +1266,7 @@ export class TeamReportsService {
         if (emp) {
           signedUpUsersList.push({
             employeeId: emp.employeeId || "-",
-            name: emp.fullName || (u.firstName ? `${u.firstName} ${u.lastName || ""}`.trim() : u.email),
+            name: emp.fullName || u.name || u.email,
             email: u.email,
             department: emp.department || "-",
           });

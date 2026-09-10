@@ -7,7 +7,7 @@ export class AuthRepository {
     return userOrm.findOneBy({ email });
   }
 
-  create(data: { email: string; pin: string }): User {
+  create(data: { email: string; pin: string; name?: string }): User {
     return userOrm.create(data);
   }
 

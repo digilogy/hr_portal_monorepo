@@ -13,17 +13,11 @@ export class User {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ name: "first_name", nullable: true })
-  firstName!: string;
-
-  @Column({ name: "last_name", nullable: true })
-  lastName!: string;
+  @Column({ nullable: true })
+  name!: string;
 
   @Column({ unique: true })
   email!: string;
-
-  @Column({ nullable: true })
-  phone!: string;
 
   @Column({ nullable: true })
   pin!: string; // Hashed PIN
