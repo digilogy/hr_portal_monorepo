@@ -206,14 +206,18 @@ export class AuthService {
 
     let user = await authRepository.findByEmail(email);
     const hashedPin = await SecurityService.hashPin(pin);
+    const employee = await AccessService.getEmployeeByEmail(email);
+    const employeeName = employee?.fullName || null;
 
     if (user) {
       user.pin = hashedPin;
+      user.name = employeeName ?? user.name;
       await authRepository.save(user);
     } else {
       user = authRepository.create({
         email,
         pin: hashedPin,
+        name: employeeName || undefined,
       });
       await authRepository.save(user);
     }

@@ -39,10 +39,8 @@ enum EmailType {
 
 model User {
   id        Int      @id @default(autoincrement())
-  firstName String?  @map("first_name")
-  lastName  String?  @map("last_name")
+  name      String?
   email     String   @unique
-  phone     String?
   pin       String?  // Hashed PIN (bcrypt)
   role      UserRole @default(EMPLOYEE)
   createdAt DateTime @default(now()) @map("createdAt")
