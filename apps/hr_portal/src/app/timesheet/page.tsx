@@ -77,27 +77,27 @@ function isNonWorkingDay(date: Dayjs, profile: any): boolean {
       sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
       wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
     };
-      const offDays = profile.weeklyOff.split(",").map((d: string) => d.trim().toLowerCase());
+    const offDays = profile.weeklyOff.split(",").map((d: string) => d.trim().toLowerCase());
     for (const off of offDays) {
       if (offDaysMap[off] === dayOfWeek) return true;
-      
+
       const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
       if (nthMatch) {
-        const nthMap: Record<string, number> = { 
-          first: 1, '1st': 1, 
-          second: 2, '2nd': 2, 
-          third: 3, '3rd': 3, 
-          fourth: 4, '4th': 4, 
-          fifth: 5, '5th': 5 
+        const nthMap: Record<string, number> = {
+          first: 1, '1st': 1,
+          second: 2, '2nd': 2,
+          third: 3, '3rd': 3,
+          fourth: 4, '4th': 4,
+          fifth: 5, '5th': 5
         };
         const n = nthMap[nthMatch[1]];
         const targetDay = offDaysMap[nthMatch[2]];
         if (n && targetDay !== undefined) {
-           const dateNum = date.date();
-           const currentNth = Math.ceil(dateNum / 7);
-           if (dayOfWeek === targetDay && currentNth === n) {
-             return true;
-           }
+          const dateNum = date.date();
+          const currentNth = Math.ceil(dateNum / 7);
+          if (dayOfWeek === targetDay && currentNth === n) {
+            return true;
+          }
         }
       }
     }
@@ -132,7 +132,7 @@ function getLastWorkingDay(startFromDate: Dayjs, profile: any): Dayjs {
 
 function getEffectiveTiming(date: Dayjs, profile: any, defaultTiming: string): string {
   if (!profile) return defaultTiming;
-  
+
   const dayOfWeek = date.day();
   if (profile.halfDay) {
     const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
@@ -165,7 +165,7 @@ function normalizeDaySlots(
   const taskMap = new Map<string, string>();
   for (const s of rawSlots) {
     if (!s.task?.trim()) continue; // Discards obsolete empty rows
-    
+
     let targetSlot = s.timeSlot.trim();
     // Only map legacy slots if the exact original slot doesn't exist in our default list
     if (!defaultSlotSet.has(targetSlot)) {
@@ -305,7 +305,7 @@ export default function TimesheetPage() {
   const currentHoliday = useMemo(() => {
     if (!profile?.upcomingHolidays?.length) return null;
     const dateStr = selectedDate.format("YYYY-MM-DD");
-    
+
     return profile.upcomingHolidays.find((h: any) => {
       const formatYMD = (d: string) => dayjs(d).format("YYYY-MM-DD");
       const start = formatYMD(h.startDate);
@@ -320,7 +320,7 @@ export default function TimesheetPage() {
 
   const dateKey = selectedDate.format("YYYY-MM-DD");
   const isReadOnly =
-    !!currentHoliday ||
+    (!!currentHoliday && !currentHoliday.isOptional) ||
     (!selectedDate.isSame(dayjs(), "day") &&
       !selectedDate.isSame(lastWorkingDate, "day"));
 
@@ -378,8 +378,8 @@ export default function TimesheetPage() {
       const defaultSlots = generateDynamicSlots(effectiveTiming);
       const normalized = normalizeDaySlots(record?.slots, defaultSlots);
 
-      // If it's a holiday and no slots are filled, pre-fill with holiday message
-      if (currentHoliday && (!record || record.slots.length === 0)) {
+      // If it's a holiday (and not optional) and no slots are filled, pre-fill with holiday message
+      if (currentHoliday && !currentHoliday.isOptional && (!record || record.slots.length === 0)) {
         normalized.forEach(s => s.task = `Holiday: ${currentHoliday.name}`);
       }
 
@@ -396,7 +396,7 @@ export default function TimesheetPage() {
       const defaultSlots = generateDynamicSlots(effectiveTiming);
       const fallback = normalizeDaySlots([], defaultSlots);
 
-      if (currentHoliday) {
+      if (currentHoliday && !currentHoliday.isOptional) {
         fallback.forEach(s => s.task = `Holiday: ${currentHoliday.name}`);
       }
 
@@ -631,7 +631,7 @@ export default function TimesheetPage() {
         </div>
       </div>
 
-      {currentHoliday && (
+      {currentHoliday && !currentHoliday.isOptional && (
         <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 flex items-center justify-center">
           <span className="font-semibold text-lg">🎉 Holiday: {currentHoliday.name}</span>
         </div>
@@ -763,8 +763,8 @@ export default function TimesheetPage() {
                 <div
                   key={slot.key}
                   className={`flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors border-l-4 ${isFilled
-                      ? "border-l-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
-                      : "border-l-transparent hover:bg-gray-50/40 dark:hover:bg-zinc-800/20"
+                    ? "border-l-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
+                    : "border-l-transparent hover:bg-gray-50/40 dark:hover:bg-zinc-800/20"
                     }`}
                 >
                   {/* Left Column: Time slot details & badges */}
