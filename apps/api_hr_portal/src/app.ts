@@ -5,6 +5,9 @@ import { logger } from "@hr-portal/logger";
 import authRoutes from "./modules/auth/auth.routes";
 import timesheetRoutes from "./modules/timesheet/timesheet.routes";
 import profileRoutes from "./modules/profile/profile.routes";
+import adminRoutes from "./modules/admin/admin.routes";
+import teamRoutes from "./modules/reports/team.routes";
+import reportsRoutes from "./modules/reports/reports.routes";
 
 const app = express();
 
@@ -144,77 +147,13 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
 
 app.use(apiCacheMiddleware);
 
-import http from "http";
-
-const proxyAgent = new http.Agent({ keepAlive: true, maxSockets: 10000 });
-
-const getPromises = new Map<string, Promise<any>>();
-
-function createProxy(targetHost: string, targetPort: number) {
-  return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // For GET requests, avoid stream pipes and use fetch (except for downloads which are binary)
-    if (req.method === "GET" && !req.originalUrl.includes("/download")) {
-      try {
-        const r = await fetch(`http://${targetHost}:${targetPort}${req.originalUrl}`, {
-          headers: { ...req.headers, host: `${targetHost}:${targetPort}` } as any
-        });
-        const data = await r.text();
-        return res.type("json").status(r.status).send(data);
-      } catch (error: any) {
-        logger.error("ProxyErrorHandler", `Fetch GET failed to ${targetHost}:${targetPort}`, { error: error.message });
-        return res.status(502).json({ error: "Bad Gateway" });
-      }
-    }
-
-    // For POST/PUT/DELETE, keep the streaming proxy
-    const options = {
-      hostname: targetHost,
-      port: targetPort,
-      path: req.originalUrl,
-      method: req.method,
-      headers: { ...req.headers, host: `${targetHost}:${targetPort}` },
-      agent: proxyAgent,
-    };
-
-    const proxyReq = http.request(options, (proxyRes) => {
-      proxyRes.on("error", (err) => {
-        logger.error("ProxyErrorHandler", "proxyRes error", { error: err.message });
-      });
-
-      res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
-      proxyRes.pipe(res, { end: true });
-    });
-
-    req.on("error", (err) => {
-      logger.error("ProxyErrorHandler", "Incoming request error", { error: err.message });
-      proxyReq.destroy(err);
-    });
-
-    res.on("error", (err) => {
-      logger.error("ProxyErrorHandler", "Outgoing response error", { error: err.message });
-      proxyReq.destroy(err);
-    });
-
-    proxyReq.on("error", (e) => {
-      logger.error("ProxyErrorHandler", `Failed to proxy to ${targetHost}:${targetPort}`, { error: e.message });
-      if (!res.headersSent) {
-        res.status(502).json({ error: "Bad Gateway", message: "Microservice is unreachable." });
-      }
-    });
-
-    req.pipe(proxyReq, { end: true });
-  };
-}
-
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/timesheets", timesheetRoutes);
 app.use("/api/profile", profileRoutes);
-
-// Proxied microservices
-app.use("/api/admin", createProxy(env.ADMIN_API_HOST, 5113));
-app.use("/api/team", createProxy(env.REPORTS_API_HOST, 5112));
-app.use("/api/reports", createProxy(env.REPORTS_API_HOST, 5112));
+app.use("/api/admin", adminRoutes);
+app.use("/api/team", teamRoutes);
+app.use("/api/reports", reportsRoutes);
 
 // Diagnostics & Echo Config
 app.get("/api/echoconf", (req, res) => {

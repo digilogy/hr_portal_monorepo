@@ -55,7 +55,7 @@ function calculateTotalHours(slots: TimesheetSlot[]): number {
       );
     })
     .reduce((sum, slot) => sum + calculateSlotHours(slot.timeSlot), 0);
-  return parseFloat(total.toFixed(1));
+  return Math.round(total * 60) / 60;
 }
 
 export class TimesheetService {

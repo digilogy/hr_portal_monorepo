@@ -86,7 +86,7 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
   const calculateHours = (slot: string) => {
     const hours = getSlotDurationHours(slot);
     if (hours <= 0) return "";
-    return parseFloat(hours.toFixed(1)) + " hrs";
+    return Math.round(hours * 60) / 60 + " hrs";
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);

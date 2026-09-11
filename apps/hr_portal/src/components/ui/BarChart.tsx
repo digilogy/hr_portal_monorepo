@@ -82,7 +82,19 @@ export function BarChart({
               {isHovered && (
                 <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg z-50 animate-fade-in-up">
                   <div className="font-semibold">{d.label}</div>
-                  <div>{d.value.toFixed(1)}{yAxisLabel}</div>
+                  <div>
+                    {(() => {
+                      if (yAxisLabel === "h") {
+                        const h = Math.floor(d.value);
+                        const m = Math.round((d.value - h) * 60);
+                        if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                        if (h > 0) return `${h}hrs`;
+                        if (m > 0) return `${m}mins`;
+                        return "0hrs";
+                      }
+                      return `${d.value.toFixed(1)}${yAxisLabel}`;
+                    })()}
+                  </div>
                   {d.secondaryValue && <div className="text-gray-300 text-[10px]">{d.secondaryValue}</div>}
                 </div>
               )}

@@ -84,8 +84,8 @@ export default function HolidaysAdminPage() {
     setEditingHoliday(record);
     form.setFieldsValue({
       name: record.name,
-      dateRange: [dayjs(record.startDate), dayjs(record.endDate)],
-      zones: record.zones,
+      dateRange: [record.startDate, record.endDate],
+      zones: [...record.zones],
       isOptional: record.isOptional
     });
     setIsModalVisible(true);
@@ -113,8 +113,8 @@ export default function HolidaysAdminPage() {
   const handleFormFinish = async (values: any) => {
     const payload = {
       name: values.name,
-      startDate: values.dateRange[0].format("YYYY-MM-DD"),
-      endDate: values.dateRange[1].format("YYYY-MM-DD"),
+      startDate: dayjs(values.dateRange[0]).format("YYYY-MM-DD"),
+      endDate: dayjs(values.dateRange[1]).format("YYYY-MM-DD"),
       zones: values.zones,
       isOptional: values.isOptional || false,
     };
@@ -256,6 +256,10 @@ export default function HolidaysAdminPage() {
             name="dateRange"
             label="Date Range"
             rules={[{ required: true, message: "Please select date range" }]}
+            getValueProps={(value) => {
+              if (!value) return { value: undefined };
+              return { value: [dayjs(value[0]), dayjs(value[1])] };
+            }}
           >
             <RangePicker className="w-full" />
           </Form.Item>

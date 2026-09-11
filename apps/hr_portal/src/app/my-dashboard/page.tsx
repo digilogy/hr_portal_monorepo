@@ -433,7 +433,7 @@ export default function MyDashboardPage() {
       ? ((weekdayDates.length - pendingCount) / weekdayDates.length) * 100
       : 100;
     return {
-      totalHours: parseFloat(totalHours.toFixed(1)),
+      totalHours: Math.round(totalHours * 60) / 60,
       targetTotal,
       totalPercent,
       avgDaily: parseFloat(avgDaily.toFixed(2)),
@@ -810,7 +810,18 @@ export default function MyDashboardPage() {
                     title: "Hours",
                     dataIndex: "hours",
                     key: "hours",
-                    render: (val: number) => <span className="font-semibold">{val}h</span>,
+                    render: (val: number) => (
+                      <span className="font-semibold">
+                        {(() => {
+                          const h = Math.floor(val);
+                          const m = Math.round((val - h) * 60);
+                          if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                          if (h > 0) return `${h}hrs`;
+                          if (m > 0) return `${m}mins`;
+                          return "0hrs";
+                        })()}
+                      </span>
+                    ),
                   },
                   {
                     title: "Utilization",

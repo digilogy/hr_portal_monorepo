@@ -215,7 +215,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return parseFloat(diff.toFixed(1));
+  return Math.round(diff * 60) / 60;
 }
 
 function parseTimeSlotBounds(timeSlot: string): { start: number; end: number } | null {
@@ -279,7 +279,7 @@ function buildHourlySeries(
     result.push({
       hour,
       label: formatHourLabel(hour),
-      hours: parseFloat(stats.hours.toFixed(1)),
+      hours: Math.round(stats.hours * 60) / 60,
       slotCount: stats.slotCount,
     });
   }
@@ -392,7 +392,7 @@ function buildUserRows(
       name: employee.fullName || "—",
       department: employee.department || "—",
       manager: employee.directManagerName || "—",
-      hours: parseFloat(stats.hours.toFixed(1)),
+      hours: Math.round(stats.hours * 60) / 60,
       utilization,
       status: stats.hasEntry ? "Submitted" : "Pending",
     };
@@ -597,7 +597,7 @@ function buildTeamMemberNode(
     hod: employee.hodEmployeeName || "—",
     phone: employee.officeMobileNumber || "—",
     status: employee.employmentStatus || "Active",
-    hours: parseFloat(stats.hours.toFixed(1)),
+    hours: Math.round(stats.hours * 60) / 60,
     utilization:
       expectedHours > 0
         ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
@@ -729,7 +729,7 @@ function buildTeamTree(
         hod: employee.hodEmployeeName || "—",
         phone: employee.officeMobileNumber || "—",
         status: employee.employmentStatus || "Active",
-        hours: parseFloat(stats.hours.toFixed(1)),
+        hours: Math.round(stats.hours * 60) / 60,
         utilization:
           expectedHours > 0
             ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
@@ -1094,7 +1094,7 @@ export class TeamReportsService {
         managerName: pickDisplayLabel(stats.labels, "Unassigned"),
         department: pickDisplayLabel(stats.departmentLabels, "Unassigned"),
         teamSize: stats.teamSize,
-        totalHours: parseFloat(stats.totalHours.toFixed(1)),
+        totalHours: Math.round(stats.totalHours * 60) / 60,
         avgUtilization,
         status,
       };
@@ -1172,7 +1172,7 @@ export class TeamReportsService {
       department: pickDisplayLabel(stats.labels, "Unassigned"),
       hod: pickDisplayLabel(stats.hodLabels, "—"),
       headcount: stats.headcount,
-      totalHours: parseFloat(stats.totalHours.toFixed(1)),
+      totalHours: Math.round(stats.totalHours * 60) / 60,
       avgUtilization:
         stats.utilizations.length > 0
           ? parseFloat(
@@ -1218,7 +1218,7 @@ export class TeamReportsService {
         period: formatPeriodLabel(weekStart, weekEnd),
         headcount,
         expectedHours,
-        loggedHours: parseFloat(loggedHours.toFixed(1)),
+        loggedHours: Math.round(loggedHours * 60) / 60,
         utilization:
           expectedHours > 0
             ? parseFloat(((loggedHours / expectedHours) * 100).toFixed(1))
@@ -1306,7 +1306,7 @@ export class TeamReportsService {
 
       const result = {
         totalEmployees: filteredEmployees.length,
-        totalLoggedHours: parseFloat(totalLoggedHours.toFixed(1)),
+        totalLoggedHours: Math.round(totalLoggedHours * 60) / 60,
         avgUtilization: parseFloat(avgUtilization.toFixed(1)),
         timesheetsSubmitted,
         departments: filteredDepartments,
@@ -1624,7 +1624,7 @@ export class TeamReportsService {
         email: officialEmail || "—",
       },
       summary: {
-        totalHours: parseFloat(stats.hours.toFixed(1)),
+        totalHours: Math.round(stats.hours * 60) / 60,
         expectedHours,
         utilization:
           expectedHours > 0
@@ -1713,7 +1713,7 @@ export class TeamReportsService {
       const existing = dailyStats.get(dateKey);
       if (!existing) continue;
       existing.submittedCount += Number(row.submittedCount);
-      existing.totalHours += parseFloat(Number(row.totalHours).toFixed(1));
+      existing.totalHours += Math.round(Number(row.totalHours) * 60) / 60;
     }
 
     for (const entry of entries) {
@@ -1744,7 +1744,7 @@ export class TeamReportsService {
       .map(([date, stats]) => ({
         date,
         submittedCount: stats.submittedCount,
-        totalHours: parseFloat(stats.totalHours.toFixed(1)),
+        totalHours: Math.round(stats.totalHours * 60) / 60,
         rate:
           employeesInScope > 0
             ? parseFloat(
@@ -1765,7 +1765,7 @@ export class TeamReportsService {
 
     const byDayOfWeek = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
       day: dayLabels[dow],
-      hours: parseFloat((dowStats.get(dow)?.hours ?? 0).toFixed(1)),
+      hours: Math.round((dowStats.get(dow)?.hours ?? 0) * 60) / 60,
       entryCount: dowStats.get(dow)?.entryCount ?? 0,
     }));
 
@@ -1782,7 +1782,7 @@ export class TeamReportsService {
     const byTaskType = [...taskStats.entries()]
       .map(([taskType, stats]) => ({
         taskType,
-        hours: parseFloat(stats.hours.toFixed(1)),
+        hours: Math.round(stats.hours * 60) / 60,
         slotCount: stats.slotCount,
         pct:
           taskTotalHours > 0
@@ -1860,7 +1860,7 @@ export class TeamReportsService {
         avgDailyCompliance,
         peakDayOfWeek,
         dominantTaskType: byTaskType[0]?.taskType ?? "—",
-        totalLoggedHours: parseFloat(totalLoggedHours.toFixed(1)),
+        totalLoggedHours: Math.round(totalLoggedHours * 60) / 60,
       },
       dailyActivity,
       byDayOfWeek,

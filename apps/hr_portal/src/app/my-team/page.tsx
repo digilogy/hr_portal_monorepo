@@ -230,7 +230,18 @@ export default function MyTeamPage() {
         title: "This Week's Hours",
         dataIndex: "hours",
         key: "hours",
-        render: (val: number) => <span className="font-semibold">{val}h</span>,
+        render: (val: number) => (
+          <span className="font-semibold">
+            {(() => {
+              const h = Math.floor(val);
+              const m = Math.round((val - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()}
+          </span>
+        ),
       },
       {
         title: "Timesheet Status",
@@ -469,7 +480,16 @@ export default function MyTeamPage() {
                 <div className="flex justify-between items-center text-xs sm:text-sm mt-1 sm:mt-2 pt-2 sm:pt-3 border-t border-gray-100 dark:border-zinc-800">
                   <div>
                     <span className="text-gray-400">Hours: </span>
-                    <span className="font-bold">{record.hours}h</span>
+                    <span className="font-bold">
+                      {(() => {
+                        const h = Math.floor(record.hours);
+                        const m = Math.round((record.hours - h) * 60);
+                        if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                        if (h > 0) return `${h}hrs`;
+                        if (m > 0) return `${m}mins`;
+                        return "0hrs";
+                      })()}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-400">Utilization: </span>
@@ -545,7 +565,16 @@ export default function MyTeamPage() {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="This Week's Hours">
-                <span className="font-semibold">{selectedMember.hours}h</span>
+                <span className="font-semibold">
+                  {(() => {
+                    const h = Math.floor(selectedMember.hours);
+                    const m = Math.round((selectedMember.hours - h) * 60);
+                    if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                    if (h > 0) return `${h}hrs`;
+                    if (m > 0) return `${m}mins`;
+                    return "0hrs";
+                  })()}
+                </span>
               </Descriptions.Item>
               <Descriptions.Item label="Utilization">
                 <span

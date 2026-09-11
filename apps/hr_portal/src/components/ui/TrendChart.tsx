@@ -150,7 +150,17 @@ export function TrendChart({
   const yTicks = [max, max * 0.75, max * 0.5, max * 0.25, min];
   const fmtTick = (v: number) =>
     `${Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1)}${unitSuffix}`;
-  const fmtVal = (v: number) => `${v.toFixed(1)}${unitSuffix}`;
+  const fmtVal = (v: number) => {
+    if (unitSuffix === "h") {
+      const h = Math.floor(v);
+      const m = Math.round((v - h) * 60);
+      if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+      if (h > 0) return `${h}hrs`;
+      if (m > 0) return `${m}mins`;
+      return "0hrs";
+    }
+    return `${v.toFixed(1)}${unitSuffix}`;
+  };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = plotRef.current?.getBoundingClientRect();

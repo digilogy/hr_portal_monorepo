@@ -515,7 +515,7 @@ export default function TimesheetPage() {
         total += getSlotDurationHours(slot.timeSlot);
       }
     }
-    return parseFloat(total.toFixed(1));
+    return Math.round(total * 60) / 60;
   }, [slots]);
 
   const targetHours = useMemo(() => {

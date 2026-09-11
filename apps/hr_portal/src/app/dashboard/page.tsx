@@ -343,11 +343,27 @@ export default function DashboardPage() {
           <Col xs={12} sm={12} lg={5}>
             <DashboardMetricCard
               title="Total Logged Hours"
-              valueLabel={String(summary?.totalLoggedHours ?? 0)}
-              targetLabel="hrs"
+              valueLabel={(() => {
+                const total = summary?.totalLoggedHours ?? 0;
+                const h = Math.floor(total);
+                const m = Math.round((total - h) * 60);
+                if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                if (h > 0) return `${h}hrs`;
+                if (m > 0) return `${m}mins`;
+                return "0hrs";
+              })()}
+              targetLabel=""
               percent={Math.min((summary?.totalLoggedHours ?? 0) > 0 ? 100 : 0, 100)}
               footerLeft="Selected period"
-              footerRight={`${summary?.totalLoggedHours ?? 0}h total`}
+              footerRight={`${(() => {
+                const total = summary?.totalLoggedHours ?? 0;
+                const h = Math.floor(total);
+                const m = Math.round((total - h) * 60);
+                if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                if (h > 0) return `${h}hrs`;
+                if (m > 0) return `${m}mins`;
+                return "0hrs";
+              })()} total`}
               icon={<ClockCircleOutlined />}
               iconClassName="bg-indigo-50 text-indigo-500"
               barClassName="bg-indigo-500"
