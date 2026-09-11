@@ -99,7 +99,7 @@ export function ResponsiveTable<RecordType extends object = any>({
     }
   };
 
-  const controlledPagination = pagination !== false ? {
+  const controlledPagination: any = pagination !== false ? {
     ...(typeof pagination === 'object' ? pagination : {}),
     current: internalCurrent,
     pageSize: internalPageSize,
