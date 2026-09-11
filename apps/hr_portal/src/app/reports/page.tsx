@@ -124,7 +124,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return parseFloat(diff.toFixed(1));
+  return Math.round(diff * 60) / 60;
 }
 
 const timesheetColumns: ColumnsType<TimesheetTableRow> = [
@@ -146,14 +146,6 @@ const timesheetColumns: ColumnsType<TimesheetTableRow> = [
     onCell: () => ({
       style: { whiteSpace: "normal", wordBreak: "break-word", verticalAlign: "top" },
     }),
-  },
-  {
-    title: "Hours",
-    dataIndex: "hours",
-    key: "hours",
-    width: 72,
-    align: "center",
-    render: (val: number | null) => (val != null ? formatDuration(val) : "—"),
   },
 ];
 

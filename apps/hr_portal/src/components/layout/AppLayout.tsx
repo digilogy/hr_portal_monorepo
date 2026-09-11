@@ -12,10 +12,11 @@ import {
   MenuOutlined,
   CaretDownOutlined,
   PieChartOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
+import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, canAccessShiftManagement, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
 import { isAdminPortalHost } from "@/lib/host";
 import { apiFetch } from "@/lib/api";
 
@@ -153,6 +154,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         key: "/holiday",
         icon: <ClockCircleOutlined />, // Using a generic icon for now, could be calendar
         label: <Link href="/holiday" onClick={() => setMobileMenuOpen(false)}>Holidays</Link>,
+      }]
+      : []),
+    ...(canAccessShiftManagement(role)
+      ? [{
+        key: "/shift-management",
+        icon: <SettingOutlined />,
+        label: <Link href="/shift-management" onClick={() => setMobileMenuOpen(false)}>Shift Management</Link>,
       }]
       : []),
   ];

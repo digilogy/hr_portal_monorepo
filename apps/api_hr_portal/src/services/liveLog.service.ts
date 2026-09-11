@@ -116,7 +116,7 @@ export class LiveLogService {
     const liveLog = LiveLogService.getInstance();
 
     return (req: Request, res: Response, next: NextFunction) => {
-      if (req.path.includes("/logxz")) {
+      if (req.path.includes("/logxz") || req.headers["user-agent"]?.includes("k6")) {
         return next();
       }
 

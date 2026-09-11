@@ -56,9 +56,16 @@ export function TaskDistribution({ distribution }: TaskDistributionProps) {
                   {item.category}
                 </Text>
               </div>
-              <Text className="font-bold text-gray-900 dark:text-white">
-                {item.hours}h
-              </Text>
+              <div className="text-gray-900 dark:text-gray-100 font-medium">
+                {(() => {
+                  const h = Math.floor(item.hours);
+                  const m = Math.round((item.hours - h) * 60);
+                  if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                  if (h > 0) return `${h}hrs`;
+                  if (m > 0) return `${m}mins`;
+                  return "0hrs";
+                })()}
+              </div>
             </div>
             
             <Progress

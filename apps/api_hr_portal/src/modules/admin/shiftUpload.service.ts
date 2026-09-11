@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import csv from "csv-parser";
 import xlsx from "xlsx";
-import { UploadJob } from "@hr-portal/database";
+import { UploadJob, Shift } from "@hr-portal/database";
 import { logger } from "@hr-portal/logger";
 import { employeeDataRepository } from "./employeeData.repository";
 import { shiftRepository } from "./shift.repository";
@@ -26,9 +26,13 @@ function getString(value: unknown): string {
 
 const fieldAliases: Record<string, string> = {
   "shift name": "name",
+  "shift block name": "name",
+  "attendance shift": "name",
   "allowed timings": "allowedTimings",
+  "timings": "allowedTimings",
   "working days": "workingDays",
   "off days": "offDays",
+  "weekly off": "offDays",
   "half day": "halfDay",
   "half day optional": "halfDay",
 };
@@ -40,7 +44,11 @@ function mapRow(row: Record<string, unknown>): Record<string, string> {
   for (const key of Object.keys(row)) {
     const normalizedKey = normalizeHeader(key);
     const mappedKey = fieldAliases[normalizedKey] ?? normalizedKey;
-    mappedValues[mappedKey] = getString(row[key]);
+    const value = getString(row[key]);
+    
+    if (value !== "" || !mappedValues[mappedKey]) {
+      mappedValues[mappedKey] = value;
+    }
   }
   return mappedValues;
 }
@@ -118,9 +126,12 @@ export class ShiftUploadService {
       totalRows++;
       const rowNumber = index + 2;
 
-      if (!name) {
+      const allowedTimings = mappedValues.allowedTimings;
+      
+      if (!name || !allowedTimings) {
         failureCount++;
-        const message = "Missing required field: Shift Name";
+        const message = "Missing required field: Shift Name and Timings";
+        console.error(`ROW ${rowNumber} FAILED VALIDATION! Raw row:`, JSON.stringify(row), `Mapped values:`, JSON.stringify(mappedValues));
         if (errors.length < 100) {
           errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
         }
@@ -130,7 +141,6 @@ export class ShiftUploadService {
       }
 
       try {
-        const allowedTimings = mappedValues.allowedTimings;
         const workingDays = mappedValues.workingDays;
         const offDays = mappedValues.offDays;
         const halfDay = mappedValues.halfDay;
@@ -147,12 +157,15 @@ export class ShiftUploadService {
           addedCount++;
           await writeUploadLog(job, rowNumber, name, "success", "Imported shift successfully", mappedValues);
         } else {
-          await shiftRepository.updateShift(shift, {
-            allowedTimings,
-            workingDays,
-            offDays,
-            halfDay,
-          });
+          const updatePayload: Partial<Shift> = {};
+          if (allowedTimings) updatePayload.allowedTimings = allowedTimings;
+          if (workingDays) updatePayload.workingDays = workingDays;
+          if (offDays) updatePayload.offDays = offDays;
+          if (halfDay) updatePayload.halfDay = halfDay;
+
+          if (Object.keys(updatePayload).length > 0) {
+            await shiftRepository.updateShift(shift, updatePayload);
+          }
           await writeUploadLog(job, rowNumber, name, "success", "Shift updated successfully", mappedValues);
           updatedCount++;
         }
@@ -240,13 +253,18 @@ export class ShiftUploadService {
   private static findShiftDataSheet(
     workbook: xlsx.WorkBook,
   ): xlsx.WorkSheet | null {
+    // First pass: try to find by name
+    for (const sheetName of workbook.SheetNames) {
+      if (/shift detail/i.test(sheetName) || /shift rule/i.test(sheetName)) {
+        return workbook.Sheets[sheetName];
+      }
+    }
+
+    // Second pass: try to find by headers, but explicitly skip employee data sheets
     for (const sheetName of workbook.SheetNames) {
       if (/pivot/i.test(sheetName)) continue;
-      // explicitly look for a sheet containing 'shift'
-      if (/shift details/i.test(sheetName)) {
-         return workbook.Sheets[sheetName];
-      }
-      
+      if (/employee/i.test(sheetName) || /emp/i.test(sheetName)) continue;
+
       const sheet = workbook.Sheets[sheetName];
       const headerRows = xlsx.utils.sheet_to_json(sheet, {
         defval: "",
@@ -259,14 +277,19 @@ export class ShiftUploadService {
         normalizeHeader(String(header ?? "")),
       );
 
-      if (normalizedHeaders.some((header) => SHIFT_NAME_HEADERS.has(header))) {
+      if (
+        normalizedHeaders.some(
+          (header) =>
+            header.includes("timing") ||
+            header.includes("working day") ||
+            header.includes("half day") ||
+            header.includes("off day")
+        )
+      ) {
         return sheet;
       }
     }
-    const fallbackSheetName = workbook.SheetNames.find(
-      (name) => !/pivot/i.test(name),
-    );
-    if (!fallbackSheetName) return null;
-    return workbook.Sheets[fallbackSheetName] ?? null;
+
+    return null;
   }
 }

@@ -9,6 +9,10 @@ services:
       TZ: Asia/Kolkata
     ports:
       - "5435:5432"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - postgresdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,6 +26,10 @@ services:
     container_name: hr-redis
     ports:
       - "6380:6379"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - redisdata:/data
     healthcheck:
@@ -37,7 +45,15 @@ services:
     container_name: hr-api
     ports:
       - "5111:5111"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.ip_local_port_range: "1024 65535"
     environment:
+      NODE_OPTIONS: "--max-old-space-size=4096"
       NODE_ENV: development
       PORT: 5111
       DB_HOST: postgres
@@ -95,20 +111,7 @@ services:
       redis:
         condition: service_healthy
 
-  frontend:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/frontend.Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:5111
-    container_name: hr-frontend
-    ports:
-      - "3661:3661"
-    environment:
-      NODE_ENV: production
-      PORT: 3661
-    depends_on:
-      - api
+
 
 volumes:
   postgresdata:

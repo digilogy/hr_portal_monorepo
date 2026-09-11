@@ -62,32 +62,26 @@ export class TeamReportsRepository {
 
     if (normalizedEmails.length === 0) return result;
 
-    const allUsers = await userOrm.find({ select: ["id", "email"] });
-    const emailToUserId = new Map(allUsers.map((u) => [u.email.toLowerCase(), u.id]));
-    const userIdToEmail = new Map(allUsers.map((u) => [u.id, u.email.toLowerCase()]));
-
     const batchSize = 500;
     for (let index = 0; index < normalizedEmails.length; index += batchSize) {
       const emailBatch = normalizedEmails.slice(index, index + batchSize);
-      const userIds = emailBatch.map((e) => emailToUserId.get(e)).filter(Boolean) as number[];
-
-      if (userIds.length === 0) continue;
 
       const aggregates = await timesheetOrm
         .createQueryBuilder("timesheet")
-        .select("timesheet.userId", "userId")
+        .innerJoin("timesheet.user", "user")
+        .select("LOWER(user.email)", "email")
         .addSelect("COALESCE(SUM(timesheet.totalHours), 0)", "hours")
         .addSelect("COUNT(timesheet.id)", "entryCount")
-        .where("timesheet.userId IN (:...userIds)", { userIds })
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
         .andWhere("timesheet.date BETWEEN :from AND :to", { from, to })
-        .groupBy("timesheet.userId")
-        .getRawMany<{ userId: number; hours: string; entryCount: string }>();
+        .groupBy("LOWER(user.email)")
+        .getRawMany<{ email: string; hours: string; entryCount: string }>();
 
       for (const row of aggregates) {
-        const email = userIdToEmail.get(Number(row.userId));
+        const email = row.email;
         if (!email) continue;
         result.set(email, {
-          hours: parseFloat(Number(row.hours).toFixed(1)),
+          hours: Math.round(Number(row.hours) * 60) / 60,
           hasEntry: Number(row.entryCount) > 0,
         });
       }
@@ -113,29 +107,22 @@ export class TeamReportsRepository {
 
     if (normalizedEmails.length === 0) return [];
 
-    const allUsers = await userOrm.find({ select: ["id", "email"] });
-    const emailToUserId = new Map(allUsers.map((u) => [u.email.toLowerCase(), u.id]));
-    const userIdToEmail = new Map(allUsers.map((u) => [u.id, u.email.toLowerCase()]));
-
     const results: TimesheetExportEntry[] = [];
     const batchSize = 500;
 
     for (let index = 0; index < normalizedEmails.length; index += batchSize) {
       const emailBatch = normalizedEmails.slice(index, index + batchSize);
-      const userIds = emailBatch.map((e) => emailToUserId.get(e)).filter(Boolean) as number[];
-
-      if (userIds.length === 0) continue;
 
       const entries = await timesheetOrm
         .createQueryBuilder("timesheet")
-        .leftJoinAndSelect("timesheet.user", "user")
-        .where("timesheet.userId IN (:...userIds)", { userIds })
+        .innerJoinAndSelect("timesheet.user", "user")
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
         .andWhere("timesheet.date BETWEEN :from AND :to", { from, to })
         .orderBy("timesheet.date", "ASC")
         .getMany();
 
       for (const entry of entries) {
-        const email = userIdToEmail.get(entry.user.id);
+        const email = entry.user?.email?.toLowerCase();
         if (!email) continue;
         const employee = employeeByEmail.get(email);
         if (!employee) continue;
@@ -160,25 +147,20 @@ export class TeamReportsRepository {
       return { dailyRows: [], entries: [] };
     }
 
-    const allUsers = await userOrm.find({ select: ["id", "email"] });
-    const emailToUserId = new Map(allUsers.map((u) => [u.email.toLowerCase(), u.id]));
-
     const dailyRowsResult: Array<{ date: string | Date; submittedCount: string; totalHours: string }> = [];
     const entriesResult: Timesheet[] = [];
     const batchSize = 500;
 
     for (let index = 0; index < normalizedEmails.length; index += batchSize) {
       const emailBatch = normalizedEmails.slice(index, index + batchSize);
-      const userIds = emailBatch.map((e) => emailToUserId.get(e)).filter(Boolean) as number[];
-
-      if (userIds.length === 0) continue;
 
       const dailyRows = await timesheetOrm
         .createQueryBuilder("timesheet")
+        .innerJoin("timesheet.user", "user")
         .select("timesheet.date", "date")
         .addSelect("COUNT(DISTINCT timesheet.userId)", "submittedCount")
         .addSelect("COALESCE(SUM(timesheet.totalHours), 0)", "totalHours")
-        .where("timesheet.userId IN (:...userIds)", { userIds })
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
         .andWhere("timesheet.date BETWEEN :from AND :to", { from, to })
         .groupBy("timesheet.date")
         .getRawMany<{ date: string | Date; submittedCount: string; totalHours: string }>();
@@ -187,7 +169,8 @@ export class TeamReportsRepository {
 
       const entries = await timesheetOrm
         .createQueryBuilder("timesheet")
-        .where("timesheet.userId IN (:...userIds)", { userIds })
+        .innerJoinAndSelect("timesheet.user", "user")
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
         .andWhere("timesheet.date BETWEEN :from AND :to", { from, to })
         .getMany();
 

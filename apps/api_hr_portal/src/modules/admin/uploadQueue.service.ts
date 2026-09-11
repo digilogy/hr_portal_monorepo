@@ -34,18 +34,18 @@ async function processNextJob(): Promise<void> {
         let result;
         if (job.type === "master") {
           const shiftResult = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
-          const employeeResult = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+          const employeeResult = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
           result = {
-            totalRows: employeeResult.totalRows,
-            successCount: employeeResult.successCount,
+            totalRows: employeeResult.totalRows + shiftResult.totalRows,
+            successCount: employeeResult.successCount + shiftResult.successCount,
             failureCount: employeeResult.failureCount + shiftResult.failureCount,
-            addedCount: employeeResult.addedCount,
-            updatedCount: employeeResult.updatedCount,
+            addedCount: employeeResult.addedCount + (shiftResult.addedCount || 0),
+            updatedCount: employeeResult.updatedCount + (shiftResult.updatedCount || 0),
           };
         } else if (job.type === "shift") {
-          result = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+          result = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
         } else {
-          result = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+          result = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
         }
 
         job.totalRows = result.totalRows;
@@ -113,5 +113,9 @@ export class UploadQueueService {
 
   static async getJobStatus(jobId: string): Promise<UploadJob | null> {
     return uploadQueueRepository.findByIdWithLogs(jobId);
+  }
+
+  static async getUploadHistory(type?: any): Promise<UploadJob[]> {
+    return uploadQueueRepository.findAll(type);
   }
 }

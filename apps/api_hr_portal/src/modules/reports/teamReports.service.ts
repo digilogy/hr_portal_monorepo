@@ -9,6 +9,7 @@ import {
 import { teamReportsRepository, TimesheetHoursStats } from "./teamReports.repository";
 import { inferTaskCategory } from "./taskCategorizer";
 import { getTimesheetTaskExportRows, buildExcelBuffer, buildPdfBuffer } from "./teamReports.export";
+import { RedisService } from "@hr-portal/auth";
 
 export interface TeamMemberNode {
   key: string;
@@ -214,7 +215,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return parseFloat(diff.toFixed(1));
+  return Math.round(diff * 60) / 60;
 }
 
 function parseTimeSlotBounds(timeSlot: string): { start: number; end: number } | null {
@@ -278,7 +279,7 @@ function buildHourlySeries(
     result.push({
       hour,
       label: formatHourLabel(hour),
-      hours: parseFloat(stats.hours.toFixed(1)),
+      hours: Math.round(stats.hours * 60) / 60,
       slotCount: stats.slotCount,
     });
   }
@@ -391,7 +392,7 @@ function buildUserRows(
       name: employee.fullName || "—",
       department: employee.department || "—",
       manager: employee.directManagerName || "—",
-      hours: parseFloat(stats.hours.toFixed(1)),
+      hours: Math.round(stats.hours * 60) / 60,
       utilization,
       status: stats.hasEntry ? "Submitted" : "Pending",
     };
@@ -596,7 +597,7 @@ function buildTeamMemberNode(
     hod: employee.hodEmployeeName || "—",
     phone: employee.officeMobileNumber || "—",
     status: employee.employmentStatus || "Active",
-    hours: parseFloat(stats.hours.toFixed(1)),
+    hours: Math.round(stats.hours * 60) / 60,
     utilization:
       expectedHours > 0
         ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
@@ -728,7 +729,7 @@ function buildTeamTree(
         hod: employee.hodEmployeeName || "—",
         phone: employee.officeMobileNumber || "—",
         status: employee.employmentStatus || "Active",
-        hours: parseFloat(stats.hours.toFixed(1)),
+        hours: Math.round(stats.hours * 60) / 60,
         utilization:
           expectedHours > 0
             ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
@@ -766,6 +767,9 @@ function buildTeamTree(
 }
 
 export class TeamReportsService {
+  private static dashboardPromiseCache = new Map<string, Promise<DashboardSummary>>();
+  private static userWisePromiseCache = new Map<string, Promise<UserReportRow[]>>();
+
   private static async getFilteredReportScopeEmployees(
     email: string,
     role: UserRole,
@@ -906,30 +910,54 @@ export class TeamReportsService {
     toDate?: string,
     filters?: ReportFilters,
   ): Promise<UserReportRow[]> {
-    const range = getDefaultDateRange(fromDate, toDate);
-    const employees = await this.getFilteredReportScopeEmployees(
-      email,
-      role,
-      filters,
-    );
-    const emails = employees
-      .map((employee) => employee.officialEmailId)
-      .filter(Boolean) as string[];
-    const hoursByEmail = await teamReportsRepository.getTimesheetHoursByEmail(
-      emails,
-      range.from,
-      range.to,
-    );
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8.5;
-
-    const rows = buildUserRows(employees, hoursByEmail, expectedHours);
-
-    if (filters?.status && filters.status !== "all") {
-      return rows.filter((r) => r.status === filters.status);
+    const cacheKey = `report_userwise_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
+    
+    if (this.userWisePromiseCache.has(cacheKey)) {
+      return this.userWisePromiseCache.get(cacheKey)!;
     }
 
-    return rows;
+    const computePromise = (async () => {
+      const cachedData = await RedisService.get(cacheKey);
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {}
+      }
+
+      const range = getDefaultDateRange(fromDate, toDate);
+      const employees = await this.getFilteredReportScopeEmployees(
+        email,
+        role,
+        filters,
+      );
+      const emails = employees
+        .map((employee) => employee.officialEmailId)
+        .filter(Boolean) as string[];
+      const hoursByEmail = await teamReportsRepository.getTimesheetHoursByEmail(
+        emails,
+        range.from,
+        range.to,
+      );
+      const workingDays = getWorkingDays(range.from, range.to);
+      const expectedHours = workingDays * 8.5;
+
+      const rows = buildUserRows(employees, hoursByEmail, expectedHours);
+
+      let finalRows = rows;
+      if (filters?.status && filters.status !== "all") {
+        finalRows = rows.filter((r) => r.status === filters.status);
+      }
+
+      await RedisService.setWithTTL(cacheKey, JSON.stringify(finalRows), 300);
+      return finalRows;
+    })();
+
+    this.userWisePromiseCache.set(cacheKey, computePromise);
+    try {
+      return await computePromise;
+    } finally {
+      this.userWisePromiseCache.delete(cacheKey);
+    }
   }
 
   static async getUserWiseReportPaginated(
@@ -1066,7 +1094,7 @@ export class TeamReportsService {
         managerName: pickDisplayLabel(stats.labels, "Unassigned"),
         department: pickDisplayLabel(stats.departmentLabels, "Unassigned"),
         teamSize: stats.teamSize,
-        totalHours: parseFloat(stats.totalHours.toFixed(1)),
+        totalHours: Math.round(stats.totalHours * 60) / 60,
         avgUtilization,
         status,
       };
@@ -1144,7 +1172,7 @@ export class TeamReportsService {
       department: pickDisplayLabel(stats.labels, "Unassigned"),
       hod: pickDisplayLabel(stats.hodLabels, "—"),
       headcount: stats.headcount,
-      totalHours: parseFloat(stats.totalHours.toFixed(1)),
+      totalHours: Math.round(stats.totalHours * 60) / 60,
       avgUtilization:
         stats.utilizations.length > 0
           ? parseFloat(
@@ -1190,7 +1218,7 @@ export class TeamReportsService {
         period: formatPeriodLabel(weekStart, weekEnd),
         headcount,
         expectedHours,
-        loggedHours: parseFloat(loggedHours.toFixed(1)),
+        loggedHours: Math.round(loggedHours * 60) / 60,
         utilization:
           expectedHours > 0
             ? parseFloat(((loggedHours / expectedHours) * 100).toFixed(1))
@@ -1208,82 +1236,125 @@ export class TeamReportsService {
     toDate?: string,
     filters?: ReportFilters,
   ): Promise<DashboardSummary> {
-    const employees = await AccessService.getAccessibleEmployees(email, role);
-    const reportScopeEmployees = await AccessService.getReportScopeEmployees(
-      email,
-      role,
-    );
-    const userRows = await this.getUserWiseReport(
-      email,
-      role,
-      fromDate,
-      toDate,
-      filters,
-    );
-    const deptRows = await this.getDepartmentWiseReport(
-      email,
-      role,
-      fromDate,
-      toDate,
-      filters,
-    );
+    const cacheKey = `report_dash_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
+    
+    if (this.dashboardPromiseCache.has(cacheKey)) {
+      return this.dashboardPromiseCache.get(cacheKey)!;
+    }
 
+    const computePromise = (async () => {
+      const cachedData = await RedisService.get(cacheKey);
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {}
+      }
+
+      const employees = await AccessService.getAccessibleEmployees(email, role);
+      const reportScopeEmployees = await AccessService.getReportScopeEmployees(
+        email,
+        role,
+      );
+      const userRows = await this.getUserWiseReport(
+        email,
+        role,
+        fromDate,
+        toDate,
+        filters,
+      );
+      const deptRows = await this.getDepartmentWiseReport(
+        email,
+        role,
+        fromDate,
+        toDate,
+        filters,
+      );
+
+      const filteredEmployees = filterEmployeesByReportFilters(
+        employees,
+        filters ?? DEFAULT_REPORT_FILTERS,
+      );
+
+      const filteredUserRows = userRows;
+
+      const totalLoggedHours = filteredUserRows.reduce(
+        (sum, row) => sum + row.hours,
+        0,
+      );
+      const timesheetsSubmitted = filteredUserRows.filter(
+        (row) => row.status === "Submitted",
+      ).length;
+      const avgUtilization =
+        filteredUserRows.length > 0
+          ? filteredUserRows.reduce((sum, row) => sum + row.utilization, 0) /
+            filteredUserRows.length
+          : 0;
+
+      const filteredDepartments = [...deptRows].sort(
+        (a, b) => b.avgUtilization - a.avgUtilization,
+      );
+
+      const emails = filteredEmployees
+        .map((employee) => employee.officialEmailId?.trim().toLowerCase())
+        .filter(Boolean) as string[];
+
+      let totalSignUpUsers = 0;
+      if (emails.length > 0) {
+        const usersInBatch = await teamReportsRepository.findSignedUpUsersForEmails(emails);
+        totalSignUpUsers = usersInBatch.length;
+      }
+
+      const result = {
+        totalEmployees: filteredEmployees.length,
+        totalLoggedHours: Math.round(totalLoggedHours * 60) / 60,
+        avgUtilization: parseFloat(avgUtilization.toFixed(1)),
+        timesheetsSubmitted,
+        departments: filteredDepartments,
+        filterOptions: {
+          departments: buildReportFilterOptions(reportScopeEmployees).departments,
+        },
+        totalSignUpUsers,
+      };
+
+      await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 300);
+      return result;
+    })();
+
+    this.dashboardPromiseCache.set(cacheKey, computePromise);
+    try {
+      return await computePromise;
+    } finally {
+      this.dashboardPromiseCache.delete(cacheKey);
+    }
+  }
+
+  static async getSignedUpUsers(
+    email: string,
+    role: UserRole,
+    filters?: ReportFilters,
+  ) {
+    const employees = await AccessService.getAccessibleEmployees(email, role);
     const filteredEmployees = filterEmployeesByReportFilters(
       employees,
       filters ?? DEFAULT_REPORT_FILTERS,
-    );
-
-    const filteredUserRows = userRows;
-
-    const totalLoggedHours = filteredUserRows.reduce(
-      (sum, row) => sum + row.hours,
-      0,
-    );
-    const timesheetsSubmitted = filteredUserRows.filter(
-      (row) => row.status === "Submitted",
-    ).length;
-    const avgUtilization =
-      filteredUserRows.length > 0
-        ? filteredUserRows.reduce((sum, row) => sum + row.utilization, 0) /
-          filteredUserRows.length
-        : 0;
-
-    const filteredDepartments = [...deptRows].sort(
-      (a, b) => b.avgUtilization - a.avgUtilization,
     );
 
     const emails = filteredEmployees
       .map((employee) => employee.officialEmailId?.trim().toLowerCase())
       .filter(Boolean) as string[];
 
-    let totalSignUpUsers = 0;
-    const signedUpUsersList: Array<{ employeeId: string; name: string; email: string; department: string; }> = [];
     if (emails.length > 0) {
-      const usersInBatch = await teamReportsRepository.findSignedUpUsersForEmails(emails);
-      totalSignUpUsers = usersInBatch.length;
-      usersInBatch.forEach((u) => {
-        const emp = filteredEmployees.find((e) => e.officialEmailId?.trim().toLowerCase() === u.email.toLowerCase());
-        if (emp) {
-          signedUpUsersList.push({
-            employeeId: emp.employeeId || "-",
-            name: emp.fullName || u.name || u.email,
-            email: u.email,
-            department: emp.department || "-",
-          });
-        }
+      const users = await teamReportsRepository.findSignedUpUsersForEmails(emails);
+      return users.map(user => {
+        const emp = filteredEmployees.find(e => e.officialEmailId?.trim().toLowerCase() === user.email.toLowerCase());
+        return {
+          ...user,
+          employeeId: emp?.employeeId || "-",
+          department: emp?.department || "-",
+        };
       });
     }
-
-    return {
-      totalEmployees: filteredEmployees.length,
-      totalLoggedHours: parseFloat(totalLoggedHours.toFixed(1)),
-      avgUtilization: parseFloat(avgUtilization.toFixed(1)),
-      timesheetsSubmitted,
-      departments: filteredDepartments,
-      filterOptions: buildReportFilterOptions(reportScopeEmployees),
-      totalSignUpUsers,
-      signedUpUsersList,
-    };
+    return [];
   }
 
   private static async getReportExportSheets(
@@ -1553,7 +1624,7 @@ export class TeamReportsService {
         email: officialEmail || "—",
       },
       summary: {
-        totalHours: parseFloat(stats.hours.toFixed(1)),
+        totalHours: Math.round(stats.hours * 60) / 60,
         expectedHours,
         utilization:
           expectedHours > 0
@@ -1642,7 +1713,7 @@ export class TeamReportsService {
       const existing = dailyStats.get(dateKey);
       if (!existing) continue;
       existing.submittedCount += Number(row.submittedCount);
-      existing.totalHours += parseFloat(Number(row.totalHours).toFixed(1));
+      existing.totalHours += Math.round(Number(row.totalHours) * 60) / 60;
     }
 
     for (const entry of entries) {
@@ -1673,7 +1744,7 @@ export class TeamReportsService {
       .map(([date, stats]) => ({
         date,
         submittedCount: stats.submittedCount,
-        totalHours: parseFloat(stats.totalHours.toFixed(1)),
+        totalHours: Math.round(stats.totalHours * 60) / 60,
         rate:
           employeesInScope > 0
             ? parseFloat(
@@ -1694,7 +1765,7 @@ export class TeamReportsService {
 
     const byDayOfWeek = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
       day: dayLabels[dow],
-      hours: parseFloat((dowStats.get(dow)?.hours ?? 0).toFixed(1)),
+      hours: Math.round((dowStats.get(dow)?.hours ?? 0) * 60) / 60,
       entryCount: dowStats.get(dow)?.entryCount ?? 0,
     }));
 
@@ -1711,7 +1782,7 @@ export class TeamReportsService {
     const byTaskType = [...taskStats.entries()]
       .map(([taskType, stats]) => ({
         taskType,
-        hours: parseFloat(stats.hours.toFixed(1)),
+        hours: Math.round(stats.hours * 60) / 60,
         slotCount: stats.slotCount,
         pct:
           taskTotalHours > 0
@@ -1789,7 +1860,7 @@ export class TeamReportsService {
         avgDailyCompliance,
         peakDayOfWeek,
         dominantTaskType: byTaskType[0]?.taskType ?? "—",
-        totalLoggedHours: parseFloat(totalLoggedHours.toFixed(1)),
+        totalLoggedHours: Math.round(totalLoggedHours * 60) / 60,
       },
       dailyActivity,
       byDayOfWeek,

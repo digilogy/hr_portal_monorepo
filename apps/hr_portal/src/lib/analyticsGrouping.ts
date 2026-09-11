@@ -210,7 +210,7 @@ export function aggregateActivityForCharts(
           week.displayStart.year() === week.displayEnd.year()
             ? `${week.displayStart.format("MMM D")}–${week.displayEnd.format("D")}`
             : `${week.displayStart.format("MMM D")}–${week.displayEnd.format("MMM D")}`,
-        hours: parseFloat(week.hours.toFixed(1)),
+        hours: Math.round(week.hours * 60) / 60,
         entryCount: week.entryCount,
         secondaryValue: `${week.entryCount} employee-days logged`,
       }));
@@ -244,7 +244,7 @@ export function aggregateActivityForCharts(
       key,
       label: month.month.format("MMMM YYYY"),
       shortLabel: month.month.format("MMM YY"),
-      hours: parseFloat(month.hours.toFixed(1)),
+      hours: Math.round(month.hours * 60) / 60,
       entryCount: month.entryCount,
       secondaryValue: `${month.entryCount} employee-days logged`,
     }));

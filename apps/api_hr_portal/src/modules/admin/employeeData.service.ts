@@ -46,6 +46,7 @@ const fieldAliases: Record<string, string> = {
   "official email id": "officialEmailId",
   "office mobile number": "officeMobileNumber",
   "attendance shift": "attendanceShift",
+  "shift name": "attendanceShift",
   zone: "zone",
 };
 

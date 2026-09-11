@@ -129,7 +129,14 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
           <span
             className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${styles.badge}`}
           >
-            {activity.isLogged ? `${activity.totalHours}h logged` : "Pending"}
+            {activity.isLogged ? `${(() => {
+              const h = Math.floor(activity.totalHours);
+              const m = Math.round((activity.totalHours - h) * 60);
+              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+              if (h > 0) return `${h}hrs`;
+              if (m > 0) return `${m}mins`;
+              return "0hrs";
+            })()} logged` : "Pending"}
           </span>
           {activity.isLogged && (
             <span className="text-xs text-gray-400">

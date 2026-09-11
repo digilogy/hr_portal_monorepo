@@ -48,6 +48,28 @@ export function ResponsiveTable<RecordType extends object = any>({
   const isMobile = screens.md === false;
   const [internalViewMode, setInternalViewMode] = useState<"table" | "card">("table");
 
+  const getInitialPagination = (field: 'current' | 'pageSize', defaultValue: number) => {
+    if (props.pagination && typeof props.pagination === 'object' && props.pagination[field]) {
+      return props.pagination[field] as number;
+    }
+    return defaultValue;
+  };
+
+  const [internalCurrent, setInternalCurrent] = useState(() => getInitialPagination('current', 1));
+  const [internalPageSize, setInternalPageSize] = useState(() => getInitialPagination('pageSize', 10));
+
+  // Sync internal state if parent's pagination props change
+  useEffect(() => {
+    if (props.pagination && typeof props.pagination === 'object') {
+      if (props.pagination.current !== undefined && props.pagination.current !== internalCurrent) {
+        setInternalCurrent(props.pagination.current);
+      }
+      if (props.pagination.pageSize !== undefined && props.pagination.pageSize !== internalPageSize) {
+        setInternalPageSize(props.pagination.pageSize);
+      }
+    }
+  }, [props.pagination]);
+
   const viewMode = controlledViewMode !== undefined ? controlledViewMode : internalViewMode;
   
   const handleViewModeChange = (val: "table" | "card") => {
@@ -68,6 +90,28 @@ export function ResponsiveTable<RecordType extends object = any>({
 
   const { columns: originalColumns, dataSource, pagination, rowKey, loading, cardRender, ...restProps } = props;
 
+  // Fully controlled pagination state
+  const handleTableChange = (newPagination: any, filters: any, sorter: any) => {
+    if (newPagination.current) setInternalCurrent(newPagination.current);
+    if (newPagination.pageSize) setInternalPageSize(newPagination.pageSize);
+    if (props.onChange) {
+      props.onChange(newPagination, filters, sorter, { action: "paginate", currentDataSource: [] });
+    }
+  };
+
+  const controlledPagination = pagination !== false ? {
+    ...(typeof pagination === 'object' ? pagination : {}),
+    current: internalCurrent,
+    pageSize: internalPageSize,
+    onChange: (page: number, pageSize: number) => {
+      setInternalCurrent(page);
+      setInternalPageSize(pageSize);
+      if (pagination && typeof pagination === 'object' && pagination.onChange) {
+        pagination.onChange(page, pageSize);
+      }
+    }
+  } : false;
+
   // Automatically inject Sl.No column if it doesn't exist
   const hasSlNo = originalColumns?.some((col: any) => col.title === "Sl.No" || col.title === "S.No");
   
@@ -77,19 +121,22 @@ export function ResponsiveTable<RecordType extends object = any>({
       key: "slNo",
       width: 70,
       render: (_: any, __: any, index: number) => {
-        let current = 1;
-        let pageSize = 10;
-        if (pagination && typeof pagination === "object") {
-          if (pagination.current) current = pagination.current;
-          if (pagination.pageSize) pageSize = pagination.pageSize;
-        }
-        return (current - 1) * pageSize + index + 1;
+        return (internalCurrent - 1) * internalPageSize + index + 1;
       }
     },
     ...(originalColumns || [])
   ];
 
-  const tableProps = { ...restProps, dataSource, pagination, rowKey, loading, columns };
+  const tableProps = { 
+    ...restProps, 
+    dataSource, 
+    pagination: controlledPagination, 
+    rowKey, 
+    loading, 
+    columns, 
+    onChange: handleTableChange,
+    scroll: restProps.scroll || { x: 'max-content' }
+  };
 
   // Render header toggle
   const renderToggle = () => {
@@ -121,6 +168,13 @@ export function ResponsiveTable<RecordType extends object = any>({
   let data = (dataSource as RecordType[]) || [];
   if (flattenChildrenInCardView) {
     data = flattenRecords(data);
+  }
+
+  // Handle pagination slicing for Card view
+  if (controlledPagination && controlledPagination.pageSize) {
+    const startIndex = (internalCurrent - 1) * internalPageSize;
+    const endIndex = startIndex + internalPageSize;
+    data = data.slice(startIndex, endIndex);
   }
 
   const getRowKey = (record: RecordType, index?: number) => {
@@ -155,7 +209,8 @@ export function ResponsiveTable<RecordType extends object = any>({
                     let value: any = null;
                     
                     if (col.render) {
-                      const rendered = col.render((record as any)[(col as any).dataIndex], record, index);
+                      const text = (col as any).dataIndex ? (record as any)[(col as any).dataIndex] : record;
+                      const rendered = col.render(text, record, index);
                       if (rendered && typeof rendered === "object" && "children" in rendered && !React.isValidElement(rendered)) {
                         value = (rendered as any).children;
                       } else {
@@ -174,7 +229,7 @@ export function ResponsiveTable<RecordType extends object = any>({
                         <span className="text-gray-500 text-xs font-medium uppercase tracking-wide shrink-0">
                           {title as React.ReactNode}
                         </span>
-                        <span className="text-right text-sm text-gray-900 dark:text-zinc-100">
+                        <span className="text-right text-sm text-gray-900 dark:text-zinc-100 break-words">
                           {value}
                         </span>
                       </div>

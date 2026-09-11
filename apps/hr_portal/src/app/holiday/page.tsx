@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Table, Button, Modal, Form, Input, DatePicker, Select, Switch, Space, message, Typography } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Table, Button, Typography, message, Modal, Form, Input, DatePicker, Select, Switch, Space } from "antd";
+import { PlusOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -83,8 +84,8 @@ export default function HolidaysAdminPage() {
     setEditingHoliday(record);
     form.setFieldsValue({
       name: record.name,
-      dateRange: [dayjs(record.startDate), dayjs(record.endDate)],
-      zones: record.zones,
+      dateRange: [record.startDate, record.endDate],
+      zones: [...record.zones],
       isOptional: record.isOptional
     });
     setIsModalVisible(true);
@@ -112,8 +113,8 @@ export default function HolidaysAdminPage() {
   const handleFormFinish = async (values: any) => {
     const payload = {
       name: values.name,
-      startDate: values.dateRange[0].format("YYYY-MM-DD"),
-      endDate: values.dateRange[1].format("YYYY-MM-DD"),
+      startDate: dayjs(values.dateRange[0]).format("YYYY-MM-DD"),
+      endDate: dayjs(values.dateRange[1]).format("YYYY-MM-DD"),
       zones: values.zones,
       isOptional: values.isOptional || false,
     };
@@ -201,9 +202,9 @@ export default function HolidaysAdminPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {contextHolder}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 mb-6">
         <Title level={2} className="!mb-0">Holidays</Title>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-nowrap items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
           <Select
             value={selectedZone}
             onChange={setSelectedZone}
@@ -216,13 +217,14 @@ export default function HolidaysAdminPage() {
         </div>
       </div>
 
-      <Table 
+      <ResponsiveTable 
         columns={columns} 
         dataSource={filteredHolidays} 
         rowKey="id" 
         loading={loading}
         bordered
         size="middle"
+        scroll={{ x: 800 }}
         pagination={{
           current: currentPage,
           onChange: (page) => setCurrentPage(page)
@@ -254,6 +256,10 @@ export default function HolidaysAdminPage() {
             name="dateRange"
             label="Date Range"
             rules={[{ required: true, message: "Please select date range" }]}
+            getValueProps={(value) => {
+              if (!value) return { value: undefined };
+              return { value: [dayjs(value[0]), dayjs(value[1])] };
+            }}
           >
             <RangePicker className="w-full" />
           </Form.Item>

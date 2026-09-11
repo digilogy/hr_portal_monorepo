@@ -93,7 +93,14 @@ export function UtilizationByDepartment({
       dataIndex: "totalHours",
       key: "totalHours",
       align: "right" as const,
-      render: (val: number) => `${val}h`,
+      render: (val: number) => {
+        const h = Math.floor(val);
+        const m = Math.round((val - h) * 60);
+        if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+        if (h > 0) return `${h}hrs`;
+        if (m > 0) return `${m}mins`;
+        return "0hrs";
+      },
     },
     {
       title: "Avg. Utilization (%)",

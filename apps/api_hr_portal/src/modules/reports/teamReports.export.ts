@@ -29,7 +29,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return parseFloat(diff.toFixed(1));
+  return Math.round(diff * 60) / 60;
 }
 
 export async function getTimesheetTaskExportRows(

@@ -141,6 +141,10 @@ export function canAccessPersonalDashboard(role: UserRole | null): boolean {
   return role === "employee" || role === "manager" || role === "hrbp";
 }
 
+export function canAccessShiftManagement(role: UserRole | null): boolean {
+  return role === "admin";
+}
+
 export function getRoleLabel(role: UserRole | null, alsoManager = false): string {
   if (role === "admin") return "Admin / HR";
   if (role === "hrbp") {

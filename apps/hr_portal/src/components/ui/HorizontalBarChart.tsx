@@ -89,8 +89,17 @@ export function HorizontalBarChart({
 
             <div className="w-14 shrink-0 text-right">
               <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                {d.value.toFixed(1)}
-                {unitSuffix}
+                {(() => {
+                  if (unitSuffix === "h") {
+                    const h = Math.floor(d.value);
+                    const m = Math.round((d.value - h) * 60);
+                    if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                    if (h > 0) return `${h}hrs`;
+                    if (m > 0) return `${m}mins`;
+                    return "0hrs";
+                  }
+                  return `${d.value.toFixed(1)}${unitSuffix}`;
+                })()}
               </span>
               {d.secondaryValue !== undefined && (
                 <div className="text-[10px] text-gray-400 truncate" title={String(d.secondaryValue)}>
