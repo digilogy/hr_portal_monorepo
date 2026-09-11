@@ -1,5 +1,15 @@
 type LogLevel = "info" | "warn" | "error" | "debug";
 
+const MAX_LOG_LINES = 1000;
+const logBuffer: string[] = [];
+
+function addToBuffer(message: string) {
+  logBuffer.push(message);
+  if (logBuffer.length > MAX_LOG_LINES) {
+    logBuffer.shift(); // Remove the oldest log
+  }
+}
+
 function formatMessage(
   level: LogLevel,
   context: string,
@@ -13,15 +23,26 @@ function formatMessage(
 
 export const logger = {
   info(context: string, message: string, meta?: Record<string, unknown>) {
-    console.log(formatMessage("info", context, message, meta));
+    const formatted = formatMessage("info", context, message, meta);
+    addToBuffer(formatted);
+    console.log(formatted);
   },
   warn(context: string, message: string, meta?: Record<string, unknown>) {
-    console.warn(formatMessage("warn", context, message, meta));
+    const formatted = formatMessage("warn", context, message, meta);
+    addToBuffer(formatted);
+    console.warn(formatted);
   },
   error(context: string, message: string, meta?: Record<string, unknown>) {
-    console.error(formatMessage("error", context, message, meta));
+    const formatted = formatMessage("error", context, message, meta);
+    addToBuffer(formatted);
+    console.error(formatted);
   },
   debug(context: string, message: string, meta?: Record<string, unknown>) {
-    console.debug(formatMessage("debug", context, message, meta));
+    const formatted = formatMessage("debug", context, message, meta);
+    addToBuffer(formatted);
+    console.debug(formatted);
   },
+  getLogs(): string[] {
+    return [...logBuffer];
+  }
 };

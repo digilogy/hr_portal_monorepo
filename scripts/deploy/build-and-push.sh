@@ -15,8 +15,8 @@ shift || true
 SERVICES=("${@:-}")
 if [ -z "${SERVICES[0]:-}" ]; then SERVICES=(api mail-worker); fi
 
-AWS_REGION="${AWS_REGION:-ap-south-1}"
-ECR_PREFIX="${ECR_PREFIX:-hr-portal-prod}"
+AWS_REGION="${AWS_REGION:-ap-south-2}"
+ECR_PREFIX="${ECR_PREFIX:-timesheet}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"

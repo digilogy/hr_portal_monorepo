@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { UploadQueueService } from "./uploadQueue.service";
 import { EmailQueueService } from "../../services/emailQueue.service";
 import { UploadLog, EmailStatus } from "@hr-portal/database";
+import { logger } from "@hr-portal/logger";
+import { shiftRepository } from "./shift.repository";
 
 function formatJobResponse(job: NonNullable<Awaited<ReturnType<typeof UploadQueueService.getJobStatus>>>) {
   const failedLogs = (job.logs ?? []).filter(
@@ -90,6 +92,50 @@ export class AdminController {
     }
   }
 
+  static async getEmployeeShifts(req: Request, res: Response): Promise<void> {
+    try {
+      const filters = req.query as Record<string, string>;
+      const shifts = await shiftRepository.getAllEmployeeShifts(filters);
+      res.status(200).json(shifts);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
+  static async getUploadHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const type = req.query.type as string | undefined;
+      const history = await UploadQueueService.getUploadHistory(type);
+      res.status(200).json(history.map(formatJobResponse));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
+  static async downloadUploadFile(req: Request, res: Response): Promise<void> {
+    try {
+      const { jobId } = req.params;
+      const job = await UploadQueueService.getJobStatus(jobId);
+      if (!job || !job.filePath) {
+        res.status(404).json({ message: "File not found" });
+        return;
+      }
+      
+      const fs = require('fs');
+      if (!fs.existsSync(job.filePath)) {
+        res.status(404).json({ message: "The original file was deleted from the server and is no longer available for download." });
+        return;
+      }
+      
+      res.download(job.filePath, job.fileName || "downloaded-file.xlsx");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
   static async listEmailLogs(req: Request, res: Response): Promise<void> {
     try {
       const toEmail = typeof req.query.toEmail === "string" ? req.query.toEmail : undefined;
@@ -142,6 +188,16 @@ export class AdminController {
         message: "Email re-queued for delivery",
         emailLog: log,
       });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
+  static async getLogs(req: Request, res: Response): Promise<void> {
+    try {
+      const logs = logger.getLogs();
+      res.status(200).json({ logs });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ message });

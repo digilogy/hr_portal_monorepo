@@ -169,25 +169,17 @@ export function buildDayActivity(
 
 export function buildRecentWeekActivity(
   weekEntries: ActivityTimesheetEntry[],
-  weekStart: dayjs.Dayjs,
-  throughDate: dayjs.Dayjs = dayjs(),
+  validDates: string[],
   limit = 5,
 ): DayActivity[] {
   const entryMap = new Map(
     weekEntries.map((entry) => [dayjs(entry.date).format("YYYY-MM-DD"), entry]),
   );
 
-  const dates: string[] = [];
-  let cursor = throughDate.startOf("day");
-  const start = weekStart.startOf("day");
+  // validDates are usually provided chronological. Reverse them to show most recent first.
+  const reversedDates = [...validDates].reverse();
 
-  while (cursor.isAfter(start) || cursor.isSame(start, "day")) {
-    const day = cursor.day();
-    if (day !== 0) {
-      dates.push(cursor.format("YYYY-MM-DD"));
-    }
-    cursor = cursor.subtract(1, "day");
-  }
-
-  return dates.slice(0, limit).map((date) => buildDayActivity(date, entryMap.get(date)));
+  return reversedDates
+    .slice(0, limit)
+    .map((date) => buildDayActivity(date, entryMap.get(date)));
 }

@@ -22,7 +22,7 @@ COPY apps/hr_portal ./apps/hr_portal
 # Next.js inlines NEXT_PUBLIC_* vars into the static export at build time —
 # it must match whatever host/port the browser will actually reach the API
 # on, which is a docker-compose/deploy-time decision, not a fixed default.
-ARG NEXT_PUBLIC_API_URL=http://localhost:5100
+ARG NEXT_PUBLIC_API_URL=http://localhost:5111
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npm run build --workspace=@hr-portal/hr-portal
 

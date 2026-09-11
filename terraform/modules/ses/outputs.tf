@@ -1,9 +1,9 @@
 output "identity_arn" {
-  value = aws_sesv2_email_identity.domain.arn
+  value = data.aws_sesv2_email_identity.domain.arn
 }
 
 output "domain" {
-  value = aws_sesv2_email_identity.domain.email_identity
+  value = data.aws_sesv2_email_identity.domain.email_identity
 }
 
 output "configuration_set_name" {

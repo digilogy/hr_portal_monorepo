@@ -2,19 +2,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { Worker, Job } from "bullmq";
-import { redisClient, isRedisConnected, MAIL_QUEUE_NAME, MailJobPayload } from "@hr-portal/queue";
+import { redisClient, MAIL_QUEUE_NAME, QUEUE_PREFIX, MailJobPayload } from "@hr-portal/queue";
 import { EmailService } from "@hr-portal/mail";
 import { logger } from "@hr-portal/logger";
-import { AppDataSource, EmailLog, EmailStatus } from "@hr-portal/database";
+import { initializeDatabase, AppDataSource, EmailLog, EmailStatus } from "@hr-portal/database";
 
 const LOG_CONTEXT = "MailWorker";
 
-export function startMailWorker(): Worker<MailJobPayload> | null {
-  if (!isRedisConnected) {
-    logger.warn(LOG_CONTEXT, "Redis not connected. Standalone BullMQ MailWorker initialization deferred.");
-    return null;
-  }
-
+export function startMailWorker(): Worker<MailJobPayload> {
   const worker = new Worker<MailJobPayload>(
     MAIL_QUEUE_NAME,
     async (job: Job<MailJobPayload>) => {
@@ -69,6 +64,7 @@ export function startMailWorker(): Worker<MailJobPayload> | null {
       }
     },
     {
+      prefix: QUEUE_PREFIX,
       connection: redisClient,
       concurrency: 20, // High concurrency for enterprise throughput
     }
@@ -88,7 +84,7 @@ export function startMailWorker(): Worker<MailJobPayload> | null {
 // Auto-run if executed via `npm run worker`
 if (require.main === module) {
   logger.info(LOG_CONTEXT, "Starting standalone Mail Worker instance...");
-  AppDataSource.initialize()
+  initializeDatabase()
     .then(() => {
       startMailWorker();
     })

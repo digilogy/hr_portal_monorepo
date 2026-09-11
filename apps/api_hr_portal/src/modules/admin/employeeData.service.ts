@@ -46,6 +46,7 @@ const fieldAliases: Record<string, string> = {
   "official email id": "officialEmailId",
   "office mobile number": "officeMobileNumber",
   "attendance shift": "attendanceShift",
+  "shift name": "attendanceShift",
   zone: "zone",
 };
 
@@ -170,7 +171,9 @@ export class EmployeeDataService {
         failureCount++;
         const message =
           "Missing required field: Employee Id or Official Email Id";
-        errors.push({ row: mappedRow, error: message, rowIndex: rowNumber });
+        if (errors.length < 100) {
+          errors.push({ row: mappedRow, error: message, rowIndex: rowNumber });
+        }
         await writeUploadLog(
           job,
           rowNumber,
@@ -251,7 +254,9 @@ export class EmployeeDataService {
         failureCount++;
         const message =
           error instanceof Error ? error.message : "Unknown error";
-        errors.push({ row: mappedRow, error: message, rowIndex: rowNumber });
+        if (errors.length < 100) {
+          errors.push({ row: mappedRow, error: message, rowIndex: rowNumber });
+        }
         await writeUploadLog(
           job,
           rowNumber,

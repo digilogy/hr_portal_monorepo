@@ -7,6 +7,8 @@ declare const envSchema: z.ZodObject<{
     DB_USER: z.ZodDefault<z.ZodString>;
     DB_PASSWORD: z.ZodDefault<z.ZodString>;
     DB_NAME: z.ZodDefault<z.ZodString>;
+    DATABASE_URL: z.ZodOptional<z.ZodString>;
+    DB_SSL: z.ZodOptional<z.ZodString>;
     TYPEORM_SYNCHRONIZE: z.ZodOptional<z.ZodString>;
     JWT_SECRET: z.ZodString;
     ADMIN_USER: z.ZodDefault<z.ZodString>;
@@ -16,6 +18,7 @@ declare const envSchema: z.ZodObject<{
     REDIS_HOST: z.ZodDefault<z.ZodString>;
     REDIS_PORT: z.ZodDefault<z.ZodNumber>;
     REDIS_PASSWORD: z.ZodOptional<z.ZodString>;
+    REDIS_TLS: z.ZodDefault<z.ZodOptional<z.ZodString>>;
     AWS_REGION: z.ZodOptional<z.ZodString>;
     AWS_DEFAULT_REGION: z.ZodOptional<z.ZodString>;
     AWS_ACCESS_KEY_ID: z.ZodOptional<z.ZodString>;
@@ -44,12 +47,15 @@ declare const envSchema: z.ZodObject<{
     ALLOWED_ORIGINS: string;
     REDIS_HOST: string;
     REDIS_PORT: number;
+    REDIS_TLS: string;
     EMAIL_MAX_ATTEMPTS: number;
     EMAIL_RETRY_DELAY_MS: number;
     EMAIL_SEND_INTERVAL_MS: number;
     RATE_LIMIT_ACCESS_MAX: number;
     RATE_LIMIT_FORGOT_MAX: number;
     RATE_LIMIT_LOGIN_MAX: number;
+    DATABASE_URL?: string | undefined;
+    DB_SSL?: string | undefined;
     TYPEORM_SYNCHRONIZE?: string | undefined;
     REDIS_PASSWORD?: string | undefined;
     AWS_REGION?: string | undefined;
@@ -68,6 +74,8 @@ declare const envSchema: z.ZodObject<{
     DB_USER?: string | undefined;
     DB_PASSWORD?: string | undefined;
     DB_NAME?: string | undefined;
+    DATABASE_URL?: string | undefined;
+    DB_SSL?: string | undefined;
     TYPEORM_SYNCHRONIZE?: string | undefined;
     ADMIN_USER?: string | undefined;
     ADMIN_PIN?: string | undefined;
@@ -76,6 +84,7 @@ declare const envSchema: z.ZodObject<{
     REDIS_HOST?: string | undefined;
     REDIS_PORT?: number | undefined;
     REDIS_PASSWORD?: string | undefined;
+    REDIS_TLS?: string | undefined;
     AWS_REGION?: string | undefined;
     AWS_DEFAULT_REGION?: string | undefined;
     AWS_ACCESS_KEY_ID?: string | undefined;
@@ -106,12 +115,15 @@ export declare const env: {
     ALLOWED_ORIGINS: string;
     REDIS_HOST: string;
     REDIS_PORT: number;
+    REDIS_TLS: string;
     EMAIL_MAX_ATTEMPTS: number;
     EMAIL_RETRY_DELAY_MS: number;
     EMAIL_SEND_INTERVAL_MS: number;
     RATE_LIMIT_ACCESS_MAX: number;
     RATE_LIMIT_FORGOT_MAX: number;
     RATE_LIMIT_LOGIN_MAX: number;
+    DATABASE_URL?: string | undefined;
+    DB_SSL?: string | undefined;
     TYPEORM_SYNCHRONIZE?: string | undefined;
     REDIS_PASSWORD?: string | undefined;
     AWS_REGION?: string | undefined;

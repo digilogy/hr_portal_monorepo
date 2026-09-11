@@ -2,6 +2,7 @@ import { UserRole, AppDataSource, EmployeeShiftAssignment, EmployeeData } from "
 import { AccessService } from "../access/access.service";
 import { profileRepository } from "./profile.repository";
 import { holidayRepository } from "../admin/holiday.repository";
+import { RedisService } from "@hr-portal/auth";
 
 export interface EmployeeProfile {
   name: string;
@@ -32,14 +33,32 @@ function formatValue(value?: string | null): string {
 }
 
 export class ProfileService {
+  private static profilePromiseCache = new Map<string, Promise<EmployeeProfile | null>>();
+
   static async getProfileByEmail(
     email: string,
   ): Promise<EmployeeProfile | null> {
+    const cacheKey = `profile_v2:${email.toLowerCase()}`;
+    
+    if (this.profilePromiseCache.has(cacheKey)) {
+      return this.profilePromiseCache.get(cacheKey)!;
+    }
+
+    const computePromise = (async () => {
+      const cachedProfile = await RedisService.get(cacheKey);
+      if (cachedProfile) {
+        try {
+          return JSON.parse(cachedProfile);
+        } catch (e) {
+          // ignore JSON parse error
+        }
+      }
+
     const employee = await profileRepository.findByEmail(email);
 
     if (!employee) {
       if (AccessService.isAdminEmail(email)) {
-        return {
+        const adminProfile = {
           name: "Admin",
           employeeId: "—",
           reportingManager: "—",
@@ -53,6 +72,8 @@ export class ProfileService {
           role: UserRole.ADMIN,
           alsoManager: false,
         };
+        await RedisService.setWithTTL(cacheKey, JSON.stringify(adminProfile), 300);
+        return adminProfile;
       }
       return null;
     }
@@ -122,7 +143,7 @@ export class ProfileService {
       }
     }
 
-    return {
+    const profileData = {
       name: formatValue(employee.fullName),
       employeeId: formatValue(employee.employeeId),
       reportingManager: formatValue(employee.directManagerName),
@@ -145,6 +166,17 @@ export class ProfileService {
       mappedZone,
       upcomingHolidays,
     };
+
+    await RedisService.setWithTTL(cacheKey, JSON.stringify(profileData), 300);
+    return profileData;
+  })();
+
+    this.profilePromiseCache.set(cacheKey, computePromise);
+    try {
+      return await computePromise;
+    } finally {
+      this.profilePromiseCache.delete(cacheKey);
+    }
   }
 
   static async updatePreferredTiming(email: string, preferredTiming: string): Promise<void> {

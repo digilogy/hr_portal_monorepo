@@ -94,6 +94,7 @@ interface EmployeeProfile {
   allowedTimings?: string;
   preferredTiming?: string;
   halfDay?: string;
+  upcomingHolidays?: any[];
 }
 
 interface TimesheetRecord {
@@ -250,7 +251,8 @@ function getWorkdays(
   to: dayjs.Dayjs, 
   weeklyOffRule?: string,
   normalHours: number = 8.5,
-  halfDayInfo: { day: number; hours: number } | null = null
+  halfDayInfo: { day: number; hours: number } | null = null,
+  holidays: any[] = []
 ): WorkdayTarget[] {
   const dates: WorkdayTarget[] = [];
   let current = from.startOf("day");
@@ -289,6 +291,17 @@ function getWorkdays(
         const weekOfMonth = Math.ceil(current.date() / 7);
         if (weekOfMonth === 2) isWorkday = false;
       }
+    }
+
+    if (isWorkday && holidays.length > 0) {
+      const currentStr = current.format("YYYY-MM-DD");
+      const isHoliday = holidays.some((h) => {
+        if (h.isOptional) return false;
+        const start = dayjs(h.startDate).format("YYYY-MM-DD");
+        const end = dayjs(h.endDate).format("YYYY-MM-DD");
+        return currentStr >= start && currentStr <= end;
+      });
+      if (isHoliday) isWorkday = false;
     }
 
     if (isWorkday) {
@@ -397,8 +410,8 @@ export default function MyDashboardPage() {
     const normalHours = parseTimeRangeHours(validTiming);
     const halfDayInfo = parseHalfDayInfo(profile?.halfDay);
     
-    const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff, normalHours, halfDayInfo);
-    const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff, normalHours, halfDayInfo);
+    const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff, normalHours, halfDayInfo, profile?.upcomingHolidays || []);
+    const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff, normalHours, halfDayInfo, profile?.upcomingHolidays || []);
     
     const workingDays = workingDaysArray.length;
     const elapsedWorkdays = elapsedWorkdaysArray.length;
@@ -433,12 +446,13 @@ export default function MyDashboardPage() {
       pendingPercent,
       needsLog: pendingCount > 0,
       normalHours,
+      weekdayDates,
     };
   }, [periodEntries, periodFrom, periodTo, today, profile]);
 
   const recentActivity = useMemo(
-    () => buildRecentWeekActivity(periodEntries, periodFrom, periodTo.isAfter(today) ? today : periodTo, 7),
-    [periodEntries, periodFrom, periodTo, today],
+    () => buildRecentWeekActivity(periodEntries, stats.weekdayDates, 7),
+    [periodEntries, stats.weekdayDates],
   );
 
   const flatTeamMembers = useMemo(

@@ -11,11 +11,13 @@ const LOG_CONTEXT = "RedisConfig";
 const REDIS_HOST = config_1.env.REDIS_HOST;
 const REDIS_PORT = config_1.env.REDIS_PORT;
 const REDIS_PASSWORD = config_1.env.REDIS_PASSWORD;
+const useTls = config_1.env.REDIS_TLS === "true" || process.env.REDIS_TLS === "true" || (config_1.env.NODE_ENV === "production" && !REDIS_HOST.includes("localhost") && !REDIS_HOST.includes("redis"));
 exports.isRedisConnected = false;
 exports.redisClient = new ioredis_1.default({
     host: REDIS_HOST,
     port: REDIS_PORT,
     password: REDIS_PASSWORD,
+    ...(useTls ? { tls: {} } : {}),
     maxRetriesPerRequest: null, // Required by BullMQ
     enableReadyCheck: false,
     lazyConnect: true,

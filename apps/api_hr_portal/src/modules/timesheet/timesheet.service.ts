@@ -2,6 +2,7 @@ import { Timesheet, TimesheetSlot } from "@hr-portal/database";
 import { validateTimesheetSlots } from "./timesheetSlots";
 import { timesheetRepository, TimesheetHistoryOptions } from "./timesheet.repository";
 import { ProfileService, EmployeeProfile } from "../profile/profile.service";
+import { RedisService } from "@hr-portal/auth";
 
 function calculateSlotHours(timeSlot: string): number {
   const parts = timeSlot.split(" - ");
@@ -170,10 +171,36 @@ export class TimesheetService {
     return timesheetRepository.findByUserAndDate(userId, date);
   }
 
+  private static historyPromiseCache = new Map<string, Promise<Timesheet[]>>();
+
   static async getHistory(
     userId: number,
     options: TimesheetHistoryOptions = {},
   ): Promise<Timesheet[]> {
-    return timesheetRepository.findHistory(userId, options);
+    const cacheKey = `timesheet_history_v2:${userId}:${JSON.stringify(options)}`;
+    
+    if (this.historyPromiseCache.has(cacheKey)) {
+      return this.historyPromiseCache.get(cacheKey)!;
+    }
+
+    const computePromise = (async () => {
+      const cached = await RedisService.get(cacheKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {}
+      }
+
+      const result = await timesheetRepository.findHistory(userId, options);
+      await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 300);
+      return result;
+    })();
+
+    this.historyPromiseCache.set(cacheKey, computePromise);
+    try {
+      return await computePromise;
+    } finally {
+      this.historyPromiseCache.delete(cacheKey);
+    }
   }
 }

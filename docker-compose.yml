@@ -9,6 +9,10 @@ services:
       TZ: Asia/Kolkata
     ports:
       - "5435:5432"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - postgresdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,6 +26,10 @@ services:
     container_name: hr-redis
     ports:
       - "6380:6379"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       - redisdata:/data
     healthcheck:
@@ -37,7 +45,15 @@ services:
     container_name: hr-api
     ports:
       - "5111:5111"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.ip_local_port_range: "1024 65535"
     environment:
+      NODE_OPTIONS: "--max-old-space-size=4096"
       NODE_ENV: development
       PORT: 5111
       DB_HOST: postgres
@@ -48,6 +64,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_TLS: "false"
       JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
       ADMIN_USER: ${ADMIN_USER:-admin@casagrand.co.in}
       ADMIN_PIN: ${ADMIN_PIN:-1234}
@@ -59,11 +76,85 @@ services:
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
       SES_FROM_EMAIL: ${SES_FROM_EMAIL:-support@digilogy.co}
       TZ: Asia/Kolkata
+      REPORTS_API_HOST: reports-api
+      ADMIN_API_HOST: admin-api
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  reports-api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    container_name: hr-reports-api
+    ports:
+      - "5112:5112"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.ip_local_port_range: "1024 65535"
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      NODE_ENV: development
+      PORT: 5111 # The index adds 1 to PORT in reports.index.ts, making it 5112
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-hr_user}
+      DB_PASSWORD: ${DB_PASSWORD:-hr_secure_password}
+      DB_NAME: ${DB_NAME:-hr-portal}
+      DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "false"
+      JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
+      TZ: Asia/Kolkata
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "apps/api_hr_portal/dist/reports.index.js"]
+
+  admin-api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    container_name: hr-admin-api
+    ports:
+      - "5113:5113"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    sysctls:
+      net.core.somaxconn: 65535
+      net.ipv4.ip_local_port_range: "1024 65535"
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      NODE_ENV: development
+      PORT: 5111 # The index adds 2 to PORT in admin.index.ts, making it 5113
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-hr_user}
+      DB_PASSWORD: ${DB_PASSWORD:-hr_secure_password}
+      DB_NAME: ${DB_NAME:-hr-portal}
+      DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "false"
+      JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
+      TZ: Asia/Kolkata
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "apps/api_hr_portal/dist/admin.index.js"]
 
   mail-worker:
     build:
@@ -80,6 +171,7 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-hr_user}:${DB_PASSWORD:-hr_secure_password}@postgres:5432/${DB_NAME:-hr-portal}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_TLS: "false"
       JWT_SECRET: ${JWT_SECRET:-850c75a6bdb414abb2ca0a0edf05fb2ddff761b07d515bdd4701cd40f3e9a61f}
       AWS_REGION: ${AWS_REGION:-ap-south-2}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-AKIAQIJRSM7V3VJV3MME}
@@ -93,20 +185,7 @@ services:
       redis:
         condition: service_healthy
 
-  frontend:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/frontend.Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:5111
-    container_name: hr-frontend
-    ports:
-      - "3661:3661"
-    environment:
-      NODE_ENV: production
-      PORT: 3661
-    depends_on:
-      - api
+
 
 volumes:
   postgresdata:

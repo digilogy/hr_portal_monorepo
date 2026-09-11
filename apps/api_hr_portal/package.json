@@ -6,7 +6,11 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev:reports": "ts-node-dev --respawn --transpile-only src/reports.index.ts",
+    "dev:admin": "ts-node-dev --respawn --transpile-only src/admin.index.ts",
     "start": "ts-node src/index.ts",
+    "start:reports": "ts-node src/reports.index.ts",
+    "start:admin": "ts-node src/admin.index.ts",
     "build": "tsc",
     "bulk-upload": "ts-node scripts/run-bulk-upload.ts",
     "audit-employees": "ts-node scripts/audit-employee-data.ts",
@@ -20,6 +24,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.0.0",
     "@hr-portal/auth": "*",
     "@hr-portal/common": "*",
     "@hr-portal/config": "*",
@@ -28,7 +33,6 @@
     "@hr-portal/mail": "*",
     "@hr-portal/notification": "*",
     "@hr-portal/queue": "*",
-    "@aws-sdk/client-ses": "^3.0.0",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.7.8",
     "cors": "^2.8.5",

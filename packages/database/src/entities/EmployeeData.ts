@@ -25,12 +25,14 @@ export class EmployeeData {
   @Column({ nullable: true })
   jobTitle?: string;
 
+  @Index()
   @Column({ nullable: true })
   department?: string;
 
   @Column({ nullable: true })
   subDepartment?: string;
 
+  @Index()
   @Column({ nullable: true })
   directManagerEmployeeId?: string;
 
@@ -43,6 +45,7 @@ export class EmployeeData {
   @Column({ nullable: true })
   hrbpName?: string;
 
+  @Index()
   @Column({ nullable: true })
   hodEmployeeId?: string;
 
@@ -56,6 +59,7 @@ export class EmployeeData {
   @Column({ nullable: true })
   officeMobileNumber?: string;
 
+  @Index()
   @Column({ nullable: true })
   zone?: string;
 

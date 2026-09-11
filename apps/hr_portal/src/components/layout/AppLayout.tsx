@@ -12,10 +12,11 @@ import {
   MenuOutlined,
   CaretDownOutlined,
   PieChartOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
+import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, canAccessShiftManagement, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
 import { isAdminPortalHost } from "@/lib/host";
 import { apiFetch } from "@/lib/api";
 
@@ -38,7 +39,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const rawPathname = usePathname();
   // trailingSlash: true (static export) means usePathname() always returns e.g. "/login/",
   // so normalize before comparing against route strings like "/login".
-  const pathname = rawPathname.length > 1 ? rawPathname.replace(/\/+$/, "") : rawPathname;
+  const pathname = (rawPathname && rawPathname.length > 1) ? rawPathname.replace(/\/+$/, "") : (rawPathname || "");
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
 
@@ -53,7 +54,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }, [pathname]);
 
   useEffect(() => {
-    if (!mounted || pathname === "/login") return;
+    if (!mounted || pathname === "/login" || pathname === "/login/") return;
 
     // Initial check
     if (!isAuthenticated()) {
@@ -93,7 +94,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     void loadProfileInitials();
   }, [pathname]);
 
-  const isLoginPage = pathname === "/login";
+  const isLoginPage = pathname === "/login" || pathname === "/login/";
 
   if (!mounted) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
 
@@ -153,6 +154,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         key: "/holiday",
         icon: <ClockCircleOutlined />, // Using a generic icon for now, could be calendar
         label: <Link href="/holiday" onClick={() => setMobileMenuOpen(false)}>Holidays</Link>,
+      }]
+      : []),
+    ...(canAccessShiftManagement(role)
+      ? [{
+        key: "/shift-management",
+        icon: <SettingOutlined />,
+        label: <Link href="/shift-management" onClick={() => setMobileMenuOpen(false)}>Shift Management</Link>,
       }]
       : []),
   ];

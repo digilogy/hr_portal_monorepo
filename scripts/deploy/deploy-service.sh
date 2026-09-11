@@ -15,8 +15,8 @@ set -euo pipefail
 SERVICE="${1:?Usage: deploy-service.sh <service> <image-tag>}"
 TAG="${2:?Usage: deploy-service.sh <service> <image-tag>}"
 
-AWS_REGION="${AWS_REGION:-ap-south-1}"
-NAME_PREFIX="${NAME_PREFIX:-hr-portal-prod}"
+AWS_REGION="${AWS_REGION:-ap-south-2}"
+NAME_PREFIX="${NAME_PREFIX:-timesheet}"
 CLUSTER="${CLUSTER:-${NAME_PREFIX}-cluster}"
 ECS_SERVICE="${NAME_PREFIX}-${SERVICE}"
 FAMILY="${NAME_PREFIX}-${SERVICE}"

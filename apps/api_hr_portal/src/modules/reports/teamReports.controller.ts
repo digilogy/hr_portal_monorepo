@@ -278,6 +278,36 @@ export class ReportsController {
     }
   }
 
+  static async getSignedUpUsers(
+    req: AuthRequest,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const email = req.user?.email;
+      if (!email) {
+        res.status(401).json({ message: "Unauthorized" });
+        return;
+      }
+
+      const role = getRole(req);
+      if (role === UserRole.EMPLOYEE && !AccessService.isAdminEmail(email)) {
+        res.status(403).json({ message: "Analytics access is restricted to Managers, HR, and Admins." });
+        return;
+      }
+
+      const filters = getReportFilters(req);
+      const users = await TeamReportsService.getSignedUpUsers(
+        email,
+        role,
+        filters,
+      );
+      res.status(200).json(users);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
   static async exportExcel(req: AuthRequest, res: Response): Promise<void> {
     try {
       const email = req.user?.email;

@@ -1,11 +1,19 @@
 output "primary_endpoint" {
-  value = aws_elasticache_replication_group.this.primary_endpoint_address
+  value = aws_elasticache_serverless_cache.this.endpoint[0].address
 }
 
 output "port" {
-  value = 6379
+  value = aws_elasticache_serverless_cache.this.endpoint[0].port
 }
 
-output "replication_group_id" {
-  value = aws_elasticache_replication_group.this.id
+output "serverless_cache_name" {
+  value = aws_elasticache_serverless_cache.this.name
+}
+
+output "arn" {
+  value = aws_elasticache_serverless_cache.this.arn
+}
+
+output "reader_endpoint" {
+  value = try(aws_elasticache_serverless_cache.this.reader_endpoint[0].address, aws_elasticache_serverless_cache.this.endpoint[0].address)
 }

@@ -14,70 +14,76 @@ async function processNextJob(): Promise<void> {
   if (isProcessing || jobQueue.length === 0) return;
   isProcessing = true;
 
-  while (jobQueue.length > 0) {
-    const jobId = jobQueue.shift();
-    if (!jobId) continue;
-    const job = await uploadQueueRepository.findById(jobId);
-    if (!job) continue;
+  try {
+    while (jobQueue.length > 0) {
+      const jobId = jobQueue.shift();
+      if (!jobId) continue;
+      const job = await uploadQueueRepository.findById(jobId);
+      if (!job) continue;
 
-    logger.info(LOG_CONTEXT, "Processing upload job", {
-      jobId: job.id,
-      fileName: job.fileName,
-    });
+      logger.info(LOG_CONTEXT, "Processing upload job", {
+        jobId: job.id,
+        fileName: job.fileName,
+      });
 
-    job.status = UploadJobStatus.PROCESSING;
-    job.updatedAt = new Date();
-    await uploadQueueRepository.save(job);
+      job.status = UploadJobStatus.PROCESSING;
+      job.updatedAt = new Date();
+      await uploadQueueRepository.save(job);
 
-    try {
-      let result;
-      if (job.type === "master") {
-        const shiftResult = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
-        const employeeResult = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
-        result = {
-          totalRows: employeeResult.totalRows,
-          successCount: employeeResult.successCount,
-          failureCount: employeeResult.failureCount + shiftResult.failureCount,
-          addedCount: employeeResult.addedCount,
-          updatedCount: employeeResult.updatedCount,
-        };
-      } else if (job.type === "shift") {
-        result = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
-      } else {
-        result = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+      try {
+        let result;
+        if (job.type === "master") {
+          const shiftResult = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
+          const employeeResult = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
+          result = {
+            totalRows: employeeResult.totalRows + shiftResult.totalRows,
+            successCount: employeeResult.successCount + shiftResult.successCount,
+            failureCount: employeeResult.failureCount + shiftResult.failureCount,
+            addedCount: employeeResult.addedCount + (shiftResult.addedCount || 0),
+            updatedCount: employeeResult.updatedCount + (shiftResult.updatedCount || 0),
+          };
+        } else if (job.type === "shift") {
+          result = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
+        } else {
+          result = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
+        }
+
+        job.totalRows = result.totalRows;
+        job.successCount = result.successCount;
+        job.failureCount = result.failureCount;
+        job.status = UploadJobStatus.COMPLETED;
+        job.updatedAt = new Date();
+        await uploadQueueRepository.save(job);
+
+        logger.info(LOG_CONTEXT, "Upload job completed", {
+          jobId: job.id,
+          totalRows: result.totalRows,
+          successCount: result.successCount,
+          addedCount: result.addedCount,
+          updatedCount: result.updatedCount,
+          failureCount: result.failureCount,
+        });
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        job.status = UploadJobStatus.FAILED;
+        job.errorMessage = message;
+        job.updatedAt = new Date();
+        await uploadQueueRepository.save(job);
+
+        logger.error(LOG_CONTEXT, "Upload job failed", {
+          jobId: job.id,
+          error: message,
+        });
       }
-
-      job.totalRows = result.totalRows;
-      job.successCount = result.successCount;
-      job.failureCount = result.failureCount;
-      job.status = UploadJobStatus.COMPLETED;
-      job.updatedAt = new Date();
-      await uploadQueueRepository.save(job);
-
-      logger.info(LOG_CONTEXT, "Upload job completed", {
-        jobId: job.id,
-        totalRows: result.totalRows,
-        successCount: result.successCount,
-        addedCount: result.addedCount,
-        updatedCount: result.updatedCount,
-        failureCount: result.failureCount,
-      });
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
-      job.status = UploadJobStatus.FAILED;
-      job.errorMessage = message;
-      job.updatedAt = new Date();
-      await uploadQueueRepository.save(job);
-
-      logger.error(LOG_CONTEXT, "Upload job failed", {
-        jobId: job.id,
-        error: message,
-      });
     }
+  } catch (fatalError: unknown) {
+    logger.error(LOG_CONTEXT, "Fatal error in processNextJob loop", {
+      error: fatalError instanceof Error ? fatalError.message : String(fatalError),
+    });
+  } finally {
+    isProcessing = false;
   }
-
-  isProcessing = false;
 }
 
 export class UploadQueueService {
@@ -107,5 +113,9 @@ export class UploadQueueService {
 
   static async getJobStatus(jobId: string): Promise<UploadJob | null> {
     return uploadQueueRepository.findByIdWithLogs(jobId);
+  }
+
+  static async getUploadHistory(type?: any): Promise<UploadJob[]> {
+    return uploadQueueRepository.findAll(type);
   }
 }
