@@ -1328,6 +1328,35 @@ export class TeamReportsService {
     }
   }
 
+  static async getSignedUpUsers(
+    email: string,
+    role: UserRole,
+    filters?: ReportFilters,
+  ) {
+    const employees = await AccessService.getAccessibleEmployees(email, role);
+    const filteredEmployees = filterEmployeesByReportFilters(
+      employees,
+      filters ?? DEFAULT_REPORT_FILTERS,
+    );
+
+    const emails = filteredEmployees
+      .map((employee) => employee.officialEmailId?.trim().toLowerCase())
+      .filter(Boolean) as string[];
+
+    if (emails.length > 0) {
+      const users = await teamReportsRepository.findSignedUpUsersForEmails(emails);
+      return users.map(user => {
+        const emp = filteredEmployees.find(e => e.officialEmailId?.trim().toLowerCase() === user.email.toLowerCase());
+        return {
+          ...user,
+          employeeId: emp?.employeeId || "-",
+          department: emp?.department || "-",
+        };
+      });
+    }
+    return [];
+  }
+
   private static async getReportExportSheets(
     email: string,
     role: UserRole,

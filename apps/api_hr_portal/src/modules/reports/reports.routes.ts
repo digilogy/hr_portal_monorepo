@@ -13,6 +13,7 @@ router.get("/manager-wise", ReportsController.getManagerWise);
 router.get("/department-wise", ReportsController.getDepartmentWise);
 router.get("/organization-wise", ReportsController.getOrganizationWise);
 router.get("/dashboard-summary", ReportsController.getDashboardSummary);
+router.get("/signed-up-users", ReportsController.getSignedUpUsers);
 router.get("/workforce-pulse", ReportsController.getWorkforcePulse);
 router.get("/export/excel", ReportsController.exportExcel);
 router.get("/export/pdf", ReportsController.exportPdf);

@@ -158,9 +158,8 @@ function createProxy(targetHost: string, targetPort: number) {
         const r = await fetch(`http://${targetHost}:${targetPort}${req.originalUrl}`, {
           headers: { ...req.headers, host: `${targetHost}:${targetPort}` } as any
         });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.text();
-        return res.type("json").status(200).send(data);
+        return res.type("json").status(r.status).send(data);
       } catch (error: any) {
         logger.error("ProxyErrorHandler", `Fetch GET failed to ${targetHost}:${targetPort}`, { error: error.message });
         return res.status(502).json({ error: "Bad Gateway" });

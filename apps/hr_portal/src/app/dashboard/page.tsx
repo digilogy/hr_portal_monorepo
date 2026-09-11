@@ -125,10 +125,8 @@ export default function DashboardPage() {
   } | null>(null);
   const [cardFilter, setCardFilter] = useState<DashboardCardFilter>("all");
   const [isUserDrawerVisible, setIsUserDrawerVisible] = useState(false);
-
-  const toggleCardFilter = (filter: DashboardCardFilter) => {
-    setCardFilter((current) => (current === filter ? "all" : filter));
-  };
+  const [signedUpUsers, setSignedUpUsers] = useState<any[]>([]);
+  const [loadingSignedUpUsers, setLoadingSignedUpUsers] = useState(false);
 
   const dateRange = useMemo(() => {
     const [from, to] = getEffectiveDateRange(periodPreset, customRange);
@@ -138,6 +136,34 @@ export default function DashboardPage() {
       label: `${from.format("MMM D")} – ${to.format("MMM D, YYYY")}`,
     };
   }, [periodPreset, customRange]);
+
+  useEffect(() => {
+    if (!isUserDrawerVisible) return;
+    const fetchSignedUpUsers = async () => {
+      setLoadingSignedUpUsers(true);
+      try {
+        const params = new URLSearchParams({
+          fromDate: dateRange.fromDate,
+          toDate: dateRange.toDate,
+        });
+        appendDepartmentFilter(params, adminFilters);
+        const data = await apiFetch<any[]>(
+          `/api/reports/signed-up-users?${params}`
+        );
+        setSignedUpUsers(data || []);
+      } catch (error: unknown) {
+        messageApi.error("Failed to load signed-up users");
+        setSignedUpUsers([]);
+      } finally {
+        setLoadingSignedUpUsers(false);
+      }
+    };
+    void fetchSignedUpUsers();
+  }, [isUserDrawerVisible, dateRange.fromDate, dateRange.toDate, adminFilters, messageApi]);
+
+  const toggleCardFilter = (filter: DashboardCardFilter) => {
+    setCardFilter((current) => (current === filter ? "all" : filter));
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -594,7 +620,8 @@ export default function DashboardPage() {
         size="large"
       >
         <ResponsiveTable
-          dataSource={summary?.signedUpUsersList ?? []}
+          loading={loadingSignedUpUsers}
+          dataSource={signedUpUsers}
           rowKey="email"
           pagination={{ pageSize: 15 }}
           columns={[
