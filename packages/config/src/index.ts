@@ -14,6 +14,8 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().default(5111),
+  REPORTS_API_HOST: z.string().default("127.0.0.1"),
+  ADMIN_API_HOST: z.string().default("127.0.0.1"),
 
   DB_HOST: z.string().default("localhost"),
   DB_PORT: z.coerce.number().default(5435),

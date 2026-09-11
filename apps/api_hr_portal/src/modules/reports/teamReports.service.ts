@@ -9,6 +9,7 @@ import {
 import { teamReportsRepository, TimesheetHoursStats } from "./teamReports.repository";
 import { inferTaskCategory } from "./taskCategorizer";
 import { getTimesheetTaskExportRows, buildExcelBuffer, buildPdfBuffer } from "./teamReports.export";
+import { RedisService } from "@hr-portal/auth";
 
 export interface TeamMemberNode {
   key: string;
@@ -766,6 +767,9 @@ function buildTeamTree(
 }
 
 export class TeamReportsService {
+  private static dashboardPromiseCache = new Map<string, Promise<DashboardSummary>>();
+  private static userWisePromiseCache = new Map<string, Promise<UserReportRow[]>>();
+
   private static async getFilteredReportScopeEmployees(
     email: string,
     role: UserRole,
@@ -906,30 +910,54 @@ export class TeamReportsService {
     toDate?: string,
     filters?: ReportFilters,
   ): Promise<UserReportRow[]> {
-    const range = getDefaultDateRange(fromDate, toDate);
-    const employees = await this.getFilteredReportScopeEmployees(
-      email,
-      role,
-      filters,
-    );
-    const emails = employees
-      .map((employee) => employee.officialEmailId)
-      .filter(Boolean) as string[];
-    const hoursByEmail = await teamReportsRepository.getTimesheetHoursByEmail(
-      emails,
-      range.from,
-      range.to,
-    );
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8.5;
-
-    const rows = buildUserRows(employees, hoursByEmail, expectedHours);
-
-    if (filters?.status && filters.status !== "all") {
-      return rows.filter((r) => r.status === filters.status);
+    const cacheKey = `report_userwise_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
+    
+    if (this.userWisePromiseCache.has(cacheKey)) {
+      return this.userWisePromiseCache.get(cacheKey)!;
     }
 
-    return rows;
+    const computePromise = (async () => {
+      const cachedData = await RedisService.get(cacheKey);
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {}
+      }
+
+      const range = getDefaultDateRange(fromDate, toDate);
+      const employees = await this.getFilteredReportScopeEmployees(
+        email,
+        role,
+        filters,
+      );
+      const emails = employees
+        .map((employee) => employee.officialEmailId)
+        .filter(Boolean) as string[];
+      const hoursByEmail = await teamReportsRepository.getTimesheetHoursByEmail(
+        emails,
+        range.from,
+        range.to,
+      );
+      const workingDays = getWorkingDays(range.from, range.to);
+      const expectedHours = workingDays * 8.5;
+
+      const rows = buildUserRows(employees, hoursByEmail, expectedHours);
+
+      let finalRows = rows;
+      if (filters?.status && filters.status !== "all") {
+        finalRows = rows.filter((r) => r.status === filters.status);
+      }
+
+      await RedisService.setWithTTL(cacheKey, JSON.stringify(finalRows), 300);
+      return finalRows;
+    })();
+
+    this.userWisePromiseCache.set(cacheKey, computePromise);
+    try {
+      return await computePromise;
+    } finally {
+      this.userWisePromiseCache.delete(cacheKey);
+    }
   }
 
   static async getUserWiseReportPaginated(
@@ -1208,82 +1236,96 @@ export class TeamReportsService {
     toDate?: string,
     filters?: ReportFilters,
   ): Promise<DashboardSummary> {
-    const employees = await AccessService.getAccessibleEmployees(email, role);
-    const reportScopeEmployees = await AccessService.getReportScopeEmployees(
-      email,
-      role,
-    );
-    const userRows = await this.getUserWiseReport(
-      email,
-      role,
-      fromDate,
-      toDate,
-      filters,
-    );
-    const deptRows = await this.getDepartmentWiseReport(
-      email,
-      role,
-      fromDate,
-      toDate,
-      filters,
-    );
-
-    const filteredEmployees = filterEmployeesByReportFilters(
-      employees,
-      filters ?? DEFAULT_REPORT_FILTERS,
-    );
-
-    const filteredUserRows = userRows;
-
-    const totalLoggedHours = filteredUserRows.reduce(
-      (sum, row) => sum + row.hours,
-      0,
-    );
-    const timesheetsSubmitted = filteredUserRows.filter(
-      (row) => row.status === "Submitted",
-    ).length;
-    const avgUtilization =
-      filteredUserRows.length > 0
-        ? filteredUserRows.reduce((sum, row) => sum + row.utilization, 0) /
-          filteredUserRows.length
-        : 0;
-
-    const filteredDepartments = [...deptRows].sort(
-      (a, b) => b.avgUtilization - a.avgUtilization,
-    );
-
-    const emails = filteredEmployees
-      .map((employee) => employee.officialEmailId?.trim().toLowerCase())
-      .filter(Boolean) as string[];
-
-    let totalSignUpUsers = 0;
-    const signedUpUsersList: Array<{ employeeId: string; name: string; email: string; department: string; }> = [];
-    if (emails.length > 0) {
-      const usersInBatch = await teamReportsRepository.findSignedUpUsersForEmails(emails);
-      totalSignUpUsers = usersInBatch.length;
-      usersInBatch.forEach((u) => {
-        const emp = filteredEmployees.find((e) => e.officialEmailId?.trim().toLowerCase() === u.email.toLowerCase());
-        if (emp) {
-          signedUpUsersList.push({
-            employeeId: emp.employeeId || "-",
-            name: emp.fullName || u.name || u.email,
-            email: u.email,
-            department: emp.department || "-",
-          });
-        }
-      });
+    const cacheKey = `report_dash_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
+    
+    if (this.dashboardPromiseCache.has(cacheKey)) {
+      return this.dashboardPromiseCache.get(cacheKey)!;
     }
 
-    return {
-      totalEmployees: filteredEmployees.length,
-      totalLoggedHours: parseFloat(totalLoggedHours.toFixed(1)),
-      avgUtilization: parseFloat(avgUtilization.toFixed(1)),
-      timesheetsSubmitted,
-      departments: filteredDepartments,
-      filterOptions: buildReportFilterOptions(reportScopeEmployees),
-      totalSignUpUsers,
-      signedUpUsersList,
-    };
+    const computePromise = (async () => {
+      const cachedData = await RedisService.get(cacheKey);
+      if (cachedData) {
+        try {
+          return JSON.parse(cachedData);
+        } catch (e) {}
+      }
+
+      const employees = await AccessService.getAccessibleEmployees(email, role);
+      const reportScopeEmployees = await AccessService.getReportScopeEmployees(
+        email,
+        role,
+      );
+      const userRows = await this.getUserWiseReport(
+        email,
+        role,
+        fromDate,
+        toDate,
+        filters,
+      );
+      const deptRows = await this.getDepartmentWiseReport(
+        email,
+        role,
+        fromDate,
+        toDate,
+        filters,
+      );
+
+      const filteredEmployees = filterEmployeesByReportFilters(
+        employees,
+        filters ?? DEFAULT_REPORT_FILTERS,
+      );
+
+      const filteredUserRows = userRows;
+
+      const totalLoggedHours = filteredUserRows.reduce(
+        (sum, row) => sum + row.hours,
+        0,
+      );
+      const timesheetsSubmitted = filteredUserRows.filter(
+        (row) => row.status === "Submitted",
+      ).length;
+      const avgUtilization =
+        filteredUserRows.length > 0
+          ? filteredUserRows.reduce((sum, row) => sum + row.utilization, 0) /
+            filteredUserRows.length
+          : 0;
+
+      const filteredDepartments = [...deptRows].sort(
+        (a, b) => b.avgUtilization - a.avgUtilization,
+      );
+
+      const emails = filteredEmployees
+        .map((employee) => employee.officialEmailId?.trim().toLowerCase())
+        .filter(Boolean) as string[];
+
+      let totalSignUpUsers = 0;
+      if (emails.length > 0) {
+        const usersInBatch = await teamReportsRepository.findSignedUpUsersForEmails(emails);
+        totalSignUpUsers = usersInBatch.length;
+      }
+
+      const result = {
+        totalEmployees: filteredEmployees.length,
+        totalLoggedHours: parseFloat(totalLoggedHours.toFixed(1)),
+        avgUtilization: parseFloat(avgUtilization.toFixed(1)),
+        timesheetsSubmitted,
+        departments: filteredDepartments,
+        filterOptions: {
+          departments: buildReportFilterOptions(reportScopeEmployees).departments,
+        },
+        totalSignUpUsers,
+      };
+
+      await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 300);
+      return result;
+    })();
+
+    this.dashboardPromiseCache.set(cacheKey, computePromise);
+    try {
+      return await computePromise;
+    } finally {
+      this.dashboardPromiseCache.delete(cacheKey);
+    }
   }
 
   private static async getReportExportSheets(

@@ -11,7 +11,7 @@ initializeDatabase()
   .then(async () => {
     console.log("Database connected successfully");
     echoConfig();
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, "0.0.0.0", 10000, () => {
       logger.info("Server", "API listening", { port: PORT });
       
       // Run queue recovery in the background so it doesn't block the healthcheck port binding
@@ -19,6 +19,8 @@ initializeDatabase()
         logger.error("Server", "Failed to recover pending jobs", { error: err?.message });
       });
     });
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
   })
   .catch((error: any) => {
     console.error("Error connecting to the database", error);

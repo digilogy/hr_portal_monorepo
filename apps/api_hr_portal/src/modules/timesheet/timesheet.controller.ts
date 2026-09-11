@@ -10,7 +10,7 @@ export class TimesheetController {
       const userId = req.user?.id;
       const parsed = saveDaySchema.safeParse(req.body);
 
-      if (!userId || !parsed.success) {
+      if (userId === undefined || !parsed.success) {
         res.status(400).json({ message: "Missing required fields" });
         return;
       }
@@ -30,7 +30,7 @@ export class TimesheetController {
       const userId = req.user?.id;
       const { date } = req.params;
 
-      if (!userId || !date) {
+      if (userId === undefined || !date) {
         res.status(400).json({ message: "Invalid request" });
         return;
       }
@@ -46,7 +46,7 @@ export class TimesheetController {
   static async getHistory(req: AuthRequest, res: Response): Promise<void> {
     try {
       const userId = req.user?.id;
-      if (!userId) {
+      if (userId === undefined) {
         res.status(401).json({ message: "Unauthorized" });
         return;
       }

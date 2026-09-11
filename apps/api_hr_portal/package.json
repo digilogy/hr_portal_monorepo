@@ -6,7 +6,11 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev:reports": "ts-node-dev --respawn --transpile-only src/reports.index.ts",
+    "dev:admin": "ts-node-dev --respawn --transpile-only src/admin.index.ts",
     "start": "ts-node src/index.ts",
+    "start:reports": "ts-node src/reports.index.ts",
+    "start:admin": "ts-node src/admin.index.ts",
     "build": "tsc",
     "bulk-upload": "ts-node scripts/run-bulk-upload.ts",
     "audit-employees": "ts-node scripts/audit-employee-data.ts",

@@ -5,6 +5,7 @@
   "description": "HR / Timesheet Portal Monorepo",
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",
+    "dev:all": "npx concurrently -c \"blue,green,magenta,yellow\" -n \"MAIN,FRONTEND,REPORTS,ADMIN\" \"npm run dev --workspace=@hr-portal/api-hr-portal\" \"npm run dev --workspace=@hr-portal/hr-portal\" \"npm run dev:reports --workspace=@hr-portal/api-hr-portal\" \"npm run dev:admin --workspace=@hr-portal/api-hr-portal\"",
     "build:packages": "npm run build --workspace=@hr-portal/config && npm run build --workspace=@hr-portal/logger && npm run build --workspace=@hr-portal/common && npm run build --workspace=@hr-portal/database && npm run build --workspace=@hr-portal/queue && npm run build --workspace=@hr-portal/storage && npm run build --workspace=@hr-portal/auth && npm run build --workspace=@hr-portal/mail && npm run build --workspace=@hr-portal/notification",
     "build": "npm run build:packages && npm run build --workspace=@hr-portal/api-hr-portal && npm run build --workspace=@hr-portal/hr-portal",
     "test": "npm run test --workspaces --if-present",
