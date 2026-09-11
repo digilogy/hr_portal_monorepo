@@ -9,7 +9,6 @@ import {
   DatePicker,
   Select,
   Button,
-  Upload,
   message,
   Tag,
   Spin,
@@ -21,7 +20,6 @@ import {
   TeamOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
-  UploadOutlined,
   CalendarOutlined,
   BarChartOutlined,
   FilterOutlined,
@@ -112,17 +110,8 @@ export default function DashboardPage() {
   const [filterOptions, setFilterOptions] = useState<DepartmentFilterOptions | null>(
     null,
   );
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [jobStatus, setJobStatus] = useState<string | null>(null);
-  const [jobErrors, setJobErrors] = useState<any[] | null>(null);
-  const [jobSummary, setJobSummary] = useState<{
-    totalRows?: number;
-    successCount?: number;
-    failureCount?: number;
-  } | null>(null);
   const [cardFilter, setCardFilter] = useState<DashboardCardFilter>("all");
   const [isUserDrawerVisible, setIsUserDrawerVisible] = useState(false);
   const [signedUpUsers, setSignedUpUsers] = useState<any[]>([]);
@@ -197,88 +186,6 @@ export default function DashboardPage() {
 
     void loadSummary();
   }, [router, dateRange.fromDate, dateRange.toDate, adminFilters, messageApi]);
-
-  const pollJobStatus = (id: string) => {
-    setJobStatus("queued");
-    const intervalId = window.setInterval(async () => {
-      try {
-        const response = await fetch(
-          `${API_BASE}/api/admin/bulk-upload/status/${id}`,
-          {
-            headers: getAuthHeaders(),
-          },
-        );
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.message || "Status check failed");
-        }
-
-        const status = data.job?.status;
-        setJobStatus(status);
-        setJobErrors(data.job?.errors || null);
-        setJobSummary({
-          totalRows: data.job?.totalRows,
-          successCount: data.job?.successCount ?? data.job?.addedCount,
-          failureCount: data.job?.failureCount,
-        });
-
-        if (status === "completed" || status === "failed") {
-          window.clearInterval(intervalId);
-          if (status === "completed") {
-            const successCount =
-              data.job?.successCount ?? data.job?.addedCount ?? 0;
-            const failureCount = data.job?.failureCount ?? 0;
-            messageApi.success(
-              `Upload completed: ${successCount} rows imported${failureCount > 0 ? `, ${failureCount} failed` : ""}.`,
-            );
-          } else {
-            messageApi.error(
-              `Upload failed: ${data.job.errorMessage || "See errors"}`,
-            );
-          }
-        }
-      } catch (error: unknown) {
-        window.clearInterval(intervalId);
-        messageApi.error(
-          error instanceof Error ? error.message : "Upload status check failed.",
-        );
-      }
-    }, 4000);
-  };
-
-  const handleUpload = async (file: File) => {
-    setUploading(true);
-    setJobId(null);
-    setJobStatus(null);
-    setJobErrors(null);
-    setJobSummary(null);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch(`${API_BASE}/api/admin/bulk-upload-master`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: formData,
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Upload failed");
-      }
-
-      setJobId(data.jobId ?? null);
-      setJobStatus("queued");
-      messageApi.success("Master data upload queued. Tracking status...");
-      if (data.jobId) {
-        pollJobStatus(data.jobId);
-      }
-    } catch (error: unknown) {
-      messageApi.error(error instanceof Error ? error.message : "Upload failed.");
-    }
-    setUploading(false);
-  };
-
 
   const submissionRate = useMemo(() => {
     const total = summary?.totalEmployees ?? 0;
@@ -381,27 +288,6 @@ export default function DashboardPage() {
                 className="w-full sm:w-56"
               />
             </div>
-
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Upload
-                accept=".csv,.xlsx,.xls"
-                beforeUpload={(file) => {
-                  void handleUpload(file);
-                  return false;
-                }}
-                showUploadList={false}
-                disabled={uploading || (Boolean(jobStatus) && jobStatus !== "completed" && jobStatus !== "failed")}
-              >
-                <Button
-                  type="primary"
-                  icon={<UploadOutlined />}
-                  loading={uploading || (Boolean(jobStatus) && jobStatus !== "completed" && jobStatus !== "failed")}
-                  className="w-full sm:w-auto"
-                >
-                  {uploading ? "Uploading..." : (Boolean(jobStatus) && jobStatus !== "completed" && jobStatus !== "failed") ? "Processing..." : "Upload Master Data"}
-                </Button>
-              </Upload>
-            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-zinc-800">
@@ -420,47 +306,6 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-
-          {jobStatus && (
-            <div className="flex flex-wrap items-center gap-3 rounded-lg bg-gray-50 dark:bg-zinc-900 px-4 py-3">
-              <span className="text-sm text-gray-500">Upload status:</span>
-              <div className="flex items-center gap-2">
-                <Tag
-                  className="!m-0"
-                  color={
-                    jobStatus === "completed"
-                      ? "success"
-                      : jobStatus === "failed"
-                        ? "error"
-                        : "processing"
-                  }
-                >
-                  {jobStatus.toUpperCase()}
-                </Tag>
-                {jobStatus !== "completed" && jobStatus !== "failed" && (
-                  <Spin size="small" />
-                )}
-              </div>
-              {jobId && (
-                <span className="text-sm text-gray-500">Job ID: {jobId}</span>
-              )}
-              {jobSummary?.totalRows !== undefined && (
-                <span className="text-sm text-gray-500">
-                  Processed: {jobSummary.totalRows} | Success:{" "}
-                  {jobSummary.successCount ?? 0} | Failed:{" "}
-                  {jobSummary.failureCount ?? 0}
-                </span>
-              )}
-            </div>
-          )}
-          {jobErrors && jobErrors.length > 0 && (
-            <div className="text-sm text-orange-600 px-1 flex flex-col">
-              <span>{jobErrors.length} rows could not be imported.</span>
-              <span className="text-xs text-gray-500 mt-1">
-                Example error: Row {jobErrors[0]?.rowIndex} - {jobErrors[0]?.error}
-              </span>
-            </div>
-          )}
         </div>
       </Card>
 

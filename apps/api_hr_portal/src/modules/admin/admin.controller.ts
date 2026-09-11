@@ -3,6 +3,7 @@ import { UploadQueueService } from "./uploadQueue.service";
 import { EmailQueueService } from "../../services/emailQueue.service";
 import { UploadLog, EmailStatus } from "@hr-portal/database";
 import { logger } from "@hr-portal/logger";
+import { shiftRepository } from "./shift.repository";
 
 function formatJobResponse(job: NonNullable<Awaited<ReturnType<typeof UploadQueueService.getJobStatus>>>) {
   const failedLogs = (job.logs ?? []).filter(
@@ -85,6 +86,28 @@ export class AdminController {
         return;
       }
       res.status(200).json({ job: formatJobResponse(job) });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
+  static async getEmployeeShifts(req: Request, res: Response): Promise<void> {
+    try {
+      const filters = req.query as Record<string, string>;
+      const shifts = await shiftRepository.getAllEmployeeShifts(filters);
+      res.status(200).json(shifts);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
+  static async getUploadHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const type = req.query.type as string | undefined;
+      const history = await UploadQueueService.getUploadHistory(type);
+      res.status(200).json(history.map(formatJobResponse));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ message });

@@ -46,6 +46,15 @@ export class UploadQueueRepository {
     job.updatedAt = new Date();
     return uploadJobOrm.save(job);
   }
+
+  async findAll(type?: any): Promise<UploadJob[]> {
+    const query = uploadJobOrm.createQueryBuilder("job");
+    if (type) {
+      query.where("job.type = :type", { type });
+    }
+    query.orderBy("job.createdAt", "DESC");
+    return query.getMany();
+  }
 }
 
 export const uploadQueueRepository = new UploadQueueRepository();
