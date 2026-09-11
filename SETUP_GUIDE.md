@@ -30,6 +30,8 @@ docker-compose up -d --build
 # 5. Start the frontend locally
 npm run dev --workspace=@hr-portal/hr-portal
 
+docker-compose build --no-cache admin-api && docker-compose up -d
+
 
 /opt/homebrew/opt/openjdk@21/bin/java -Dmail.smtp.starttls.enable=true -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true -jar /opt/homebrew/opt/jenkins-lts/libexec/jenkins.war --httpListenAddress=127.0.0.1 --httpPort=8080
 

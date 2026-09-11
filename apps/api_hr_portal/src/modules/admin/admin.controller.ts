@@ -114,6 +114,28 @@ export class AdminController {
     }
   }
 
+  static async downloadUploadFile(req: Request, res: Response): Promise<void> {
+    try {
+      const { jobId } = req.params;
+      const job = await UploadQueueService.getJobStatus(jobId);
+      if (!job || !job.filePath) {
+        res.status(404).json({ message: "File not found" });
+        return;
+      }
+      
+      const fs = require('fs');
+      if (!fs.existsSync(job.filePath)) {
+        res.status(404).json({ message: "The original file was deleted from the server and is no longer available for download." });
+        return;
+      }
+      
+      res.download(job.filePath, job.fileName || "downloaded-file.xlsx");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message });
+    }
+  }
+
   static async listEmailLogs(req: Request, res: Response): Promise<void> {
     try {
       const toEmail = typeof req.query.toEmail === "string" ? req.query.toEmail : undefined;

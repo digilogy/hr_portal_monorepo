@@ -34,7 +34,7 @@ async function processNextJob(): Promise<void> {
         let result;
         if (job.type === "master") {
           const shiftResult = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
-          const employeeResult = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+          const employeeResult = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
           result = {
             totalRows: employeeResult.totalRows + shiftResult.totalRows,
             successCount: employeeResult.successCount + shiftResult.successCount,
@@ -43,9 +43,9 @@ async function processNextJob(): Promise<void> {
             updatedCount: employeeResult.updatedCount + (shiftResult.updatedCount || 0),
           };
         } else if (job.type === "shift") {
-          result = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+          result = await ShiftUploadService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
         } else {
-          result = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: true });
+          result = await EmployeeDataService.processBulkUpload(job.filePath ?? "", job, { deleteFile: false });
         }
 
         job.totalRows = result.totalRows;

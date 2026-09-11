@@ -26,6 +26,7 @@ router.post(
   AdminController.bulkUploadMaster,
 );
 router.get("/bulk-upload/status/:jobId", AdminController.getUploadStatus);
+router.get("/bulk-upload/download/:jobId", AdminController.downloadUploadFile);
 router.get("/bulk-upload/history", AdminController.getUploadHistory);
 router.get("/employee-shifts", AdminController.getEmployeeShifts);
 router.get("/email-logs", AdminController.listEmailLogs);

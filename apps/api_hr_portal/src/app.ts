@@ -152,8 +152,8 @@ const getPromises = new Map<string, Promise<any>>();
 
 function createProxy(targetHost: string, targetPort: number) {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    // For GET requests, avoid stream pipes and use fetch
-    if (req.method === "GET") {
+    // For GET requests, avoid stream pipes and use fetch (except for downloads which are binary)
+    if (req.method === "GET" && !req.originalUrl.includes("/download")) {
       try {
         const r = await fetch(`http://${targetHost}:${targetPort}${req.originalUrl}`, {
           headers: { ...req.headers, host: `${targetHost}:${targetPort}` } as any

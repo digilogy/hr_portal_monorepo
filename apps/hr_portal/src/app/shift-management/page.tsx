@@ -13,6 +13,8 @@ import {
   type ReportFilterOptions,
 } from "@/lib/reportFilters";
 
+import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+
 const { Title } = Typography;
 
 export default function ShiftManagementPage() {
@@ -138,8 +140,47 @@ export default function ShiftManagementPage() {
     { title: "Half Day (Optional)", dataIndex: "halfDay", key: "halfDay" },
   ];
 
+  const handleDownload = async (jobId: string, fileName: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      const url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5111"}/api/admin/bulk-upload/download/${jobId}`;
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to download file");
+      }
+      
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(objectUrl);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      messageApi.error(error.message || "Failed to download file");
+    }
+  };
+
   const historyColumns = [
-    { title: "File Name", dataIndex: "fileName", key: "fileName" },
+    { 
+      title: "File Name", 
+      dataIndex: "fileName", 
+      key: "fileName",
+      render: (fileName: string, row: any) => (
+        <button 
+          onClick={() => handleDownload(row.id, fileName)}
+          className="text-[#F5A623] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer p-0 text-left"
+        >
+          {fileName}
+        </button>
+      )
+    },
     {
       title: "Type",
       dataIndex: "type",
@@ -185,15 +226,15 @@ export default function ShiftManagementPage() {
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
       {contextHolder}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 mb-6">
         <Title level={2} className="!m-0 text-gray-800">Shift Management</Title>
-        <div className="flex gap-2">
-          <Button 
-            type="default" 
-            icon={<InfoCircleOutlined />} 
+        <div className="flex flex-nowrap gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+          <Button
+            type="default"
+            icon={<InfoCircleOutlined />}
             onClick={() => setIsRulesModalVisible(true)}
           >
-            View Shift Rules
+            Shift Rules
           </Button>
           <Upload
             accept=".csv,.xlsx,.xls"
@@ -226,7 +267,7 @@ export default function ShiftManagementPage() {
                   hideStatus={true}
                   onChange={setAdminFilters}
                 />
-                <Table
+                <ResponsiveTable
                   dataSource={employeeShifts}
                   columns={employeeColumns}
                   rowKey="employeeId"
@@ -242,10 +283,10 @@ export default function ShiftManagementPage() {
             label: "Upload History",
             children: (
               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mt-2">
-                <div className="flex justify-end mb-4">
+                {/* <div className="flex justify-end mb-4">
                   <Button onClick={fetchHistory} loading={loading}>Refresh Status</Button>
-                </div>
-                <Table
+                </div> */}
+                <ResponsiveTable
                   dataSource={history}
                   columns={historyColumns}
                   rowKey="id"
@@ -278,28 +319,29 @@ export default function ShiftManagementPage() {
           <div>
             <h3 className="font-semibold text-gray-800 mb-2">Tab 1: Employee data</h3>
             <p className="text-sm mb-3">This sheet creates or updates employee records and assigns their shifts. It requires these exact headers:</p>
-            <div className="bg-gray-50 p-4 rounded border border-gray-200 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-              <div>• Employment Status</div>
-              <div>• Employee Id</div>
-              <div>• Full Name</div>
-              <div>• Job Title</div>
-              <div>• Department</div>
-              <div>• Sub Department</div>
-              <div>• Direct Manager Employee Id</div>
-              <div>• Direct Manager Name</div>
-              <div>• HRBP Employee ID</div>
-              <div>• HRBP Name</div>
-              <div>• Hod Employee Id</div>
-              <div>• Hod Employee Name</div>
-              <div>• Official Email Id</div>
-              <div>• Office Mobile Number</div>
-              <div>• Zone</div>
-              <div>• Attendance Shift</div>
+
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 text-sm grid grid-cols-2 gap-y-2 mb-6">
+              <span>• Employment Status</span>
+              <span>• Employee Id</span>
+              <span>• Full Name</span>
+              <span>• Job Title</span>
+              <span>• Department</span>
+              <span>• Sub Department</span>
+              <span>• Direct Manager Employee Id</span>
+              <span>• Direct Manager Name</span>
+              <span>• HRBP Employee ID</span>
+              <span>• HRBP Name</span>
+              <span>• Hod Employee Id</span>
+              <span>• Hod Employee Name</span>
+              <span>• Official Email Id</span>
+              <span>• Office Mobile Number</span>
+              <span>• Zone</span>
+              <span>• Attendance Shift</span>
             </div>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-800 mb-2">Tab 2: Shift Details</h3>
+            <h3 className="font-semibold text-gray-800 mb-2">Tab 2: Shift Detail</h3>
             <p className="text-sm mb-3">This sheet creates or updates the shift rules themselves (e.g. what times make up a General shift). It requires these exact headers:</p>
             <div className="bg-gray-50 p-4 rounded border border-gray-200 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
               <div>• Shift Name</div>
@@ -331,7 +373,7 @@ export default function ShiftManagementPage() {
         {loadingErrors ? (
           <div className="flex justify-center p-8"><Spin /></div>
         ) : (
-          <Table 
+          <ResponsiveTable
             dataSource={selectedJobErrors}
             rowKey={(r) => `err-${r.rowIndex}`}
             pagination={{ pageSize: 10 }}
