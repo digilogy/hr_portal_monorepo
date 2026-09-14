@@ -16,6 +16,10 @@ export declare class RedisService {
      */
     static delete(key: string): Promise<boolean>;
     /**
+     * Deletes all keys matching a pattern (e.g. wildcard pattern).
+     */
+    static deletePattern(pattern: string): Promise<boolean>;
+    /**
      * Sliding window counter for login throttling and rate limiting.
      * Returns true if request limit is exceeded.
      */

@@ -178,7 +178,7 @@ export default function DashboardPage() {
       } catch (error: unknown) {
         const errMsg =
           error instanceof Error ? error.message : "Failed to load dashboard";
-        messageApi.error(errMsg);
+        setTimeout(() => messageApi.error(errMsg), 0);
       } finally {
         setLoading(false);
       }

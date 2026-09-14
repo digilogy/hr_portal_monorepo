@@ -147,12 +147,12 @@ export default function ShiftManagementPage() {
       const response = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || "Failed to download file");
       }
-      
+
       const blob = await response.blob();
       const objectUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -168,12 +168,12 @@ export default function ShiftManagementPage() {
   };
 
   const historyColumns = [
-    { 
-      title: "File Name", 
-      dataIndex: "fileName", 
+    {
+      title: "File Name",
+      dataIndex: "fileName",
       key: "fileName",
       render: (fileName: string, row: any) => (
-        <button 
+        <button
           onClick={() => handleDownload(row.id, fileName)}
           className="text-[#F5A623] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer p-0 text-left"
         >

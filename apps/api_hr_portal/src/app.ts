@@ -74,7 +74,7 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
   }
   const cacheKey = `${req.originalUrl}::${req.headers.authorization || ''}`;
   const cached = apiCache.get(cacheKey);
-  
+
   if (cached && cached.expiresAt > Date.now()) {
     if (cached.isRawText) {
       return res.type('json').status(200).send(cached.data);
@@ -92,7 +92,7 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
 
   // Intercept response to cache it and notify waiting requests
   const originalSend = res.send.bind(res);
-  
+
   res.send = (body: any) => {
     if (apiInflight.has(cacheKey)) {
       const waiting = apiInflight.get(cacheKey) || [];
@@ -100,7 +100,7 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
 
       if (res.statusCode === 200 && String(res.get('Content-Type')).includes('json')) {
         const rawString = typeof body === "string" ? body : JSON.stringify(body);
-        
+
         apiCache.set(cacheKey, {
           expiresAt: Date.now() + 5000, // 5 seconds TTL
           data: rawString,

@@ -19,6 +19,8 @@ const zod_1 = require("zod");
 const envSchema = zod_1.z.object({
     NODE_ENV: zod_1.z.enum(["development", "production", "test"]).default("development"),
     PORT: zod_1.z.coerce.number().default(5111),
+    REPORTS_API_HOST: zod_1.z.string().default("127.0.0.1"),
+    ADMIN_API_HOST: zod_1.z.string().default("127.0.0.1"),
     DB_HOST: zod_1.z.string().default("localhost"),
     DB_PORT: zod_1.z.coerce.number().default(5435),
     DB_USER: zod_1.z.string().default("root"),
@@ -26,6 +28,7 @@ const envSchema = zod_1.z.object({
     DB_NAME: zod_1.z.string().default("hr-portal"),
     DATABASE_URL: zod_1.z.string().optional(),
     DB_SSL: zod_1.z.string().optional(),
+    DB_POOL_MAX: zod_1.z.coerce.number().default(20),
     TYPEORM_SYNCHRONIZE: zod_1.z.string().optional(),
     // Not enforcing a minimum length (unlike ideas-staging-backend's 32-char rule): the current
     // production secret is 20 chars, and raising the bar here would refuse to boot until it's

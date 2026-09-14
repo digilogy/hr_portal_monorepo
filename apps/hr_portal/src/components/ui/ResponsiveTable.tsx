@@ -99,18 +99,18 @@ export function ResponsiveTable<RecordType extends object = any>({
     }
   };
 
-  const controlledPagination = pagination !== false ? {
+  const controlledPagination: TableProps<RecordType>['pagination'] = pagination === false ? false : {
     ...(typeof pagination === 'object' ? pagination : {}),
     current: internalCurrent,
     pageSize: internalPageSize,
     onChange: (page: number, pageSize: number) => {
       setInternalCurrent(page);
       setInternalPageSize(pageSize);
-      if (pagination && typeof pagination === 'object' && pagination.onChange) {
+      if (typeof pagination === 'object' && pagination?.onChange) {
         pagination.onChange(page, pageSize);
       }
     }
-  } : false;
+  };
 
   // Automatically inject Sl.No column if it doesn't exist
   const hasSlNo = originalColumns?.some((col: any) => col.title === "Sl.No" || col.title === "S.No");

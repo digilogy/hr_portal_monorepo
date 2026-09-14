@@ -87,7 +87,7 @@ services:
   reports-api:
     build:
       context: .
-      dockerfile: infrastructure/docker/api.Dockerfile
+      dockerfile: infrastructure/docker/reports.Dockerfile
     container_name: hr-reports-api
     ports:
       - "5112:5112"
@@ -118,12 +118,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["node", "apps/api_hr_portal/dist/reports.index.js"]
 
   admin-api:
     build:
       context: .
-      dockerfile: infrastructure/docker/api.Dockerfile
+      dockerfile: infrastructure/docker/admin.Dockerfile
     container_name: hr-admin-api
     ports:
       - "5113:5113"
@@ -154,7 +153,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["node", "apps/api_hr_portal/dist/admin.index.js"]
 
   mail-worker:
     build:

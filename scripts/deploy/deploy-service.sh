@@ -8,7 +8,7 @@
 # this script exits non-zero in that case so CI marks the build failed.
 #
 # Usage: ./scripts/deploy/deploy-service.sh <service> <image-tag>
-#   service: api | mail-worker
+#   service: api | reports | admin | mail-worker
 # =============================================================================
 set -euo pipefail
 

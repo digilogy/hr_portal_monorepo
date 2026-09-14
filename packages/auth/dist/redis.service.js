@@ -74,6 +74,24 @@ class RedisService {
         }
     }
     /**
+     * Deletes all keys matching a pattern (e.g. wildcard pattern).
+     */
+    static async deletePattern(pattern) {
+        if (!queue_1.isRedisConnected)
+            return false;
+        try {
+            const keys = await queue_1.redisClient.keys(pattern);
+            if (keys.length > 0) {
+                await queue_1.redisClient.del(...keys);
+            }
+            return true;
+        }
+        catch (err) {
+            logger_1.logger.error(LOG_CONTEXT, "Redis deletePattern error", { pattern, error: err.message });
+            return false;
+        }
+    }
+    /**
      * Sliding window counter for login throttling and rate limiting.
      * Returns true if request limit is exceeded.
      */

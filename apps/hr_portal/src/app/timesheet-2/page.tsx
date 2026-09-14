@@ -114,7 +114,7 @@ export default function Timesheet2Page() {
         }));
       } catch (error: unknown) {
         const errMsg = error instanceof Error ? error.message : "Failed to load timesheet";
-        messageApi.error(errMsg);
+        setTimeout(() => messageApi.error(errMsg), 0);
         setDataStore((prev) => ({
           ...prev,
           [dateKey]: prev[dateKey] ?? generateTimeSlots(),

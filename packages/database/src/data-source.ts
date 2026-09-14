@@ -27,6 +27,11 @@ export const AppDataSource = new DataSource({
         database: env.DB_NAME,
       }),
   ssl: useSsl ? { rejectUnauthorized: false } : false,
+  extra: {
+    max: env.DB_POOL_MAX || 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  },
   // Disable automatic DDL synchronization in production to prevent "DROP INDEX check that it exists" errors
   synchronize: env.NODE_ENV !== "production" && env.TYPEORM_SYNCHRONIZE === "true",
   logging: false,
