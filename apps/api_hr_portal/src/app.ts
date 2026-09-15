@@ -5,9 +5,6 @@ import { logger } from "@hr-portal/logger";
 import authRoutes from "./modules/auth/auth.routes";
 import timesheetRoutes from "./modules/timesheet/timesheet.routes";
 import profileRoutes from "./modules/profile/profile.routes";
-import adminRoutes from "./modules/admin/admin.routes";
-import teamRoutes from "./modules/reports/team.routes";
-import reportsRoutes from "./modules/reports/reports.routes";
 
 const app = express();
 
@@ -233,9 +230,9 @@ function createProxy(targetHost: string, targetPort: number) {
 app.use("/api/auth", authRoutes);
 app.use("/api/timesheets", timesheetRoutes);
 app.use("/api/profile", profileRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/team", teamRoutes);
-app.use("/api/reports", reportsRoutes);
+app.use("/api/admin", createProxy(env.ADMIN_API_HOST, 5113));
+app.use("/api/team", createProxy(env.REPORTS_API_HOST, 5112));
+app.use("/api/reports", createProxy(env.REPORTS_API_HOST, 5112));
 
 // Diagnostics & Echo Config
 app.get("/api/echoconf", (req, res) => {
