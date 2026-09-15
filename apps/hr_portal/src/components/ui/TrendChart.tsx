@@ -375,9 +375,8 @@ export function TrendChart({
             return (
               <div
                 key={i}
-                className={`text-[11px] text-center -translate-x-1/2 whitespace-nowrap ${
-                  hasAnyData ? "text-gray-500 dark:text-zinc-400" : "text-gray-300 dark:text-zinc-600"
-                }`}
+                className={`text-[11px] text-center -translate-x-1/2 whitespace-nowrap ${hasAnyData ? "text-gray-500 dark:text-zinc-400" : "text-gray-300 dark:text-zinc-600"
+                  }`}
                 style={{ width: 0 }}
               >
                 {showLabel ? d.label : ""}

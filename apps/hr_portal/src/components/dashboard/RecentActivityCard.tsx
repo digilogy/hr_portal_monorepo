@@ -97,11 +97,10 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
 
         {activity.summary && (
           <p
-            className={`text-sm leading-relaxed ${
-              activity.isLogged
+            className={`text-sm leading-relaxed ${activity.isLogged
                 ? "text-gray-600 dark:text-gray-300"
                 : "italic text-amber-700/80 dark:text-amber-400/90 font-medium"
-            }`}
+              }`}
           >
             {activity.summary}
           </p>
@@ -168,13 +167,12 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
     </div>
   );
 
-  const containerClasses = `group block rounded-2xl border p-4 transition-all ${
-    activity.isLogged
+  const containerClasses = `group block rounded-2xl border p-4 transition-all ${activity.isLogged
       ? "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 hover:border-[#F5A623]/40"
       : isEditable
-      ? "border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400"
-      : "border-gray-200/60 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/30 opacity-80"
-  }`;
+        ? "border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400"
+        : "border-gray-200/60 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/30 opacity-80"
+    }`;
 
   if (!activity.isLogged && !isEditable) {
     return <div className={containerClasses}>{rowContent}</div>;
@@ -235,8 +233,8 @@ export function RecentActivityCard({
         {currentFilter === "pending"
           ? `${pendingCount} unsubmitted workday${pendingCount === 1 ? "" : "s"} requiring timesheet entry`
           : currentFilter === "logged"
-          ? `${loggedCount} completed workday${loggedCount === 1 ? "" : "s"}`
-          : `${loggedCount} of ${activities.length} workdays logged in selected period`}
+            ? `${loggedCount} completed workday${loggedCount === 1 ? "" : "s"}`
+            : `${loggedCount} of ${activities.length} workdays logged in selected period`}
       </Text>
 
       {filteredActivities.length > 0 ? (
@@ -251,8 +249,8 @@ export function RecentActivityCard({
             currentFilter === "pending"
               ? "All workdays are up to date! No pending submissions."
               : currentFilter === "logged"
-              ? "No logged entries found for this period."
-              : "No workdays in the selected range."
+                ? "No logged entries found for this period."
+                : "No workdays in the selected range."
           }
         >
           {activities.length > 0 && currentFilter !== "pending" && (

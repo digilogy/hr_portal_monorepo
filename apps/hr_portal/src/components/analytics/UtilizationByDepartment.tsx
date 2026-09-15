@@ -103,13 +103,12 @@ export function UtilizationByDepartment({
       align: "right" as const,
       render: (val: number) => (
         <span
-          className={`font-bold ${
-            val >= 90
+          className={`font-bold ${val >= 90
               ? "text-emerald-600"
               : val >= 70
-              ? "text-amber-600"
-              : "text-red-500"
-          }`}
+                ? "text-amber-600"
+                : "text-red-500"
+            }`}
         >
           {val.toFixed(1)}%
         </span>

@@ -207,7 +207,7 @@ export function aggregateActivityForCharts(
         label: `${week.displayStart.format("MMM D")} – ${week.displayEnd.format("MMM D, YYYY")}`,
         shortLabel:
           week.displayStart.month() === week.displayEnd.month() &&
-          week.displayStart.year() === week.displayEnd.year()
+            week.displayStart.year() === week.displayEnd.year()
             ? `${week.displayStart.format("MMM D")}–${week.displayEnd.format("D")}`
             : `${week.displayStart.format("MMM D")}–${week.displayEnd.format("MMM D")}`,
         hours: parseFloat(week.hours.toFixed(4)),

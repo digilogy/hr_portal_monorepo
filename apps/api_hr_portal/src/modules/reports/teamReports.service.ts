@@ -617,11 +617,11 @@ function summarizeFlatTeamMembers(
   const avgUtilization =
     members.length > 0 && expectedHoursPerEmployee > 0
       ? parseFloat(
-          (
-            (totalHours / (members.length * expectedHoursPerEmployee)) *
-            100
-          ).toFixed(1),
-        )
+        (
+          (totalHours / (members.length * expectedHoursPerEmployee)) *
+          100
+        ).toFixed(1),
+      )
       : 0;
 
   return {
@@ -671,11 +671,11 @@ function summarizeTeamMembers(
   const avgUtilization =
     flatMembers.length > 0 && expectedHoursPerEmployee > 0
       ? parseFloat(
-          (
-            (totalHours / (flatMembers.length * expectedHoursPerEmployee)) *
-            100
-          ).toFixed(1),
-        )
+        (
+          (totalHours / (flatMembers.length * expectedHoursPerEmployee)) *
+          100
+        ).toFixed(1),
+      )
       : 0;
 
   return {
@@ -830,8 +830,8 @@ export class TeamReportsService {
 
     let visibleEmployees = excludeSelf
       ? employees.filter(
-          (employee) => employee.employeeId !== currentEmployee.employeeId,
-        )
+        (employee) => employee.employeeId !== currentEmployee.employeeId,
+      )
       : employees;
 
     visibleEmployees = filterEmployeesByReportFilters(
@@ -911,7 +911,7 @@ export class TeamReportsService {
     filters?: ReportFilters,
   ): Promise<UserReportRow[]> {
     const cacheKey = `report_userwise_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
-    
+
     if (this.userWisePromiseCache.has(cacheKey)) {
       return this.userWisePromiseCache.get(cacheKey)!;
     }
@@ -1070,11 +1070,11 @@ export class TeamReportsService {
       const avgUtilization =
         stats.utilizations.length > 0
           ? parseFloat(
-              (
-                stats.utilizations.reduce((sum, value) => sum + value, 0) /
-                stats.utilizations.length
-              ).toFixed(1),
-            )
+            (
+              stats.utilizations.reduce((sum, value) => sum + value, 0) /
+              stats.utilizations.length
+            ).toFixed(1),
+          )
           : 0;
 
       let status = "On Track";
@@ -1168,11 +1168,11 @@ export class TeamReportsService {
       avgUtilization:
         stats.utilizations.length > 0
           ? parseFloat(
-              (
-                stats.utilizations.reduce((sum, value) => sum + value, 0) /
-                stats.utilizations.length
-              ).toFixed(1),
-            )
+            (
+              stats.utilizations.reduce((sum, value) => sum + value, 0) /
+              stats.utilizations.length
+            ).toFixed(1),
+          )
           : 0,
     }));
   }
@@ -1229,7 +1229,7 @@ export class TeamReportsService {
     filters?: ReportFilters,
   ): Promise<DashboardSummary> {
     const cacheKey = `report_dash_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
-    
+
     if (this.dashboardPromiseCache.has(cacheKey)) {
       return this.dashboardPromiseCache.get(cacheKey)!;
     }
@@ -1272,7 +1272,7 @@ export class TeamReportsService {
       const avgUtilization =
         filteredUserRows.length > 0
           ? filteredUserRows.reduce((sum, row) => sum + row.utilization, 0) /
-            filteredUserRows.length
+          filteredUserRows.length
           : 0;
 
       const filteredDepartments = [...deptRows].sort(
@@ -1559,9 +1559,9 @@ export class TeamReportsService {
     );
     const stats = officialEmail
       ? hoursByEmail.get(officialEmail.toLowerCase()) ?? {
-          hours: 0,
-          hasEntry: false,
-        }
+        hours: 0,
+        hasEntry: false,
+      }
       : { hours: 0, hasEntry: false };
     const workingDays = getWorkingDays(range.from, range.to);
     const expectedHours = workingDays * 8.5;
@@ -1732,19 +1732,19 @@ export class TeamReportsService {
         rate:
           employeesInScope > 0
             ? parseFloat(
-                ((stats.submittedCount / employeesInScope) * 100).toFixed(1),
-              )
+              ((stats.submittedCount / employeesInScope) * 100).toFixed(1),
+            )
             : 0,
       }));
 
     const avgDailyCompliance =
       dailyActivity.length > 0
         ? parseFloat(
-            (
-              dailyActivity.reduce((sum, day) => sum + day.rate, 0) /
-              dailyActivity.length
-            ).toFixed(1),
-          )
+          (
+            dailyActivity.reduce((sum, day) => sum + day.rate, 0) /
+            dailyActivity.length
+          ).toFixed(1),
+        )
         : 0;
 
     const byDayOfWeek = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({

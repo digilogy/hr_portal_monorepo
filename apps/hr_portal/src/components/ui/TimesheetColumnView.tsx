@@ -232,7 +232,7 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
     const filledCount = day.slots.filter(
       (slot) => slot.task?.trim() || slot.title?.trim(),
     ).length;
-    
+
     // Ensure there is an extra column for the "Add Slot" button if it's today
     const isEditableDay = day.isToday || dayjs(day.dateKey).isSame(dayjs().subtract(1, 'day'), 'day');
     const requiredCols = (isEditableDay && onSaveTask && getNextSlotDraft) ? filledCount + 1 : filledCount;
@@ -267,9 +267,8 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
     return (
       <div
         onClick={() => openSlotModal(slot, day)}
-        className={`min-h-[36px] py-1.5 px-2 rounded-lg border border-transparent transition-all cursor-pointer hover:border-gray-200 dark:hover:border-zinc-700 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 group flex flex-col justify-start ${
-          canEdit ? "hover:border-[#F5A623]/40" : ""
-        }`}
+        className={`min-h-[36px] py-1.5 px-2 rounded-lg border border-transparent transition-all cursor-pointer hover:border-gray-200 dark:hover:border-zinc-700 hover:bg-gray-50/50 dark:hover:bg-zinc-800/50 group flex flex-col justify-start ${canEdit ? "hover:border-[#F5A623]/40" : ""
+          }`}
       >
         {(slot.taskType || slot.title || slot.task) ? (
           <>
@@ -372,17 +371,17 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
                         {day.totalHours > 0 && (
                           <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 dark:bg-green-900/20 rounded-md">
                             <CheckCircleOutlined className="text-green-500 text-[9px]" />
-                             <span className="text-[9px] font-bold text-green-700 dark:text-green-400">
-                               {(() => {
-                                 const totalMins = Math.round(day.totalHours * 60);
-                                 const h = Math.floor(totalMins / 60);
-                                 const m = totalMins % 60;
-                                 if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-                                 if (h > 0) return `${h}hrs`;
-                                 if (m > 0) return `${m}mins`;
-                                 return "0hrs";
-                               })()}
-                             </span>
+                            <span className="text-[9px] font-bold text-green-700 dark:text-green-400">
+                              {(() => {
+                                const totalMins = Math.round(day.totalHours * 60);
+                                const h = Math.floor(totalMins / 60);
+                                const m = totalMins % 60;
+                                if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                                if (h > 0) return `${h}hrs`;
+                                if (m > 0) return `${m}mins`;
+                                return "0hrs";
+                              })()}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -417,29 +416,29 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
         footer={
           isEditMode
             ? [
-                <Button key="cancel" onClick={closeModal}>
-                  Cancel
-                </Button>,
-                <Button
-                  key="save"
-                  type="primary"
-                  loading={savingTask}
-                  onClick={() => void handleSaveEdit()}
-                  className="bg-[#F5A623] hover:bg-[#D48810] border-none"
-                >
-                  Save Task
-                </Button>,
-              ]
+              <Button key="cancel" onClick={closeModal}>
+                Cancel
+              </Button>,
+              <Button
+                key="save"
+                type="primary"
+                loading={savingTask}
+                onClick={() => void handleSaveEdit()}
+                className="bg-[#F5A623] hover:bg-[#D48810] border-none"
+              >
+                Save Task
+              </Button>,
+            ]
             : [
-                <Button
-                  key="close"
-                  type="primary"
-                  onClick={closeModal}
-                  className="bg-[#F5A623] hover:bg-[#D48810] rounded-full shadow-md border-none"
-                >
-                  Close
-                </Button>,
-              ]
+              <Button
+                key="close"
+                type="primary"
+                onClick={closeModal}
+                className="bg-[#F5A623] hover:bg-[#D48810] rounded-full shadow-md border-none"
+              >
+                Close
+              </Button>,
+            ]
         }
         centered
         className="font-sans"
@@ -502,11 +501,10 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
                         setFormErrors((prev) => ({ ...prev, title: undefined }));
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
-                      draftType === opt.value
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${draftType === opt.value
                         ? "text-white border-transparent shadow-md"
                         : "text-gray-500 dark:text-gray-400 border-gray-200 dark:border-zinc-700 hover:border-gray-400"
-                    }`}
+                      }`}
                     style={
                       draftType === opt.value
                         ? { backgroundColor: opt.color, borderColor: opt.color }
@@ -534,11 +532,10 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
                     }
                   }}
                   placeholder="Enter a custom title..."
-                  className={`${INPUT_BASE} ${
-                    formErrors.title
+                  className={`${INPUT_BASE} ${formErrors.title
                       ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
                       : "border-gray-200 dark:border-zinc-700"
-                  }`}
+                    }`}
                 />
                 {formErrors.title && (
                   <p className="mt-1 text-xs text-red-500">{formErrors.title}</p>
@@ -570,11 +567,10 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
                     : "What did you work on during this time?"
                 }
                 rows={4}
-                className={`${INPUT_BASE} resize-none ${
-                  formErrors.task
+                className={`${INPUT_BASE} resize-none ${formErrors.task
                     ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
                     : "border-gray-200 dark:border-zinc-700"
-                }`}
+                  }`}
               />
               <div className="mt-1 flex items-center justify-between">
                 {formErrors.task ? (
@@ -584,11 +580,10 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
                 )}
                 {!isOptionalDescriptionTaskType(draftType) && (
                   <span
-                    className={`text-xs font-medium tabular-nums ${
-                      draftTask.trim().split(/\s+/).filter(Boolean).length >= 10
+                    className={`text-xs font-medium tabular-nums ${draftTask.trim().split(/\s+/).filter(Boolean).length >= 10
                         ? "text-green-500"
                         : "text-gray-400"
-                    }`}
+                      }`}
                   >
                     {draftTask.trim() === ""
                       ? 0

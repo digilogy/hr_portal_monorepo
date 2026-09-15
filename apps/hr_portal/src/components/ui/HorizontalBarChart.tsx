@@ -58,11 +58,11 @@ export function HorizontalBarChart({
             onKeyDown={
               clickable
                 ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onBarClick?.(d.label);
-                    }
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onBarClick?.(d.label);
                   }
+                }
                 : undefined
             }
           >

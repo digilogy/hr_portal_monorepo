@@ -61,7 +61,7 @@ export function TaskDistribution({ distribution }: TaskDistributionProps) {
                 {fmtHours(item.hours)}
               </Text>
             </div>
-            
+
             <Progress
               percent={item.percentage}
               showInfo={false}
@@ -70,7 +70,7 @@ export function TaskDistribution({ distribution }: TaskDistributionProps) {
               size="small"
               className="!m-0"
             />
-            
+
             <div className="flex justify-between items-center text-xs text-gray-500">
               <span>{item.percentage}% of total</span>
               <span>Rate: {item.rate}%</span>

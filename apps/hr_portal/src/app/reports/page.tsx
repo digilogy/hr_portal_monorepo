@@ -145,14 +145,6 @@ const timesheetColumns: ColumnsType<TimesheetTableRow> = [
       style: { whiteSpace: "normal", wordBreak: "break-word", verticalAlign: "top" },
     }),
   },
-  {
-    title: "Hours",
-    dataIndex: "hours",
-    key: "hours",
-    width: 72,
-    align: "center",
-    render: (val: number | null) => (val != null ? formatDuration(val) : "—"),
-  },
 ];
 
 const managerColumns: ColumnsType<any> = [
