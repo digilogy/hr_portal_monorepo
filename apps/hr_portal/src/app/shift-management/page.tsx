@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button, Table, Typography, Upload, Tag, message, Tabs, Modal, Spin } from "antd";
 import { UploadOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_BASE, getAuthHeaders } from "@/lib/api";
 import dayjs from "dayjs";
 import { AdminReportFilters } from "@/components/reports/AdminReportFilters";
 import {
   DEFAULT_REPORT_FILTERS,
   appendReportFilters,
+  parseReportFiltersFromSearchParams,
+  reportFiltersToSearchParams,
   type ReportFilters,
   type ReportFilterOptions,
 } from "@/lib/reportFilters";
@@ -18,6 +21,8 @@ import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 const { Title } = Typography;
 
 export default function ShiftManagementPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
@@ -29,7 +34,32 @@ export default function ShiftManagementPage() {
   const [selectedJobErrors, setSelectedJobErrors] = useState<any[]>([]);
   const [loadingErrors, setLoadingErrors] = useState(false);
 
-  const [adminFilters, setAdminFilters] = useState<ReportFilters>(DEFAULT_REPORT_FILTERS);
+  const [adminFilters, setAdminFilters] = useState<ReportFilters>(() => {
+    return parseReportFiltersFromSearchParams(searchParams);
+  });
+
+  const syncShiftMgmtUrl = useCallback(
+    (filters: ReportFilters) => {
+      const params = reportFiltersToSearchParams(filters);
+      const query = params.toString();
+      router.replace(query ? `/shift-management?${query}` : "/shift-management", { scroll: false });
+    },
+    [router],
+  );
+
+  const handleAdminFiltersChange = useCallback(
+    (filters: ReportFilters) => {
+      setAdminFilters(filters);
+      syncShiftMgmtUrl(filters);
+    },
+    [syncShiftMgmtUrl],
+  );
+
+  const handleClearAllShiftMgmtFilters = useCallback(() => {
+    const defaultFilters = DEFAULT_REPORT_FILTERS;
+    setAdminFilters(defaultFilters);
+    syncShiftMgmtUrl(defaultFilters);
+  }, [syncShiftMgmtUrl]);
   const [filterOptions, setFilterOptions] = useState<ReportFilterOptions | null>(null);
 
   useEffect(() => {
@@ -265,7 +295,8 @@ export default function ShiftManagementPage() {
                   options={filterOptions}
                   loading={!filterOptions && loading}
                   hideStatus={true}
-                  onChange={setAdminFilters}
+                  onChange={handleAdminFiltersChange}
+                  onClearAll={handleClearAllShiftMgmtFilters}
                 />
                 <ResponsiveTable
                   dataSource={employeeShifts}
@@ -273,7 +304,7 @@ export default function ShiftManagementPage() {
                   rowKey="employeeId"
                   loading={loading}
                   scroll={{ x: 1000 }}
-                  pagination={{ pageSize: 20 }}
+                  pagination={{ pageSize: 10 }}
                 />
               </div>
             ),

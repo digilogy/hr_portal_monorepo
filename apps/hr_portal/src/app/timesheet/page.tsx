@@ -14,8 +14,9 @@ import {
 import { message, DatePicker, Button, Spin, Select, Modal } from "antd";
 import { apiFetch } from "@/lib/api";
 import { getTokenRole } from "@/lib/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSlotDurationHours, parseTimeSlotRange } from "@/lib/timesheetSlots";
+
 import { getHolidayZoneForCity } from "@/lib/holidayMapping";
 
 interface Holiday {
@@ -117,6 +118,68 @@ function isNonWorkingDay(date: Dayjs, profile: any): boolean {
   }
 
   return false;
+}
+
+function getNonWorkingDayInfo(date: Dayjs, profile: any, currentHoliday: any): { isNonWorking: boolean; label: string; icon: string } | null {
+  if (currentHoliday && !currentHoliday.isOptional) {
+    return {
+      isNonWorking: true,
+      label: `Holiday: ${currentHoliday.name}`,
+      icon: "🎉",
+    };
+  }
+
+  const dayOfWeek = date.day();
+  const dayName = date.format("dddd");
+
+  if (profile?.weeklyOff) {
+    const offDaysMap: Record<string, number> = {
+      sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+      wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+    };
+    const offDays = profile.weeklyOff.split(",").map((d: string) => d.trim().toLowerCase());
+    for (const off of offDays) {
+      if (offDaysMap[off] === dayOfWeek) {
+        return {
+          isNonWorking: true,
+          label: `Weekly Off (${dayName})`,
+          icon: "🏖️",
+        };
+      }
+
+      const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
+      if (nthMatch) {
+        const nthMap: Record<string, number> = {
+          first: 1, '1st': 1,
+          second: 2, '2nd': 2,
+          third: 3, '3rd': 3,
+          fourth: 4, '4th': 4,
+          fifth: 5, '5th': 5
+        };
+        const n = nthMap[nthMatch[1]];
+        const targetDay = offDaysMap[nthMatch[2]];
+        if (n && targetDay !== undefined) {
+          const dateNum = date.date();
+          const currentNth = Math.ceil(dateNum / 7);
+          if (dayOfWeek === targetDay && currentNth === n) {
+            return {
+              isNonWorking: true,
+              label: `Weekly Off (${dayName})`,
+              icon: "🏖️",
+            };
+          }
+        }
+      }
+    }
+  } else if (dayOfWeek === 0) {
+    return {
+      isNonWorking: true,
+      label: `Weekly Off (${dayName})`,
+      icon: "🏖️",
+    };
+  }
+
+  return null;
 }
 
 function getLastWorkingDay(startFromDate: Dayjs, profile: any): Dayjs {
@@ -266,6 +329,7 @@ function getDurationBadgeLabel(timeSlot: string): string {
 
 export default function TimesheetPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const role = getTokenRole();
@@ -274,8 +338,23 @@ export default function TimesheetPage() {
     }
   }, [router]);
 
+  const dateParam = searchParams.get("date");
+  const initialDate = useMemo(() => {
+    if (dateParam && dayjs(dateParam).isValid()) {
+      return dayjs(dateParam);
+    }
+    return dayjs();
+  }, [dateParam]);
+
   const [messageApi, contextHolder] = message.useMessage();
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(initialDate);
+
+  useEffect(() => {
+    if (dateParam && dayjs(dateParam).isValid()) {
+      setSelectedDate(dayjs(dateParam));
+    }
+  }, [dateParam]);
+
   const [slots, setSlots] = useState<TimeSlotData[]>(DEFAULT_TIME_SLOTS);
   const [initialSnapshot, setInitialSnapshot] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -303,16 +382,21 @@ export default function TimesheetPage() {
   }, []);
 
   const currentHoliday = useMemo(() => {
-    if (!profile?.upcomingHolidays?.length) return null;
     const dateStr = selectedDate.format("YYYY-MM-DD");
+    const holidaysToSearch = profile?.upcomingHolidays?.length ? profile.upcomingHolidays : allHolidays;
+    if (!holidaysToSearch?.length) return null;
 
-    return profile.upcomingHolidays.find((h: any) => {
+    return holidaysToSearch.find((h: any) => {
       const formatYMD = (d: string) => dayjs(d).format("YYYY-MM-DD");
       const start = formatYMD(h.startDate);
       const end = formatYMD(h.endDate);
       return dateStr >= start && dateStr <= end;
     });
-  }, [selectedDate, profile]);
+  }, [selectedDate, profile, allHolidays]);
+
+  const nonWorkingInfo = useMemo(() => {
+    return getNonWorkingDayInfo(selectedDate, profile, currentHoliday);
+  }, [selectedDate, profile, currentHoliday]);
 
   const lastWorkingDate = useMemo(() => {
     return getLastWorkingDay(dayjs(), profile);
@@ -515,7 +599,7 @@ export default function TimesheetPage() {
         total += getSlotDurationHours(slot.timeSlot);
       }
     }
-    return parseFloat(total.toFixed(1));
+    return parseFloat(total.toFixed(4));
   }, [slots]);
 
   const targetHours = useMemo(() => {
@@ -585,65 +669,65 @@ export default function TimesheetPage() {
       </div>
 
       {/* Target Progress Header Card */}
-      <div className="bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            DAILY LOGGED HOURS
-          </span>
-          {!isTargetAchieved ? (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60">
-              In Progress
+      {!nonWorkingInfo && (
+        <div className="bg-white dark:bg-zinc-900 shadow-sm border border-gray-100 dark:border-zinc-800 p-6 mb-8">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              DAILY LOGGED HOURS
             </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Target Achieved
+            {!isTargetAchieved ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-500 border border-amber-200/60 dark:border-amber-800/60">
+                In Progress
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Target Achieved
+              </span>
+            )}
+          </div>
+          <div className="flex items-baseline gap-1.5 mb-3">
+            <span className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
+              {(() => {
+                const h = Math.floor(filledHours);
+                const m = Math.round((filledHours - h) * 60);
+                if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                if (h > 0) return `${h}hrs`;
+                if (m > 0) return `${m}mins`;
+                return "0hrs";
+              })()}
             </span>
-          )}
-        </div>
-        <div className="flex items-baseline gap-1.5 mb-3">
-          <span className="text-3xl font-semibold text-gray-900 dark:text-white tracking-tight">
-            {(() => {
-              const h = Math.floor(filledHours);
-              const m = Math.round((filledHours - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()}
-          </span>
-          <span className="text-sm text-gray-400 dark:text-gray-500 font-semibold">
-            / {(() => {
-              const h = Math.floor(targetHours);
-              const m = Math.round((targetHours - h) * 60);
-              if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-              if (h > 0) return `${h}hrs`;
-              if (m > 0) return `${m}mins`;
-              return "0hrs";
-            })()} Target
-          </span>
-        </div>
-        <div className="h-1.5 w-full max-w-xs bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${progressStyle.bgGradient}`}
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      </div>
-
-      {currentHoliday && !currentHoliday.isOptional && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-4 flex items-center justify-center">
-          <span className="font-semibold text-lg">🎉 Holiday: {currentHoliday.name}</span>
+            <span className="text-sm text-gray-400 dark:text-gray-500 font-semibold">
+              / {(() => {
+                const h = Math.floor(targetHours);
+                const m = Math.round((targetHours - h) * 60);
+                if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                if (h > 0) return `${h}hrs`;
+                if (m > 0) return `${m}mins`;
+                return "0hrs";
+              })()} Target
+            </span>
+          </div>
+          <div className="h-1.5 w-full max-w-xs bg-gray-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${progressStyle.bgGradient}`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
       )}
+
+      {/* {nonWorkingInfo && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-900 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-200 rounded-2xl p-6 flex items-center justify-center gap-3 shadow-sm">
+          <span className="text-2xl">{nonWorkingInfo.icon}</span>
+          <span className="font-bold text-lg">{nonWorkingInfo.label}</span>
+        </div>
+      )} */}
 
       {/* Daily Timesheet Main Card */}
       <div className="bg-white dark:bg-zinc-900 shadow-sm">
         {/* Sticky Container Wrapper */}
         <div className="sticky top-[63px] z-10">
-          {/* Scroll Shield to cover rows between site header (64px) and this sticky header (88px) */}
-          {/* <div className="absolute top-[-24px] left-0 right-0 h-6 bg-white dark:bg-zinc-900" aria-hidden="true" /> */}
-
           {/* Actual Header */}
           <div className="bg-white dark:bg-zinc-900">
             {/* Header Bar */}
@@ -658,29 +742,31 @@ export default function TimesheetPage() {
                       : selectedDate.format("MMMM D, YYYY")}
                   </h1>
                   {/* Circular Donut Ring — compact, beside the title */}
-                  <div className="relative flex-shrink-0 w-10 h-10">
-                    <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                      <circle cx="18" cy="18" r="15.9" fill="none" stroke={isTargetAchieved ? "#d1fae5" : "#f1f5f9"} strokeWidth="3.5" />
-                      <circle
-                        cx="18" cy="18" r="15.9"
-                        fill="none"
-                        stroke={progressStyle.stroke}
-                        strokeWidth="3.5"
-                        strokeDasharray={`${progressPercent} ${100 - progressPercent}`}
-                        strokeDashoffset="0"
-                        strokeLinecap="round"
-                        style={{ transition: "stroke-dasharray 0.7s ease, stroke 0.7s ease" }}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className={`text-[9px] font-bold leading-none ${progressStyle.textClass}`}>
-                        {progressPercent}%
-                      </span>
+                  {!nonWorkingInfo && (
+                    <div className="relative flex-shrink-0 w-10 h-10">
+                      <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke={isTargetAchieved ? "#d1fae5" : "#f1f5f9"} strokeWidth="3.5" />
+                        <circle
+                          cx="18" cy="18" r="15.9"
+                          fill="none"
+                          stroke={progressStyle.stroke}
+                          strokeWidth="3.5"
+                          strokeDasharray={`${progressPercent} ${100 - progressPercent}`}
+                          strokeDashoffset="0"
+                          strokeLinecap="round"
+                          style={{ transition: "stroke-dasharray 0.7s ease, stroke 0.7s ease" }}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className={`text-[9px] font-bold leading-none ${progressStyle.textClass}`}>
+                          {progressPercent}%
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Enter task descriptions for each time slot.
+                  {nonWorkingInfo ? nonWorkingInfo.label : "Enter task descriptions for each time slot."}
                 </p>
               </div>
 
@@ -717,7 +803,6 @@ export default function TimesheetPage() {
                       allowClear={false}
                       disabledDate={(current) => {
                         if (current && current > dayjs().endOf("day")) return true;
-                        if (current && isNonWorkingDay(current, profile)) return true;
                         return false;
                       }}
                       format="MMM D, YYYY"
@@ -740,102 +825,118 @@ export default function TimesheetPage() {
             </div>
 
             {/* Table Column Headers */}
-            <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 text-xs font-bold text-gray-400 tracking-wider uppercase border-b-1 border-gray-300 dark:border-zinc-700">
-              <div className="col-span-3">TIME SLOT</div>
-              <div className="col-span-9">TASK DESCRIPTION</div>
-            </div>
+            {!nonWorkingInfo && (
+              <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-gray-50/50 dark:bg-zinc-800/40 text-xs font-bold text-gray-400 tracking-wider uppercase border-b-1 border-gray-300 dark:border-zinc-700">
+                <div className="col-span-3">TIME SLOT</div>
+                <div className="col-span-9">TASK DESCRIPTION</div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Timesheet Slot Rows */}
-        {loading ? (
-          <div className="py-20 text-center text-gray-400">
-            <Spin size="large" />
-            <p className="mt-3 text-sm">Loading timesheet entries...</p>
+        {nonWorkingInfo ? (
+          <div className="py-16 px-6 text-center text-gray-500 dark:text-gray-400 flex flex-col items-center justify-center gap-2">
+            <span className="text-4xl mb-1">{nonWorkingInfo.icon}</span>
+            <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              {nonWorkingInfo.label}
+            </p>
+            <p className="text-xs text-gray-400 max-w-md">
+              No timesheet logging is required for public holidays and weekly offs.
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col">
-            {slots.map((slot) => {
-              const isFilled = slot.task.trim().length > 0;
-              const durationLabel = getDurationBadgeLabel(slot.timeSlot);
+          <>
+            {/* Timesheet Slot Rows */}
+            {loading ? (
+              <div className="py-20 text-center text-gray-400">
+                <Spin size="large" />
+                <p className="mt-3 text-sm">Loading timesheet entries...</p>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                {slots.map((slot) => {
+                  const isFilled = slot.task.trim().length > 0;
+                  const durationLabel = getDurationBadgeLabel(slot.timeSlot);
 
-              return (
-                <div
-                  key={slot.key}
-                  className={`flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors border-l-4 ${isFilled
-                    ? "border-l-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
-                    : "border-l-transparent hover:bg-gray-50/40 dark:hover:bg-zinc-800/20"
-                    }`}
-                >
-                  {/* Left Column: Time slot details & badges */}
-                  <div className="col-span-1 md:col-span-3 flex flex-row md:flex-col justify-between md:justify-start items-center md:items-start w-full gap-2 md:pt-2">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isFilled
-                          ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
-                          : "bg-amber-50 dark:bg-amber-950/40 text-amber-500 border border-amber-200 dark:border-amber-800/60"
-                          }`}
-                      >
-                        <ClockCircleOutlined />
+                  return (
+                    <div
+                      key={slot.key}
+                      className={`flex flex-col md:grid md:grid-cols-12 px-6 py-4 items-start gap-4 transition-colors border-l-4 ${isFilled
+                        ? "border-l-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10 hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20"
+                        : "border-l-transparent hover:bg-gray-50/40 dark:hover:bg-zinc-800/20"
+                        }`}
+                    >
+                      {/* Left Column: Time slot details & badges */}
+                      <div className="col-span-1 md:col-span-3 flex flex-row md:flex-col justify-between md:justify-start items-center md:items-start w-full gap-2 md:pt-2">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${isFilled
+                              ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                              : "bg-amber-50 dark:bg-amber-950/40 text-amber-500 border border-amber-200 dark:border-amber-800/60"
+                              }`}
+                          >
+                            <ClockCircleOutlined />
+                          </div>
+                          <span className="text-sm font-bold text-gray-800 dark:text-zinc-100 tracking-tight">
+                            {slot.timeSlot}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 md:pl-9">
+                          <span className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400">
+                            {durationLabel}
+                          </span>
+
+                          {isFilled ? (
+                            <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                              <CheckOutlined className="text-[10px]" /> Logged
+                            </span>
+                          ) : (
+                            <span className="hidden md:inline-flex px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-gray-50 dark:bg-zinc-800/60 text-gray-400 border border-gray-200/40 dark:border-zinc-700/40">
+                              Pending
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-sm font-bold text-gray-800 dark:text-zinc-100 tracking-tight">
-                        {slot.timeSlot}
-                      </span>
+
+                      {/* Right Column: Task input text field */}
+                      <div className="col-span-1 md:col-span-9 w-full">
+                        <textarea
+                          rows={2}
+                          value={slot.task}
+                          onChange={(e) => handleTaskChange(slot.key, e.target.value)}
+                          disabled={isReadOnly}
+                          placeholder={`What did you work on during ${slot.timeSlot}?`}
+                          className={`w-full rounded-xl p-2.5 text-xs transition-all duration-200 resize-none outline-none ${isFilled
+                            ? "border border-emerald-300 dark:border-emerald-800/80 text-gray-900 dark:text-zinc-100 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                            : "bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-100 placeholder-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
+                            } ${isReadOnly ? "opacity-75 cursor-not-allowed" : ""}`}
+                        />
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
+            )}
 
-                    <div className="flex items-center gap-2 md:pl-9">
-                      <span className="px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 dark:bg-zinc-800 text-gray-600 dark:text-zinc-400">
-                        {durationLabel}
-                      </span>
-
-                      {isFilled ? (
-                        <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
-                          <CheckOutlined className="text-[10px]" /> Logged
-                        </span>
-                      ) : (
-                        <span className="hidden md:inline-flex px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-gray-50 dark:bg-zinc-800/60 text-gray-400 border border-gray-200/40 dark:border-zinc-700/40">
-                          Pending
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Column: Task input text field */}
-                  <div className="col-span-1 md:col-span-9 w-full">
-                    <textarea
-                      rows={2}
-                      value={slot.task}
-                      onChange={(e) => handleTaskChange(slot.key, e.target.value)}
-                      disabled={isReadOnly}
-                      placeholder={`What did you work on during ${slot.timeSlot}?`}
-                      className={`w-full rounded-xl p-2.5 text-xs transition-all duration-200 resize-none outline-none ${isFilled
-                        ? "border border-emerald-300 dark:border-emerald-800/80 text-gray-900 dark:text-zinc-100 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                        : "bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-gray-900 dark:text-zinc-100 placeholder-gray-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20"
-                        } ${isReadOnly ? "opacity-75 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+            {/* Bottom Save Button */}
+            <div className="p-6 flex flex-col sm:flex-row items-center justify-end gap-3">
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                {slots.filter(s => s.task.trim().length > 0).length} of {slots.length} slots filled
+              </span>
+              <Button
+                type="primary"
+                size="large"
+                icon={saving ? <SyncOutlined spin /> : <SaveOutlined />}
+                onClick={handleSave}
+                disabled={isReadOnly || saving}
+                className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2 px-8"
+              >
+                Save Timesheet
+              </Button>
+            </div>
+          </>
         )}
-
-        {/* Bottom Save Button */}
-        <div className="p-6 flex flex-col sm:flex-row items-center justify-end gap-3">
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-            {slots.filter(s => s.task.trim().length > 0).length} of {slots.length} slots filled
-          </span>
-          <Button
-            type="primary"
-            size="large"
-            icon={saving ? <SyncOutlined spin /> : <SaveOutlined />}
-            onClick={handleSave}
-            disabled={isReadOnly || saving}
-            className="bg-amber-500 hover:bg-amber-600 border-none rounded-xl text-white text-sm font-semibold shadow-md flex items-center justify-center gap-2 px-8"
-          >
-            Save Timesheet
-          </Button>
-        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card,
   Typography,
@@ -8,26 +8,33 @@ import {
   Select,
   Spin,
   Tag,
+  Button,
+  Tooltip,
 } from "antd";
-import { CalendarOutlined } from "@ant-design/icons";
+import { CalendarOutlined, ClearOutlined } from "@ant-design/icons";
 import { Dayjs } from "dayjs";
 import { canAccessAnalytics, getTokenRole } from "@/lib/auth";
-import { isAdminPortalHost } from "@/lib/host";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import {
   appendReportFilters,
   DEFAULT_REPORT_FILTERS,
   hasActiveReportFilters,
+  parseReportFiltersFromSearchParams,
+  reportFiltersToSearchParams,
+  sanitizeReportFilters,
   type ReportFilters,
   type ReportFilterOptions,
 } from "@/lib/reportFilters";
 import { AdminReportFilters } from "@/components/reports/AdminReportFilters";
 import { FilterField } from "@/components/ui/FilterField";
+import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
 import {
   PERIOD_PRESET_OPTIONS,
   PeriodPreset,
+  appendPeriodToSearchParams,
   getEffectiveDateRange,
+  parsePeriodFromSearchParams,
 } from "@/lib/dateRangePresets";
 import { WorkRhythm } from "@/components/analytics/WorkRhythm";
 import { TaskDistribution } from "@/components/analytics/TaskDistribution";
@@ -72,16 +79,110 @@ interface AnalyticsData {
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("this_week");
-  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null);
-  const [adminFilters, setAdminFilters] = useState<ReportFilters>(
-    DEFAULT_REPORT_FILTERS,
+  const searchParams = useSearchParams();
+
+  const initialPeriod = useMemo(() => {
+    return parsePeriodFromSearchParams(searchParams);
+  }, [searchParams]);
+
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>(
+    initialPeriod.periodPreset,
   );
+  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(
+    initialPeriod.customRange,
+  );
+
+  const [adminFilters, setAdminFilters] = useState<ReportFilters>(() => {
+    return parseReportFiltersFromSearchParams(searchParams);
+  });
+
   const [filterOptions, setFilterOptions] = useState<ReportFilterOptions | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<AnalyticsData | null>(null);
+
+  const syncAnalyticsUrl = useCallback(
+    (
+      filters: ReportFilters,
+      preset: PeriodPreset,
+      range: [Dayjs, Dayjs] | null,
+    ) => {
+      const params = reportFiltersToSearchParams(filters);
+      appendPeriodToSearchParams(params, preset, range);
+      const query = params.toString();
+      router.replace(query ? `/analytics?${query}` : "/analytics", { scroll: false });
+    },
+    [router],
+  );
+
+  const handlePeriodChange = useCallback(
+    (preset: PeriodPreset, range: [Dayjs, Dayjs] | null = null) => {
+      setPeriodPreset(preset);
+      setCustomRange(range);
+      syncAnalyticsUrl(adminFilters, preset, range);
+    },
+    [adminFilters, syncAnalyticsUrl],
+  );
+
+  const handleDateRangeChange = useCallback(
+    (range: [Dayjs, Dayjs] | null) => {
+      if (range) {
+        setPeriodPreset("custom");
+        setCustomRange(range);
+        syncAnalyticsUrl(adminFilters, "custom", range);
+      } else {
+        setPeriodPreset("this_week");
+        setCustomRange(null);
+        syncAnalyticsUrl(adminFilters, "this_week", null);
+      }
+    },
+    [adminFilters, syncAnalyticsUrl],
+  );
+
+  const handleAdminFiltersChange = useCallback(
+    (filters: ReportFilters) => {
+      setAdminFilters(filters);
+      syncAnalyticsUrl(filters, periodPreset, customRange);
+    },
+    [periodPreset, customRange, syncAnalyticsUrl],
+  );
+
+  const handleClearAllAnalyticsFilters = useCallback(() => {
+    const defaultFilters = DEFAULT_REPORT_FILTERS;
+    const defaultPreset: PeriodPreset = "this_week";
+    const defaultRange = null;
+
+    setAdminFilters(defaultFilters);
+    setPeriodPreset(defaultPreset);
+    setCustomRange(defaultRange);
+
+    const params = reportFiltersToSearchParams(defaultFilters);
+    appendPeriodToSearchParams(params, defaultPreset, defaultRange);
+    const query = params.toString();
+    router.replace(query ? `/analytics?${query}` : "/analytics", { scroll: false });
+  }, [router]);
+
+  const isAnyFilterActive = useMemo(() => {
+    return (
+      hasActiveReportFilters(adminFilters) ||
+      periodPreset !== "this_week" ||
+      customRange !== null
+    );
+  }, [adminFilters, periodPreset, customRange]);
+
+  useEffect(() => {
+    const parsed = parseReportFiltersFromSearchParams(searchParams);
+    if (filterOptions?.employees?.length) {
+      setAdminFilters(sanitizeReportFilters(parsed, filterOptions.employees));
+    } else {
+      setAdminFilters(parsed);
+    }
+
+    const parsedPeriod = parsePeriodFromSearchParams(searchParams);
+    setPeriodPreset(parsedPeriod.periodPreset);
+    setCustomRange(parsedPeriod.customRange);
+  }, [searchParams, filterOptions]);
 
   const dateRange = useMemo(() => {
     const [from, to] = getEffectiveDateRange(periodPreset, customRange);
@@ -150,10 +251,6 @@ export default function AnalyticsPage() {
         <Title level={2} className="!mb-0 text-xl md:text-3xl">
           Analytics Dashboard
         </Title>
-        {/* <Text className="text-gray-500">
-          Logging activity across your organization. Short ranges show daily detail;
-          longer ranges group by week or month so charts stay readable.
-        </Text> */}
       </div>
 
       <Card
@@ -162,54 +259,71 @@ export default function AnalyticsPage() {
         styles={{ body: { padding: 20 } }}
       >
         <div className="flex flex-col gap-5">
-          <AdminReportFilters
-            value={adminFilters}
-            options={filterOptions}
-            loading={!filterOptions && loading}
-            hideStatus={true}
-            onChange={setAdminFilters}
-          />
-          <div className="flex flex-col sm:flex-row flex-wrap items-end gap-4">
-
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-4">
             <FilterField label="Period" icon={<CalendarOutlined />} className="w-full sm:w-44">
               <Select
                 value={periodPreset}
                 onChange={(value: PeriodPreset) => {
+                  let newCustomRange: [Dayjs, Dayjs] | null = customRange;
                   if (value === "custom") {
-                    setCustomRange(getEffectiveDateRange(periodPreset, customRange));
+                    newCustomRange = getEffectiveDateRange(periodPreset, customRange);
+                    setCustomRange(newCustomRange);
                   } else {
+                    newCustomRange = null;
                     setCustomRange(null);
                   }
-                  setPeriodPreset(value);
+                  handlePeriodChange(value, newCustomRange);
                 }}
                 className="w-full"
                 options={PERIOD_PRESET_OPTIONS}
               />
             </FilterField>
 
-            <FilterField label="Date Range" className="w-full sm:w-auto">
-              <RangePicker
-                className="w-full"
-                value={getEffectiveDateRange(periodPreset, customRange)}
-                onChange={(dates) => {
-                  if (dates?.[0] && dates?.[1]) {
-                    setPeriodPreset("custom");
-                    setCustomRange([dates[0], dates[1]]);
-                  } else {
-                    setCustomRange(null);
-                    setPeriodPreset("this_week");
-                  }
-                }}
-                disabled={periodPreset !== "custom"}
-              />
-            </FilterField>
+            <div className="flex items-end gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
+              <FilterField label="Date Range" className="w-full sm:w-auto flex-1 sm:flex-initial">
+                <RangePicker
+                  className="w-full"
+                  value={getEffectiveDateRange(periodPreset, customRange)}
+                  onChange={(dates) => {
+                    if (dates?.[0] && dates?.[1]) {
+                      handleDateRangeChange([dates[0], dates[1]]);
+                    } else {
+                      handleDateRangeChange(null);
+                    }
+                  }}
+                  disabled={periodPreset !== "custom"}
+                />
+              </FilterField>
+
+              {isAnyFilterActive && (
+                <Tooltip title="Clear Filters">
+                  <Button
+                    size="small"
+                    icon={<FilterClearIcon size={26} />}
+                    onClick={handleClearAllAnalyticsFilters}
+                    className="!flex-none !flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none mb-1"
+                    aria-label="Clear Filters"
+                  />
+                </Tooltip>
+              )}
+            </div>
           </div>
 
+          <AdminReportFilters
+            value={adminFilters}
+            options={filterOptions}
+            loading={!filterOptions && loading}
+            hideStatus={true}
+            hideClearButton={true}
+            onChange={handleAdminFiltersChange}
+            onClearAll={handleClearAllAnalyticsFilters}
+          />
+
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-zinc-800">
-            <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-gray-200 !bg-gray-50 !text-gray-600">
+            {/* <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-gray-200 !bg-gray-50 !text-gray-600">
               {dateRange.label}
-            </Tag>
-            {hasActiveReportFilters(adminFilters) && (
+            </Tag> */}
+            {isAnyFilterActive && (
               <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-[#F5A623]/30 !bg-[#F5A623]/10 !text-[#c4841a]">
                 Filtered
               </Tag>
@@ -249,23 +363,7 @@ export default function AnalyticsPage() {
           className="shadow-sm rounded-xl border border-gray-100 dark:border-zinc-800 overflow-hidden"
           styles={{ body: { padding: 0 } }}
         >
-          {/* <div className="h-1 bg-animated-gradient" /> */}
           <div className="p-6 md:p-8">
-            {/* <div className="flex items-start gap-3 mb-8">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-[#F5A623] text-lg">
-                <BarChartOutlined />
-              </div>
-              <div>
-                <Title level={4} className="!mb-1 text-gray-800 dark:text-zinc-100">
-                  Work Rhythm
-                </Title>
-                <Text className="text-gray-500 text-sm">
-                  When your organization is most active — weekday totals and daily
-                  hours over the selected period.
-                </Text>
-              </div>
-            </div> */}
-
             <WorkRhythm
               dailyActivity={data?.dailyActivity ?? []}
               hourlyActivity={data?.byHour ?? []}
@@ -274,16 +372,8 @@ export default function AnalyticsPage() {
             />
           </div>
         </Card>
-
-        {/* {data?.distribution && data.distribution.length > 0 && (
-          <div className="mt-8">
-            <Title level={4} className="mb-4 text-gray-800 dark:text-zinc-100">
-              Task Category Breakdown
-            </Title>
-            <TaskDistribution distribution={data.distribution} />
-          </div>
-        )} */}
       </div>
     </div>
   );
 }
+

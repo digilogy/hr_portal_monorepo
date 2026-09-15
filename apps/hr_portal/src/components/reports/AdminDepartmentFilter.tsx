@@ -26,7 +26,7 @@ export function AdminDepartmentFilter({
   loading = false,
   onChange,
   showLabel = false,
-  className = "w-full sm:w-64",
+  className = "w-56 sm:w-64",
 }: AdminDepartmentFilterProps) {
   const select = (
     <Select

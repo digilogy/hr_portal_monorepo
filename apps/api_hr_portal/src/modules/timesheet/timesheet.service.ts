@@ -55,8 +55,9 @@ function calculateTotalHours(slots: TimesheetSlot[]): number {
       );
     })
     .reduce((sum, slot) => sum + calculateSlotHours(slot.timeSlot), 0);
-  return parseFloat(total.toFixed(1));
+  return parseFloat(total.toFixed(4));
 }
+
 
 export class TimesheetService {
   static isNonWorkingDay(dateStr: string, profile: EmployeeProfile): boolean {

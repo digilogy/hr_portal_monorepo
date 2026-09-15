@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Card,
   Col,
@@ -16,6 +16,7 @@ import {
   Segmented,
   Select,
   DatePicker,
+  Modal,
 } from "antd";
 import {
   ClockCircleOutlined,
@@ -25,13 +26,20 @@ import {
   ArrowRightOutlined,
   UserOutlined,
   SyncOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { buildRecentWeekActivity } from "@/lib/timesheetActivity";
-import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
+import { getSlotDurationHours } from "@/lib/timesheetSlots";
+import { fmtHours } from "@/lib/formatHours";
+import {
+  RecentActivityCard,
+  ActivityFilterType,
+} from "@/components/dashboard/RecentActivityCard";
+
 import {
   canAccessPersonalDashboard,
   canAccessTeam,
@@ -47,15 +55,21 @@ const { RangePicker } = DatePicker;
 
 type PeriodKey = "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "custom";
 
+function startOfWeekMonday(date: Dayjs): Dayjs {
+  const day = date.day();
+  const diff = day === 0 ? -6 : 1 - day;
+  return date.add(diff, "day").startOf("day");
+}
+
 function getPeriodRange(period: PeriodKey, customRange?: [Dayjs, Dayjs]): { from: Dayjs; to: Dayjs } {
   const today = dayjs();
   switch (period) {
     case "today": return { from: today, to: today };
     case "yesterday": { const y = today.subtract(1, "day"); return { from: y, to: y }; }
-    case "this_week": return { from: today.startOf("week"), to: today };
+    case "this_week": return { from: startOfWeekMonday(today), to: today };
     case "last_week": {
-      const s = today.subtract(1, "week").startOf("week");
-      return { from: s, to: s.endOf("week") };
+      const s = startOfWeekMonday(today.subtract(1, "week"));
+      return { from: s, to: s.add(6, "day").endOf("day") };
     }
     case "this_month": return { from: today.startOf("month"), to: today };
     case "last_month": {
@@ -63,18 +77,10 @@ function getPeriodRange(period: PeriodKey, customRange?: [Dayjs, Dayjs]): { from
       return { from: s, to: s.endOf("month") };
     }
     case "custom":
-      return customRange ? { from: customRange[0], to: customRange[1] } : { from: today.startOf("week"), to: today };
+      return customRange ? { from: customRange[0], to: customRange[1] } : { from: startOfWeekMonday(today), to: today };
   }
 }
 
-function fmtHours(h: number): string {
-  const hrs = Math.floor(h);
-  const mins = Math.round((h - hrs) * 60);
-  if (hrs > 0 && mins > 0) return `${hrs}hrs ${mins}mins`;
-  if (hrs > 0) return `${hrs}hrs`;
-  if (mins > 0) return `${mins}mins`;
-  return "0hrs";
-}
 
 function rangeLabel(from: Dayjs, to: Dayjs): string {
   if (from.isSame(to, "day")) return from.format("MMM D, YYYY");
@@ -247,8 +253,8 @@ export interface WorkdayTarget {
 }
 
 function getWorkdays(
-  from: dayjs.Dayjs, 
-  to: dayjs.Dayjs, 
+  from: dayjs.Dayjs,
+  to: dayjs.Dayjs,
   weeklyOffRule?: string,
   normalHours: number = 8.5,
   halfDayInfo: { day: number; hours: number } | null = null,
@@ -257,21 +263,21 @@ function getWorkdays(
   const dates: WorkdayTarget[] = [];
   let current = from.startOf("day");
   const end = to.startOf("day");
-  
+
   const rule = (weeklyOffRule || "").toLowerCase();
 
   const isDayOff = (dayName: string, shortName: string) => {
     const regex = new RegExp(`\\b(${dayName}|${shortName})\\b`, 'i');
     return regex.test(rule);
   };
-  
+
   const excludeSunday = isDayOff("sunday", "sun") || !rule; // Default to Sunday if empty
   const excludeMonday = isDayOff("monday", "mon");
   const excludeTuesday = isDayOff("tuesday", "tue");
   const excludeWednesday = isDayOff("wednesday", "wed");
   const excludeThursday = isDayOff("thursday", "thu");
   const excludeFriday = isDayOff("friday", "fri");
-  const excludeSaturday = isDayOff("saturday", "sat") && !rule.includes("2nd sat"); 
+  const excludeSaturday = isDayOff("saturday", "sat") && !rule.includes("2nd sat");
   const excludeSecondSaturday = rule.includes("2nd sat");
 
   while (current.isBefore(end) || current.isSame(end, "day")) {
@@ -330,9 +336,40 @@ export default function MyDashboardPage() {
   const [dashboardView, setDashboardView] = useState<"personal" | "team">("personal");
   const [userRole, setUserRole] = useState<ReturnType<typeof getTokenRole>>(null);
 
-  // Period filter
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>("this_week");
+  // Period & Metric Card filter
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("my_dashboard_period") as PeriodKey;
+      if (saved) return saved;
+    }
+    return "this_week";
+  });
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | undefined>();
+  const [activeCard, setActiveCard] = useState<"total" | "submission" | "avg" | "pending" | null>(null);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilterType>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("my_dashboard_activity_filter") as ActivityFilterType;
+      if (saved) return saved;
+    }
+    return "all";
+  });
+
+  const handlePeriodSelect = (period: PeriodKey) => {
+    setSelectedPeriod(period);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("my_dashboard_period", period);
+    }
+  };
+
+  const handleActivityFilterSelect = (filter: ActivityFilterType) => {
+    setActivityFilter(filter);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("my_dashboard_activity_filter", filter);
+    }
+  };
+
+  const activitySectionRef = useRef<HTMLDivElement>(null);
+  const [isPaceModalOpen, setIsPaceModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   const today = dayjs();
@@ -385,19 +422,33 @@ export default function MyDashboardPage() {
           setTeamError(err instanceof Error ? err.message : "Failed to load team overview");
         });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   useEffect(() => {
     if (!mounted) return;
     void fetchPeriodData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodFromStr, periodToStr]);
 
   const stats = useMemo(() => {
     const cappedTo = periodTo.isAfter(today) ? today : periodTo;
-    const totalHours = periodEntries.reduce((sum, e) => sum + (e.totalHours || 0), 0);
-    
+    const totalHours = periodEntries.reduce((sum, e) => {
+      if (Array.isArray(e.slots) && e.slots.length > 0) {
+        let slotsSum = 0;
+        for (const slot of e.slots) {
+          if (
+            slot.timeSlot &&
+            (slot.task?.trim() || slot.title?.trim() || (slot.taskType && slot.taskType !== "Custom"))
+          ) {
+            slotsSum += getSlotDurationHours(slot.timeSlot);
+          }
+        }
+        if (slotsSum > 0) return sum + slotsSum;
+      }
+      return sum + (e.totalHours || 0);
+    }, 0);
+
     const weeklyOff = profile?.weeklyOff;
     // Validate preferredTiming against allowedTimings to ignore stale database values
     let validTiming = profile?.allowedTimings;
@@ -409,19 +460,19 @@ export default function MyDashboardPage() {
     }
     const normalHours = parseTimeRangeHours(validTiming);
     const halfDayInfo = parseHalfDayInfo(profile?.halfDay);
-    
+
     const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff, normalHours, halfDayInfo, profile?.upcomingHolidays || []);
     const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff, normalHours, halfDayInfo, profile?.upcomingHolidays || []);
-    
+
     const workingDays = workingDaysArray.length;
     const elapsedWorkdays = elapsedWorkdaysArray.length;
-    
+
     const targetTotal = workingDaysArray.reduce((sum, d) => sum + d.targetHours, 0);
     const elapsedTargetTotal = elapsedWorkdaysArray.reduce((sum, d) => sum + d.targetHours, 0);
-    
+
     const avgDaily = elapsedWorkdays > 0 ? totalHours / elapsedWorkdays : 0;
     const avgTargetDaily = elapsedWorkdays > 0 ? elapsedTargetTotal / elapsedWorkdays : normalHours;
-    
+
     const loggedDates = new Set(periodEntries.filter((e) => e.totalHours > 0).map((e) => e.date));
     const weekdayDates = elapsedWorkdaysArray.map(d => d.date);
     const pendingCount = weekdayDates.filter((d) => !loggedDates.has(d)).length;
@@ -433,11 +484,12 @@ export default function MyDashboardPage() {
       ? ((weekdayDates.length - pendingCount) / weekdayDates.length) * 100
       : 100;
     return {
-      totalHours: parseFloat(totalHours.toFixed(1)),
+      totalHours: parseFloat(totalHours.toFixed(4)),
       targetTotal,
       totalPercent,
-      avgDaily: parseFloat(avgDaily.toFixed(2)),
-      avgTargetDaily: parseFloat(avgTargetDaily.toFixed(2)),
+      avgDaily: parseFloat(avgDaily.toFixed(4)),
+      avgTargetDaily: parseFloat(avgTargetDaily.toFixed(4)),
+
       avgPercent,
       submittedWorkdays,
       elapsedWorkdays,
@@ -450,10 +502,28 @@ export default function MyDashboardPage() {
     };
   }, [periodEntries, periodFrom, periodTo, today, profile]);
 
-  const recentActivity = useMemo(
-    () => buildRecentWeekActivity(periodEntries, stats.weekdayDates, 7),
-    [periodEntries, stats.weekdayDates],
-  );
+  const lastWorkingDayStr = useMemo(() => {
+    const weeklyOff = profile?.weeklyOff;
+    const holidays = profile?.upcomingHolidays || [];
+    let curr = today.startOf("day").subtract(1, "day");
+    for (let i = 0; i < 14; i++) {
+      const workdays = getWorkdays(curr, curr, weeklyOff, 8.5, null, holidays);
+      if (workdays.length > 0) {
+        return curr.format("YYYY-MM-DD");
+      }
+      curr = curr.subtract(1, "day");
+    }
+    return today.subtract(1, "day").format("YYYY-MM-DD");
+  }, [today, profile]);
+
+  const recentActivity = useMemo(() => {
+    const activities = buildRecentWeekActivity(periodEntries, stats.weekdayDates, 7);
+    const todayStr = today.format("YYYY-MM-DD");
+    return activities.map((act) => ({
+      ...act,
+      isEditable: act.date === todayStr || act.date === lastWorkingDayStr,
+    }));
+  }, [periodEntries, stats.weekdayDates, today, lastWorkingDayStr]);
 
   const flatTeamMembers = useMemo(
     () => flattenTeamMembers(teamMembers),
@@ -583,7 +653,7 @@ export default function MyDashboardPage() {
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Period</span>
               <Select
                 value={selectedPeriod}
-                onChange={(val) => setSelectedPeriod(val as PeriodKey)}
+                onChange={(val) => handlePeriodSelect(val as PeriodKey)}
                 className="w-40"
                 options={[
                   { label: "Today", value: "today" },
@@ -610,9 +680,9 @@ export default function MyDashboardPage() {
                 suffixIcon={<CalendarOutlined className="text-gray-400" />}
               />
             </div>
-            <div className="ml-auto flex items-center">
+            {/* <div className="ml-auto flex items-center">
               <span className="text-xs font-medium text-gray-600 bg-gray-100 dark:bg-zinc-800 rounded-lg px-3 py-1.5">{label}</span>
-            </div>
+            </div> */}
           </div>
 
           {/* ── Metric Cards ─────────────────────────────────────────── */}
@@ -666,7 +736,21 @@ export default function MyDashboardPage() {
                 targetLabel={stats.pendingCount === 1 ? "Day" : "Days"}
                 percent={stats.pendingPercent}
                 footerLeft={stats.pendingCount > 0 ? "Action Required" : "All Clear"}
-                footerRight={stats.needsLog ? "Needs Log" : "Up to date"}
+                footerRight={
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    className="!text-[10px] !px-2.5 !h-6 bg-[#F5A623] hover:bg-[#e0951d] text-white border-none shadow-sm font-semibold flex items-center gap-1 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActivityFilter("pending");
+                      activitySectionRef.current?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                  >
+                    View List
+                  </Button>
+                }
                 icon={<ExclamationCircleOutlined />}
                 iconClassName="bg-amber-50 text-amber-500"
                 barClassName="bg-amber-500"
@@ -675,9 +759,117 @@ export default function MyDashboardPage() {
             </Col>
           </Row>
 
-          <RecentActivityCard activities={recentActivity} periodLabel={label} />
+          <div ref={activitySectionRef}>
+            <RecentActivityCard
+              activities={recentActivity}
+              periodLabel={label}
+              activeFilter={activityFilter}
+              onFilterChange={(f) => {
+                setActivityFilter(f);
+                if (f === "pending") setActiveCard("pending");
+                else if (f === "logged") setActiveCard("total");
+                else setActiveCard(null);
+              }}
+            />
+          </div>
+
+          {/* ── Avg Daily Hours Pace Breakdown Modal ───────────────── */}
+          <Modal
+            open={isPaceModalOpen}
+            onCancel={() => {
+              setIsPaceModalOpen(false);
+              if (activeCard === "avg") setActiveCard(null);
+            }}
+            footer={null}
+            title={
+              <div className="flex items-center gap-2 text-base font-bold text-gray-900 dark:text-gray-100">
+                <SyncOutlined className="text-cyan-500" />
+                <span>Avg. Daily Hours · Pace & Target Breakdown</span>
+              </div>
+            }
+            width={640}
+            className="rounded-2xl"
+          >
+            <div className="py-2 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50 dark:bg-zinc-900 p-4 rounded-xl border border-gray-100 dark:border-zinc-800">
+                <div>
+                  <div className="text-xs text-gray-400">Daily Average</div>
+                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {fmtHours(stats.avgDaily)} <span className="text-xs font-normal text-gray-400">/ day</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Target Benchmark</div>
+                  <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {fmtHours(stats.normalHours)} <span className="text-xs font-normal text-gray-400">/ day</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-400">Achievement Rate</div>
+                  <div className={`text-lg font-bold ${stats.avgPercent >= 80 ? "text-green-500" : "text-amber-500"}`}>
+                    {Math.round(stats.avgPercent)}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-500 bg-cyan-50/50 dark:bg-cyan-950/20 p-3 rounded-lg border border-cyan-100 dark:border-cyan-900/40 flex items-center justify-between">
+                <span>Calculation Formula:</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  {fmtHours(stats.totalHours)} logged ÷ {stats.elapsedWorkdays} workdays = {fmtHours(stats.avgDaily)} / day
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Workday Pace Breakdown ({label})
+                </div>
+                <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                  {recentActivity.map((activity) => (
+                    <div
+                      key={activity.date}
+                      className="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 hover:bg-gray-50 dark:hover:bg-zinc-900/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {activity.dateLabel}
+                          </span>
+                          <span className="text-xs text-gray-400">{activity.date}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {activity.isLogged ? (
+                          <>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                              {fmtHours(activity.totalHours)} / {fmtHours(stats.normalHours)}
+                            </span>
+                            <Tag color={activity.totalHours >= stats.normalHours ? "green" : "gold"} className="!m-0">
+                              {activity.totalHours >= stats.normalHours ? "Target Met" : "Under Target"}
+                            </Tag>
+                          </>
+                        ) : (
+                          <>
+                            <Tag color="volcano" className="!m-0">
+                              Needs Log
+                            </Tag>
+                            <Link href={`/timesheet?date=${activity.date}`}>
+                              <Button type="primary" size="small" className="!text-xs">
+                                Log Day
+                              </Button>
+                            </Link>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Modal>
         </>
       )}
+
 
       {isManager && dashboardView === "team" && (
         <>
@@ -810,7 +1002,7 @@ export default function MyDashboardPage() {
                     title: "Hours",
                     dataIndex: "hours",
                     key: "hours",
-                    render: (val: number) => <span className="font-semibold">{val}h</span>,
+                    render: (val: number) => <span className="font-semibold">{fmtHours(val)}</span>,
                   },
                   {
                     title: "Utilization",

@@ -69,7 +69,7 @@ const apiCache = new Map<string, { expiresAt: number; data: any; isRawText?: boo
 const apiInflight = new Map<string, express.Response[]>();
 
 function apiCacheMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' || req.originalUrl.includes('/download')) {
     return next();
   }
   const cacheKey = `${req.originalUrl}::${req.headers.authorization || ''}`;
@@ -166,13 +166,28 @@ function createProxy(targetHost: string, targetPort: number) {
       }
     }
 
-    // For POST/PUT/DELETE, keep the streaming proxy
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (typeof value === "string") {
+        headers[key] = value;
+      } else if (Array.isArray(value)) {
+        headers[key] = value.join(", ");
+      }
+    }
+    headers["host"] = `${targetHost}:${targetPort}`;
+
+    let bodyData: string | Buffer | null = null;
+    if (req.body && (typeof req.body === "object" ? Object.keys(req.body).length > 0 : true)) {
+      bodyData = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+      headers["content-length"] = String(Buffer.byteLength(bodyData));
+    }
+
     const options = {
       hostname: targetHost,
       port: targetPort,
       path: req.originalUrl,
       method: req.method,
-      headers: { ...req.headers, host: `${targetHost}:${targetPort}` },
+      headers,
       agent: proxyAgent,
     };
 
@@ -202,7 +217,12 @@ function createProxy(targetHost: string, targetPort: number) {
       }
     });
 
-    req.pipe(proxyReq, { end: true });
+    if (bodyData !== null) {
+      proxyReq.write(bodyData);
+      proxyReq.end();
+    } else {
+      req.pipe(proxyReq, { end: true });
+    }
   };
 }
 

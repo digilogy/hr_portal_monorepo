@@ -2,6 +2,7 @@
 
 import React from "react";
 import { RightOutlined, TeamOutlined } from "@ant-design/icons";
+import { fmtHours } from "@/lib/formatHours";
 
 interface DepartmentUtilizationRowProps {
   department: string;
@@ -69,7 +70,7 @@ export function DepartmentUtilizationRow({
               {headcount} employees
             </span>
             <span className="text-gray-300">·</span>
-            <span>{totalHours} hrs logged</span>
+            <span>{fmtHours(totalHours)} logged</span>
           </div>
         </div>
         <span

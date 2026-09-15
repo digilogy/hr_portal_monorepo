@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { fmtHours } from "@/lib/formatHours";
 
 interface BarDataPoint {
   label: string;
@@ -82,7 +83,11 @@ export function BarChart({
               {isHovered && (
                 <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg z-50 animate-fade-in-up">
                   <div className="font-semibold">{d.label}</div>
-                  <div>{d.value.toFixed(1)}{yAxisLabel}</div>
+                  <div>
+                    {yAxisLabel === "h" || yAxisLabel === "hrs"
+                      ? fmtHours(d.value)
+                      : `${d.value.toFixed(1)}${yAxisLabel}`}
+                  </div>
                   {d.secondaryValue && <div className="text-gray-300 text-[10px]">{d.secondaryValue}</div>}
                 </div>
               )}

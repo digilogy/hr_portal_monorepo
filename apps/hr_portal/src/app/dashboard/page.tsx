@@ -15,6 +15,7 @@ import {
   Empty,
   Drawer,
   Table,
+  Tooltip,
 } from "antd";
 import {
   TeamOutlined,
@@ -23,10 +24,11 @@ import {
   CalendarOutlined,
   BarChartOutlined,
   FilterOutlined,
+  ClearOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
 import { getTokenRole } from "@/lib/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE, apiFetch, getAuthHeaders } from "@/lib/api";
 import {
   appendDepartmentFilter,
@@ -37,6 +39,7 @@ import {
 } from "@/lib/reportFilters";
 import { AdminDepartmentFilter } from "@/components/reports/AdminDepartmentFilter";
 import { FilterField } from "@/components/ui/FilterField";
+import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
 import { DashboardMetricCard } from "@/components/dashboard/DashboardMetricCard";
 import { DepartmentUtilizationRow } from "@/components/dashboard/DepartmentUtilizationRow";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
@@ -46,6 +49,7 @@ import {
   appendPeriodToSearchParams,
   getEffectiveDateRange,
 } from "@/lib/dateRangePresets";
+import { fmtHours } from "@/lib/formatHours";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -101,18 +105,78 @@ function filterDepartmentsByCard(
 
 export default function DashboardPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [messageApi, contextHolder] = message.useMessage();
-  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("this_week");
+
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>(() => {
+    const urlPreset = searchParams?.get("period") as PeriodPreset;
+    return urlPreset || "this_week";
+  });
+
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null);
-  const [adminFilters, setAdminFilters] = useState<DepartmentFilter>(
-    DEFAULT_DEPARTMENT_FILTER,
-  );
+
+  const [adminFilters, setAdminFilters] = useState<DepartmentFilter>(() => {
+    const urlDept = searchParams?.get("department");
+    return urlDept ? { department: urlDept } : DEFAULT_DEPARTMENT_FILTER;
+  });
+
   const [filterOptions, setFilterOptions] = useState<DepartmentFilterOptions | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [cardFilter, setCardFilter] = useState<DashboardCardFilter>("all");
+
+  const [cardFilter, setCardFilter] = useState<DashboardCardFilter>(() => {
+    const urlCard = searchParams?.get("cardFilter") as DashboardCardFilter;
+    return urlCard || "all";
+  });
+
+  const handlePeriodChange = (preset: PeriodPreset) => {
+    setPeriodPreset(preset);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("period", preset);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const handleAdminFiltersChange = (filters: DepartmentFilter) => {
+    setAdminFilters(filters);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (filters.department && filters.department !== "all") {
+        url.searchParams.set("department", filters.department);
+      } else {
+        url.searchParams.delete("department");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const handleCardFilterChange = (filter: DashboardCardFilter) => {
+    setCardFilter(filter);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (filter !== "all") {
+        url.searchParams.set("cardFilter", filter);
+      } else {
+        url.searchParams.delete("cardFilter");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const handleClearDashboardFilters = () => {
+    handlePeriodChange("this_week");
+    setCustomRange(null);
+    handleAdminFiltersChange(DEFAULT_DEPARTMENT_FILTER);
+    handleCardFilterChange("all");
+  };
+
+  const toggleCardFilter = (filter: DashboardCardFilter) => {
+    handleCardFilterChange(cardFilter === filter ? "all" : filter);
+  };
+
   const [isUserDrawerVisible, setIsUserDrawerVisible] = useState(false);
   const [signedUpUsers, setSignedUpUsers] = useState<any[]>([]);
   const [loadingSignedUpUsers, setLoadingSignedUpUsers] = useState(false);
@@ -149,10 +213,6 @@ export default function DashboardPage() {
     };
     void fetchSignedUpUsers();
   }, [isUserDrawerVisible, dateRange.fromDate, dateRange.toDate, adminFilters, messageApi]);
-
-  const toggleCardFilter = (filter: DashboardCardFilter) => {
-    setCardFilter((current) => (current === filter ? "all" : filter));
-  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -254,7 +314,7 @@ export default function DashboardPage() {
                     } else {
                       setCustomRange(null);
                     }
-                    setPeriodPreset(value);
+                    handlePeriodChange(value);
                   }}
                   className="w-full"
                   options={PERIOD_PRESET_OPTIONS}
@@ -267,11 +327,11 @@ export default function DashboardPage() {
                   value={getEffectiveDateRange(periodPreset, customRange)}
                   onChange={(dates) => {
                     if (dates?.[0] && dates?.[1]) {
-                      setPeriodPreset("custom");
+                      handlePeriodChange("custom");
                       setCustomRange([dates[0], dates[1]]);
                     } else {
                       setCustomRange(null);
-                      setPeriodPreset("this_week");
+                      handlePeriodChange("this_week");
                     }
                   }}
                   disabledDate={(current) => current && current > dayjs().endOf("day")}
@@ -283,21 +343,21 @@ export default function DashboardPage() {
                 value={adminFilters}
                 options={filterOptions}
                 loading={!filterOptions && loading}
-                onChange={setAdminFilters}
+                onChange={handleAdminFiltersChange}
                 showLabel
                 className="w-full sm:w-56"
               />
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-zinc-800">
-            <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-gray-200 !bg-gray-50 !text-gray-600">
-              {dateRange.label}
-            </Tag>
-            {hasActiveDepartmentFilter(adminFilters) && (
-              <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-[#F5A623]/30 !bg-[#F5A623]/10 !text-[#c4841a]">
-                {adminFilters.department}
-              </Tag>
+            {(periodPreset !== "this_week" || hasActiveDepartmentFilter(adminFilters) || cardFilter !== "all") && (
+              <Tooltip title="Clear Filters">
+                <Button
+                  size="small"
+                  icon={<FilterClearIcon size={26} />}
+                  onClick={handleClearDashboardFilters}
+                  className="!flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none"
+                  aria-label="Clear Filters"
+                />
+              </Tooltip>
             )}
             {loading && summary && (
               <span className="text-xs text-gray-400 flex items-center gap-1.5 ml-auto">
@@ -306,6 +366,37 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
+
+          {/*   <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-zinc-800">
+             <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-gray-200 !bg-gray-50 !text-gray-600">
+              {dateRange.label}
+            </Tag> {hasActiveDepartmentFilter(adminFilters) && (
+              <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-[#F5A623]/30 !bg-[#F5A623]/10 !text-[#c4841a]">
+                {adminFilters.department}
+              </Tag>
+            )}  {cardFilter !== "all" && (
+              <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-blue-200 !bg-blue-50 !text-blue-600">
+                Card: {DASHBOARD_CARD_FILTER_LABELS[cardFilter]}
+              </Tag>
+            )}
+            {(periodPreset !== "this_week" || hasActiveDepartmentFilter(adminFilters) || cardFilter !== "all") && (
+              <Tooltip title="Clear Filters">
+                <Button
+                  size="small"
+                  icon={<FilterClearIcon size={26} />}
+                  onClick={handleClearDashboardFilters}
+                  className="!flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none"
+                  aria-label="Clear Filters"
+                />
+              </Tooltip>
+            )}
+            {loading && summary && (
+              <span className="text-xs text-gray-400 flex items-center gap-1.5 ml-auto">
+                <Spin size="small" />
+                Refreshing…
+              </span>
+            )}
+          </div> */}
         </div>
       </Card>
 
@@ -343,11 +434,10 @@ export default function DashboardPage() {
           <Col xs={12} sm={12} lg={5}>
             <DashboardMetricCard
               title="Total Logged Hours"
-              valueLabel={String(summary?.totalLoggedHours ?? 0)}
-              targetLabel="hrs"
+              valueLabel={fmtHours(summary?.totalLoggedHours ?? 0)}
               percent={Math.min((summary?.totalLoggedHours ?? 0) > 0 ? 100 : 0, 100)}
               footerLeft="Selected period"
-              footerRight={`${summary?.totalLoggedHours ?? 0}h total`}
+              footerRight={`${fmtHours(summary?.totalLoggedHours ?? 0)} total`}
               icon={<ClockCircleOutlined />}
               iconClassName="bg-indigo-50 text-indigo-500"
               barClassName="bg-indigo-500"
@@ -411,15 +501,6 @@ export default function DashboardPage() {
         }
         extra={
           <div className="flex items-center gap-3">
-            {cardFilter !== "all" && (
-              <button
-                type="button"
-                onClick={() => setCardFilter("all")}
-                className="text-sm text-[#F5A623] hover:underline"
-              >
-                Clear filter
-              </button>
-            )}
             <Text className="text-xs text-gray-400 hidden sm:inline">
               Click a department to view reports →
             </Text>

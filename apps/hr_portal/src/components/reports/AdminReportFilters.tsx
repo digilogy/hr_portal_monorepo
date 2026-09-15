@@ -1,7 +1,5 @@
-"use client";
-
 import React, { useEffect, useMemo, useState } from "react";
-import { Select } from "antd";
+import { Select, Button, Tooltip } from "antd";
 import {
   ApartmentOutlined,
   TeamOutlined,
@@ -9,6 +7,7 @@ import {
   PartitionOutlined,
   CheckCircleOutlined,
 } from "@ant-design/icons";
+import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
 import { apiFetch } from "@/lib/api";
 import { FilterField } from "@/components/ui/FilterField";
 import {
@@ -28,7 +27,9 @@ interface AdminReportFiltersProps {
   loading?: boolean;
   hideEmployee?: boolean;
   hideStatus?: boolean;
+  hideClearButton?: boolean;
   onChange: (value: ReportFilters) => void;
+  onClearAll?: () => void;
 }
 
 const selectClassName = "w-full";
@@ -43,7 +44,9 @@ export function AdminReportFilters({
   loading = false,
   hideEmployee = false,
   hideStatus = false,
+  hideClearButton = false,
   onChange,
+  onClearAll,
 }: AdminReportFiltersProps) {
   const [scopedEmployees, setScopedEmployees] = useState<ReportFilterEmployee[]>(
     [],
@@ -103,15 +106,17 @@ export function AdminReportFilters({
 
   const showStatus = !hideStatus;
 
-  const visibleCount = [showDept, showSubDept, showManager, showEmployee, showStatus].filter(Boolean).length;
-  const wrapperClass = visibleCount <= 1
-    ? "flex flex-col w-full sm:w-80 md:w-96 max-w-md gap-4"
-    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full";
+  const isFiltered =
+    (value.department && value.department !== "all") ||
+    (value.subDepartment && value.subDepartment !== "all") ||
+    (value.manager && value.manager !== "all") ||
+    (value.employee && value.employee !== "all") ||
+    (value.status && value.status !== "all");
 
   return (
-    <div className={wrapperClass}>
+    <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-4 w-full">
       {showDept && (
-        <FilterField label="Department" icon={<ApartmentOutlined />}>
+        <FilterField label="Department" icon={<ApartmentOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
           <Select
             popupMatchSelectWidth={false}
             virtual={false}
@@ -133,7 +138,7 @@ export function AdminReportFilters({
       )}
 
       {showSubDept && (
-        <FilterField label="Sub Department" icon={<PartitionOutlined />}>
+        <FilterField label="Sub Department" icon={<PartitionOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
           <Select
             popupMatchSelectWidth={false}
             virtual={false}
@@ -155,7 +160,7 @@ export function AdminReportFilters({
       )}
 
       {showManager && (
-        <FilterField label="Reporting Manager" icon={<TeamOutlined />}>
+        <FilterField label="Reporting Manager" icon={<TeamOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
           <Select
             popupMatchSelectWidth={false}
             virtual={false}
@@ -177,9 +182,9 @@ export function AdminReportFilters({
       )}
 
       {showEmployee && (
-        <FilterField label="Employee" icon={<UserOutlined />}>
+        <FilterField label="Employee" icon={<UserOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
           <Select
-            popupMatchSelectWidth={false}
+            popupMatchSelectWidth={true}
             virtual={false}
             allowClear
             showSearch
@@ -192,7 +197,7 @@ export function AdminReportFilters({
             className={selectClassName}
             placeholder="All Employees"
             options={(cascadedOptions.employees.length > 0 ? cascadedOptions.employees : (scopedOptions.employees || [])).map((item) => ({
-              value: 'employeeId' in item ? item.employeeId : (item as any).id, // Handle potential type mismatch just in case, though they should both have employeeId
+              value: 'employeeId' in item ? item.employeeId : (item as any).id,
               label: 'label' in item ? item.label : `${item.name} (${item.employeeId})`,
             }))}
           />
@@ -200,7 +205,7 @@ export function AdminReportFilters({
       )}
 
       {showStatus && (
-        <FilterField label="Status" icon={<CheckCircleOutlined />}>
+        <FilterField label="Status" icon={<CheckCircleOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
           <Select
             allowClear
             value={value.status === "all" ? undefined : value.status}
@@ -215,6 +220,21 @@ export function AdminReportFilters({
             ]}
           />
         </FilterField>
+      )}
+
+      {!hideClearButton && isFiltered && (
+        <Tooltip title="Clear Filters">
+          <Button
+            size="small"
+            icon={<FilterClearIcon size={26} />}
+            onClick={() => {
+              if (onClearAll) onClearAll();
+              else onChange(DEFAULT_REPORT_FILTERS);
+            }}
+            className="!flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none mb-1 sm:ml-auto"
+            aria-label="Clear Filters"
+          />
+        </Tooltip>
       )}
     </div>
   );

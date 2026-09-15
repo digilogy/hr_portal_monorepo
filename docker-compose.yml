@@ -45,6 +45,8 @@ services:
     container_name: hr-api
     ports:
       - "5111:5111"
+    volumes:
+      - uploads-data:/app/apps/api_hr_portal/uploads
     ulimits:
       nofile:
         soft: 65536
@@ -182,9 +184,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-
-
 volumes:
   postgresdata:
   redisdata:
+  uploads-data:

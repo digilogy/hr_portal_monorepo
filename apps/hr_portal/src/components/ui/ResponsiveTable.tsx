@@ -71,7 +71,7 @@ export function ResponsiveTable<RecordType extends object = any>({
   }, [props.pagination]);
 
   const viewMode = controlledViewMode !== undefined ? controlledViewMode : internalViewMode;
-  
+
   const handleViewModeChange = (val: "table" | "card") => {
     setInternalViewMode(val);
     onViewModeChange?.(val);
@@ -99,7 +99,14 @@ export function ResponsiveTable<RecordType extends object = any>({
     }
   };
 
+  const totalCount =
+    pagination && typeof pagination === "object" && pagination.total !== undefined
+      ? pagination.total
+      : (dataSource as RecordType[])?.length ?? 0;
+
   const controlledPagination: TableProps<RecordType>['pagination'] = pagination === false ? false : {
+    total: totalCount,
+    showSizeChanger: true,
     ...(typeof pagination === 'object' ? pagination : {}),
     current: internalCurrent,
     pageSize: internalPageSize,
@@ -114,7 +121,7 @@ export function ResponsiveTable<RecordType extends object = any>({
 
   // Automatically inject Sl.No column if it doesn't exist
   const hasSlNo = originalColumns?.some((col: any) => col.title === "Sl.No" || col.title === "S.No");
-  
+
   const columns = hasSlNo ? originalColumns : [
     {
       title: "Sl.No",
@@ -127,13 +134,13 @@ export function ResponsiveTable<RecordType extends object = any>({
     ...(originalColumns || [])
   ];
 
-  const tableProps = { 
-    ...restProps, 
-    dataSource, 
-    pagination: controlledPagination, 
-    rowKey, 
-    loading, 
-    columns, 
+  const tableProps = {
+    ...restProps,
+    dataSource,
+    pagination: controlledPagination,
+    rowKey,
+    loading,
+    columns,
     onChange: handleTableChange,
     scroll: restProps.scroll || { x: 'max-content' }
   };
@@ -165,16 +172,23 @@ export function ResponsiveTable<RecordType extends object = any>({
   }
 
   // --- Card View Rendering ---
-  let data = (dataSource as RecordType[]) || [];
+  let rawData = (dataSource as RecordType[]) || [];
   if (flattenChildrenInCardView) {
-    data = flattenRecords(data);
+    rawData = flattenRecords(rawData);
   }
 
-  // Handle pagination slicing for Card view
-  if (controlledPagination && controlledPagination.pageSize) {
+  // Determine if data is pre-paginated by server
+  const isServerPaginated =
+    pagination &&
+    typeof pagination === "object" &&
+    pagination.total !== undefined &&
+    rawData.length < pagination.total;
+
+  let displayData = rawData;
+  if (!isServerPaginated && controlledPagination && controlledPagination.pageSize) {
     const startIndex = (internalCurrent - 1) * internalPageSize;
     const endIndex = startIndex + internalPageSize;
-    data = data.slice(startIndex, endIndex);
+    displayData = rawData.slice(startIndex, endIndex);
   }
 
   const getRowKey = (record: RecordType, index?: number) => {
@@ -186,63 +200,71 @@ export function ResponsiveTable<RecordType extends object = any>({
   return (
     <div>
       {renderToggle()}
-      
+
       {loading ? (
         <Table loading={loading} dataSource={[]} columns={[]} />
-      ) : data.length === 0 ? (
+      ) : displayData.length === 0 ? (
         <Empty />
       ) : (
         <div className="flex flex-col gap-4">
-          {data.map((record, index) => (
-            <Card key={getRowKey(record, index)} className="shadow-sm border border-gray-100 dark:border-zinc-800 [&>.ant-card-body]:!p-3 sm:[&>.ant-card-body]:!p-4 md:[&>.ant-card-body]:!p-5">
-              {cardRender ? (
-                cardRender(record, index)
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {columns?.map((col, colIndex) => {
-                    if (!col || (col as any).hidden) return null;
-                    const title = col.title;
-                    
-                    // Hide Sl.No from card view
-                    if (title === "Sl.No" || title === "S.No") return null;
+          {displayData.map((record, index) => {
+            const rowProps = restProps.onRow ? restProps.onRow(record, index) : {};
+            return (
+              <Card
+                key={getRowKey(record, index)}
+                {...rowProps}
+                className={`shadow-sm border border-gray-100 dark:border-zinc-800 [&>.ant-card-body]:!p-3 sm:[&>.ant-card-body]:!p-4 md:[&>.ant-card-body]:!p-5 ${rowProps?.onClick ? "cursor-pointer hover:border-orange-300 transition-colors" : ""
+                  } ${rowProps?.className || ""}`}
+              >
+                {cardRender ? (
+                  cardRender(record, index)
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {columns?.map((col, colIndex) => {
+                      if (!col || (col as any).hidden) return null;
+                      const title = col.title;
 
-                    let value: any = null;
-                    
-                    if (col.render) {
-                      const text = (col as any).dataIndex ? (record as any)[(col as any).dataIndex] : record;
-                      const rendered = col.render(text, record, index);
-                      if (rendered && typeof rendered === "object" && "children" in rendered && !React.isValidElement(rendered)) {
-                        value = (rendered as any).children;
-                      } else {
-                        value = rendered;
+                      // Hide Sl.No from card view
+                      if (title === "Sl.No" || title === "S.No") return null;
+
+                      let value: any = null;
+
+                      if (col.render) {
+                        const text = (col as any).dataIndex ? (record as any)[(col as any).dataIndex] : record;
+                        const rendered = col.render(text, record, index);
+                        if (rendered && typeof rendered === "object" && "children" in rendered && !React.isValidElement(rendered)) {
+                          value = (rendered as any).children;
+                        } else {
+                          value = rendered;
+                        }
+                      } else if ((col as any).dataIndex) {
+                        value = (record as any)[(col as any).dataIndex];
                       }
-                    } else if ((col as any).dataIndex) {
-                      value = (record as any)[(col as any).dataIndex];
-                    }
 
-                    if (value === undefined || value === null || title === undefined) {
-                      return null;
-                    }
+                      if (value === undefined || value === null || title === undefined) {
+                        return null;
+                      }
 
-                    return (
-                      <div key={colIndex} className="flex justify-between items-start gap-4">
-                        <span className="text-gray-500 text-xs font-medium uppercase tracking-wide shrink-0">
-                          {title as React.ReactNode}
-                        </span>
-                        <span className="text-right text-sm text-gray-900 dark:text-zinc-100 break-words">
-                          {value}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-          ))}
-          
-          {pagination !== false && pagination && (
+                      return (
+                        <div key={colIndex} className="flex justify-between items-start gap-4">
+                          <span className="text-gray-500 text-xs font-medium uppercase tracking-wide shrink-0">
+                            {title as React.ReactNode}
+                          </span>
+                          <span className="text-right text-sm text-gray-900 dark:text-zinc-100 break-words">
+                            {value}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+
+          {controlledPagination !== false && (
             <div className="flex justify-center mt-4">
-               <Pagination {...pagination} />
+              <Pagination {...controlledPagination} />
             </div>
           )}
         </div>

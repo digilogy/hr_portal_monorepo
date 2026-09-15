@@ -81,7 +81,7 @@ export class TeamReportsRepository {
         const email = row.email;
         if (!email) continue;
         result.set(email, {
-          hours: parseFloat(Number(row.hours).toFixed(1)),
+          hours: parseFloat(Number(row.hours).toFixed(4)),
           hasEntry: Number(row.entryCount) > 0,
         });
       }

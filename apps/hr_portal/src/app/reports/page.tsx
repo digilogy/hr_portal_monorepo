@@ -17,12 +17,17 @@ import {
   Modal,
   Spin,
   Select,
+  Tooltip,
 } from "antd";
 import type { ColumnsType, TablePaginationConfig } from "antd/es/table";
 import {
   FileExcelOutlined,
   FilterOutlined,
   UserOutlined,
+  TeamOutlined,
+  ApartmentOutlined,
+  PartitionOutlined,
+  ClearOutlined,
 } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import dayjs from "dayjs";
@@ -39,6 +44,7 @@ import {
   type ReportFilters,
 } from "@/lib/reportFilters";
 import { AdminReportFilters } from "@/components/reports/AdminReportFilters";
+import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import {
   PERIOD_PRESET_OPTIONS,
@@ -47,18 +53,10 @@ import {
   getEffectiveDateRange,
   parsePeriodFromSearchParams,
 } from "@/lib/dateRangePresets";
+import { formatDuration } from "@/lib/formatHours";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
-
-function formatDuration(hours: number): string {
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-  if (h > 0) return `${h}hrs`;
-  if (m > 0) return `${m}mins`;
-  return "0hrs";
-}
 
 interface UserReportRow {
   key: string;
@@ -124,7 +122,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return parseFloat(diff.toFixed(1));
+  return parseFloat(diff.toFixed(4));
 }
 
 const timesheetColumns: ColumnsType<TimesheetTableRow> = [
@@ -259,6 +257,7 @@ function ReportTable({
   scrollX,
   emptyText,
   cardRender,
+  onRow,
 }: {
   columns: ColumnsType<any>;
   data: any[];
@@ -267,6 +266,7 @@ function ReportTable({
   scrollX: number;
   emptyText: string;
   cardRender?: (record: any, index: number) => React.ReactNode;
+  onRow?: (record: any, index?: number) => React.HTMLAttributes<any>;
 }) {
   if (!loading && data.length === 0) {
     return <Empty description={emptyText} />;
@@ -285,6 +285,7 @@ function ReportTable({
         ...pagination,
       }}
       scroll={{ x: scrollX }}
+      onRow={onRow}
       className="[&_.ant-table-thead>tr>th]:bg-gray-50 dark:[&_.ant-table-thead>tr>th]:bg-zinc-900 [&_.ant-table-thead>tr>th]:font-semibold"
     />
   );
@@ -308,7 +309,10 @@ export default function ReportsPage() {
   const [capabilitiesLoading, setCapabilitiesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
-  const initialPeriod = parsePeriodFromSearchParams(searchParams);
+  const initialPeriod = useMemo(() => {
+    return parsePeriodFromSearchParams(searchParams);
+  }, [searchParams]);
+
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>(
     initialPeriod.periodPreset,
   );
@@ -343,9 +347,9 @@ export default function ReportsPage() {
   const [employeeDetail, setEmployeeDetail] = useState<EmployeeTimesheetDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [adminFilters, setAdminFilters] = useState<ReportFilters>(() =>
-    parseReportFiltersFromSearchParams(searchParams),
-  );
+  const [adminFilters, setAdminFilters] = useState<ReportFilters>(() => {
+    return parseReportFiltersFromSearchParams(searchParams);
+  });
   const [filterOptions, setFilterOptions] = useState<ReportFilterOptions | null>(
     null,
   );
@@ -372,6 +376,30 @@ export default function ReportsPage() {
     },
     [syncReportsUrl, periodPreset, customRange],
   );
+
+  const handleClearAllFilters = useCallback(() => {
+    const defaultFilters = DEFAULT_REPORT_FILTERS;
+    const defaultPreset: PeriodPreset = "this_week";
+    const defaultRange = null;
+
+    setAdminFilters(defaultFilters);
+    setPeriodPreset(defaultPreset);
+    setCustomRange(defaultRange);
+    setUserPage(1);
+
+    const params = reportFiltersToSearchParams(defaultFilters);
+    appendPeriodToSearchParams(params, defaultPreset, defaultRange);
+    const query = params.toString();
+    router.replace(query ? `/reports?${query}` : "/reports", { scroll: false });
+  }, [router]);
+
+  const isAnyReportFilterActive = useMemo(() => {
+    return (
+      hasActiveReportFilters(adminFilters) ||
+      periodPreset !== "this_week" ||
+      customRange !== null
+    );
+  }, [adminFilters, periodPreset, customRange]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -741,25 +769,8 @@ export default function ReportsPage() {
           <Title level={2} className="!mb-1 text-xl md:text-3xl">
             {isAdmin ? "Organization Reports" : "Team Reports"}
           </Title>
-          {/* <p className="text-gray-500 text-sm md:text-base">
-            {isAdmin
-              ? "Full access to utilization reports across the organization."
-              : "Timesheet and utilization reports for your direct reports and downline."}
-          </p> */}
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <Select
-            value={periodPreset}
-            onChange={handlePeriodChange}
-            className="w-full sm:w-44"
-            options={PERIOD_PRESET_OPTIONS}
-          />
-          <RangePicker
-            className="w-full sm:w-auto"
-            value={dateRange}
-            onChange={handleDateRangeChange}
-            disabled={periodPreset !== "custom"}
-          />
+        <div className="flex items-center justify-end gap-3 ml-auto">
           <Button
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
@@ -767,48 +778,95 @@ export default function ReportsPage() {
           >
             Export Excel
           </Button>
-          {/* <Button
-            icon={<FilePdfOutlined />}
-            onClick={handleExportPdf}
-            loading={exporting === "pdf"}
-          >
-            Export PDF
-          </Button> */}
         </div>
       </div>
 
       {error && <Alert type="error" title={error} showIcon className="mb-4" />}
 
-      {isAdmin && (
+      {isAdmin ? (
         <Card
           variant="borderless"
           className="shadow-sm border border-gray-100 dark:border-zinc-800 rounded-xl !mb-3"
           styles={{ body: { padding: 20 } }}
           title={
-            <span className="flex items-center gap-2 text-base font-semibold">
-              <FilterOutlined className="text-[#F5A623]" />
-              Report Filters
-            </span>
-          }
-          extra={
-            hasActiveReportFilters(adminFilters) ? (
-              <Button
-                type="link"
-                size="small"
-                className="!text-gray-500 hover:!text-[#F5A623]"
-                onClick={() => handleAdminFiltersChange(DEFAULT_REPORT_FILTERS)}
-              >
-                Clear all
-              </Button>
-            ) : null
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full py-1">
+              <span className="flex items-center gap-2 text-base font-semibold">
+                <FilterOutlined className="text-[#F5A623]" />
+                Report Filters
+              </span>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto font-normal text-sm">
+                <Select
+                  value={periodPreset}
+                  onChange={handlePeriodChange}
+                  className="w-full sm:w-44"
+                  options={PERIOD_PRESET_OPTIONS}
+                />
+                <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
+                  <RangePicker
+                    className="w-full sm:w-auto flex-1 sm:flex-initial"
+                    value={dateRange}
+                    onChange={handleDateRangeChange}
+                    disabled={periodPreset !== "custom"}
+                  />
+                  {isAnyReportFilterActive && (
+                    <Tooltip title="Clear Filters">
+                      <Button
+                        size="small"
+                        icon={<FilterClearIcon size={26} />}
+                        onClick={handleClearAllFilters}
+                        className="!flex-none !flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none"
+                        aria-label="Clear Filters"
+                      />
+                    </Tooltip>
+                  )}
+                </div>
+              </div>
+            </div>
           }
         >
           <AdminReportFilters
             value={adminFilters}
             options={filterOptions}
             loading={filterOptionsLoading && !filterOptions}
+            hideClearButton={true}
             onChange={handleAdminFiltersChange}
           />
+        </Card>
+      ) : (
+        <Card
+          variant="borderless"
+          className="shadow-sm border border-gray-100 dark:border-zinc-800 rounded-xl !mb-3"
+          styles={{ body: { padding: 16 } }}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="flex items-center gap-2 text-base font-semibold mr-2">
+              <FilterOutlined className="text-[#F5A623]" />
+              Report Period
+            </span>
+            <Select
+              value={periodPreset}
+              onChange={handlePeriodChange}
+              className="w-36 md:w-44"
+              options={PERIOD_PRESET_OPTIONS}
+            />
+            <RangePicker
+              className="w-full sm:w-auto"
+              value={dateRange}
+              onChange={handleDateRangeChange}
+              disabled={periodPreset !== "custom"}
+            />
+            {isAnyReportFilterActive && (
+              <Tooltip title="Clear Filter">
+                <Button
+                  size="small"
+                  icon={<FilterClearIcon size={26} />}
+                  onClick={handleClearAllFilters}
+                  className="!flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none"
+                  aria-label="Clear Filter"
+                />
+              </Tooltip>
+            )}
+          </div>
         </Card>
       )}
 
@@ -828,8 +886,12 @@ export default function ReportsPage() {
                   loading={userLoading}
                   scrollX={900}
                   emptyText="No user-wise report data for the selected period."
+                  onRow={(record: any) => ({
+                    onClick: () => void openEmployeeDetail(record),
+                    className: "cursor-pointer hover:bg-orange-50/20 transition-colors",
+                  })}
                   cardRender={(record: any, index: number) => (
-                    <div className="flex flex-col gap-3 sm:gap-4">
+                    <div className="flex flex-col gap-3 sm:gap-4 cursor-pointer" onClick={() => void openEmployeeDetail(record)}>
                       {/* Header: #index + Avatar + Name + Status tag */}
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={() => void openEmployeeDetail(record)}>

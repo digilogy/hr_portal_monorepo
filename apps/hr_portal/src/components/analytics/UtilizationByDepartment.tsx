@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Segmented, Tag, Button, Modal, Input, Table } from "antd";
 import { UnorderedListOutlined, SearchOutlined } from "@ant-design/icons";
+import { fmtHours } from "@/lib/formatHours";
 
 export interface DepartmentUtilizationItem {
   department: string;
@@ -93,7 +94,7 @@ export function UtilizationByDepartment({
       dataIndex: "totalHours",
       key: "totalHours",
       align: "right" as const,
-      render: (val: number) => `${val}h`,
+      render: (val: number) => fmtHours(val),
     },
     {
       title: "Avg. Utilization (%)",

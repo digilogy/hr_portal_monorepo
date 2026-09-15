@@ -86,7 +86,12 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
   const calculateHours = (slot: string) => {
     const hours = getSlotDurationHours(slot);
     if (hours <= 0) return "";
-    return parseFloat(hours.toFixed(1)) + " hrs";
+    const totalMins = Math.round(hours * 60);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    if (h === 0) return `${m} mins`;
+    if (m === 0) return `${h} hrs`;
+    return `${h} hrs ${m} mins`;
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -367,9 +372,17 @@ export const TimesheetColumnView: React.FC<TimesheetColumnViewProps> = ({
                         {day.totalHours > 0 && (
                           <div className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-50 dark:bg-green-900/20 rounded-md">
                             <CheckCircleOutlined className="text-green-500 text-[9px]" />
-                            <span className="text-[9px] font-bold text-green-700 dark:text-green-400">
-                              {day.totalHours} hrs
-                            </span>
+                             <span className="text-[9px] font-bold text-green-700 dark:text-green-400">
+                               {(() => {
+                                 const totalMins = Math.round(day.totalHours * 60);
+                                 const h = Math.floor(totalMins / 60);
+                                 const m = totalMins % 60;
+                                 if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
+                                 if (h > 0) return `${h}hrs`;
+                                 if (m > 0) return `${m}mins`;
+                                 return "0hrs";
+                               })()}
+                             </span>
                           </div>
                         )}
                       </div>

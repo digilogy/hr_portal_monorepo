@@ -16,7 +16,9 @@ import {
   Drawer,
   Descriptions,
   Grid,
-  Segmented
+  Segmented,
+  Button,
+  Tooltip,
 } from "antd";
 import type { TablePaginationConfig } from "antd/es/table";
 import {
@@ -26,8 +28,10 @@ import {
   ExclamationCircleOutlined,
   AppstoreOutlined,
   TableOutlined,
+  ClearOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { fmtHours } from "@/lib/formatHours";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { canAccessTeam, getNameInitials, getTokenRole } from "@/lib/auth";
@@ -40,6 +44,7 @@ import {
 } from "@/lib/reportFilters";
 import { AdminDepartmentFilter } from "@/components/reports/AdminDepartmentFilter";
 import { AdminReportFilters } from "@/components/reports/AdminReportFilters";
+import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 import { DashboardMetricCard } from "@/components/dashboard/DashboardMetricCard";
 import { useSearchParams } from "next/navigation";
@@ -96,6 +101,7 @@ const ROSTER_CARD_FILTER_LABELS: Record<RosterCardFilter, string> = {
 
 export default function MyTeamPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const role = getTokenRole();
   const isAdmin = role === "admin";
   const [loading, setLoading] = useState(true);
@@ -104,7 +110,7 @@ export default function MyTeamPage() {
   const [summary, setSummary] = useState<TeamResponse["summary"] | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(10);
   const [viewMode, setViewMode] = useState<"flat" | "tree">("flat");
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false;
@@ -119,10 +125,43 @@ export default function MyTeamPage() {
   }, [isMobile]);
 
   const [selectedMember, setSelectedMember] = useState<TeamMemberNode | null>(null);
-  const [cardFilter, setCardFilter] = useState<RosterCardFilter>("all");
-  const [adminFilters, setAdminFilters] = useState<DepartmentFilter>(
-    DEFAULT_DEPARTMENT_FILTER,
-  );
+  const [cardFilter, setCardFilter] = useState<RosterCardFilter>(() => {
+    const urlFilter = searchParams?.get("rosterFilter") as RosterCardFilter;
+    return urlFilter || "all";
+  });
+  const [adminFilters, setAdminFilters] = useState<DepartmentFilter>(() => {
+    const urlDept = searchParams?.get("department");
+    return urlDept ? { department: urlDept } : DEFAULT_DEPARTMENT_FILTER;
+  });
+
+  const handleCardFilterChange = (filter: RosterCardFilter) => {
+    setCardFilter(filter);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (filter !== "all") url.searchParams.set("rosterFilter", filter);
+      else url.searchParams.delete("rosterFilter");
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const handleAdminFiltersChange = (filters: DepartmentFilter) => {
+    setAdminFilters(filters);
+    setPage(1);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (filters.department && filters.department !== "all") {
+        url.searchParams.set("department", filters.department);
+      } else {
+        url.searchParams.delete("department");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const handleClearTeamFilters = () => {
+    handleCardFilterChange("all");
+    handleAdminFiltersChange(DEFAULT_DEPARTMENT_FILTER);
+  };
   const [filterOptions, setFilterOptions] = useState<DepartmentFilterOptions | null>(
     null,
   );
@@ -230,7 +269,7 @@ export default function MyTeamPage() {
         title: "This Week's Hours",
         dataIndex: "hours",
         key: "hours",
-        render: (val: number) => <span className="font-semibold">{val}h</span>,
+        render: (val: number) => <span className="font-semibold">{fmtHours(val)}</span>,
       },
       {
         title: "Timesheet Status",
@@ -262,7 +301,7 @@ export default function MyTeamPage() {
   }, [summary]);
 
   const toggleCardFilter = (filter: RosterCardFilter) => {
-    setCardFilter((current) => (current === filter ? "all" : filter));
+    handleCardFilterChange(cardFilter === filter ? "all" : filter);
     setPage(1);
   };
   const rosterTitle = isAdmin ? "Organization Roster" : "Team & Downline Roster";
@@ -299,21 +338,28 @@ export default function MyTeamPage() {
           <Title level={2} className="!mb-1 text-gray-900 dark:text-gray-100">
             My Team
           </Title>
-          {/* <p className="text-gray-500 text-sm md:text-base">
-            Direct reports and full downline hierarchy with current timesheet status.
-          </p> */}
         </div>
-        {isAdmin && (
-          <AdminDepartmentFilter
-            value={adminFilters}
-            options={filterOptions}
-            loading={loading || filterOptionsLoading}
-            onChange={(filters) => {
-              setAdminFilters(filters);
-              setPage(1);
-            }}
-          />
-        )}
+        <div className="flex items-center justify-end gap-2 ml-auto">
+          {isAdmin && (
+            <AdminDepartmentFilter
+              value={adminFilters}
+              options={filterOptions}
+              loading={loading || filterOptionsLoading}
+              onChange={handleAdminFiltersChange}
+              className="w-56 sm:w-64"
+            />
+          )}
+          {(cardFilter !== "all" || hasActiveDepartmentFilter(adminFilters)) && (
+            <Tooltip title="Clear Filters">
+              <Button
+                icon={<FilterClearIcon size={26} />}
+                onClick={handleClearTeamFilters}
+                className="!flex-none !flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none"
+                aria-label="Clear Filters"
+              />
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {error && <Alert type="error" title={error} showIcon className="mb-4" />}
@@ -411,13 +457,6 @@ export default function MyTeamPage() {
             <div className="px-4 py-1.5 rounded-full border border-orange-200 text-[#F5A623] bg-orange-50 font-medium text-xs sm:text-sm shadow-sm">
               {ROSTER_CARD_FILTER_LABELS[cardFilter]} ({total})
             </div>
-            <button
-              type="button"
-              onClick={() => setCardFilter("all")}
-              className="text-[#F5A623] hover:underline text-sm font-medium"
-            >
-              Clear
-            </button>
           </div>
         )}
 
@@ -431,8 +470,12 @@ export default function MyTeamPage() {
             hideToggle={true}
             viewMode={tableViewMode}
             onViewModeChange={(val) => setTableViewMode(val)}
+            onRow={(record: TeamMemberNode) => ({
+              onClick: () => setSelectedMember(record),
+              className: "cursor-pointer hover:bg-orange-50/20 transition-colors",
+            })}
             cardRender={(record: TeamMemberNode) => (
-              <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="flex flex-col gap-3 sm:gap-4 cursor-pointer" onClick={() => setSelectedMember(record)}>
                 {/* Header: Avatar + Name/ID + Status */}
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group" onClick={() => setSelectedMember(record)}>
@@ -469,7 +512,7 @@ export default function MyTeamPage() {
                 <div className="flex justify-between items-center text-xs sm:text-sm mt-1 sm:mt-2 pt-2 sm:pt-3 border-t border-gray-100 dark:border-zinc-800">
                   <div>
                     <span className="text-gray-400">Hours: </span>
-                    <span className="font-bold">{record.hours}h</span>
+                    <span className="font-bold">{fmtHours(record.hours)}</span>
                   </div>
                   <div>
                     <span className="text-gray-400">Utilization: </span>
@@ -545,7 +588,7 @@ export default function MyTeamPage() {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="This Week's Hours">
-                <span className="font-semibold">{selectedMember.hours}h</span>
+                <span className="font-semibold">{fmtHours(selectedMember.hours)}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Utilization">
                 <span

@@ -76,7 +76,15 @@ export const DateWiseTaskHistory: React.FC<DateWiseTaskHistoryProps> = ({
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 dark:bg-green-900/20 rounded-md">
                     <span className="text-[10px] font-bold text-green-700 dark:text-green-400 whitespace-nowrap">
-                      {day.totalHours} hrs logged
+                      {(() => {
+                        const totalMins = Math.round(day.totalHours * 60);
+                        const h = Math.floor(totalMins / 60);
+                        const m = totalMins % 60;
+                        if (h > 0 && m > 0) return `${h}hrs ${m}mins logged`;
+                        if (h > 0) return `${h}hrs logged`;
+                        if (m > 0) return `${m}mins logged`;
+                        return "0hrs logged";
+                      })()}
                     </span>
                   </div>
                 </td>

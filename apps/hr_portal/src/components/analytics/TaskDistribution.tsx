@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { Card, Typography, Empty, Progress } from "antd";
+import { fmtHours } from "@/lib/formatHours";
 
 const { Title, Text } = Typography;
 
@@ -57,7 +58,7 @@ export function TaskDistribution({ distribution }: TaskDistributionProps) {
                 </Text>
               </div>
               <Text className="font-bold text-gray-900 dark:text-white">
-                {item.hours}h
+                {fmtHours(item.hours)}
               </Text>
             </div>
             

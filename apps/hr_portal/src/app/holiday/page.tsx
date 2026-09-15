@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Table, Button, Typography, message, Modal, Form, Input, DatePicker, Select, Switch, Space } from "antd";
-import { PlusOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import { Table, Button, Typography, message, Modal, Form, Input, DatePicker, Select, Switch, Space, Tooltip } from "antd";
+import { PlusOutlined, DeleteOutlined, EditOutlined, ClearOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
+import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -33,10 +34,36 @@ interface Holiday {
 export default function HolidaysAdminPage() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
-  const [selectedZone, setSelectedZone] = useState<string>("Tamil Nadu Zone");
+  const [selectedZone, setSelectedZone] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlZone = urlParams.get("zone");
+      if (urlZone !== null) return urlZone;
+    }
+    return "Tamil Nadu Zone";
+  });
   const [currentPage, setCurrentPage] = useState(1);
+
+  const handleZoneChange = (val: string) => {
+    const newZone = val || "";
+    setSelectedZone(newZone);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (newZone) {
+        url.searchParams.set("zone", newZone);
+      } else {
+        url.searchParams.delete("zone");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const handleClearZoneFilter = () => {
+    handleZoneChange("");
+  };
   const [form] = Form.useForm();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -57,7 +84,8 @@ export default function HolidaysAdminPage() {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/admin/holidays`, {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(10000),
       });
       if (!response.ok) throw new Error("Failed to fetch holidays");
       const data = await response.json();
@@ -95,7 +123,8 @@ export default function HolidaysAdminPage() {
     try {
       const response = await fetch(`${API_URL}/api/admin/holidays/${id}`, {
         method: "DELETE",
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(10000),
       });
       if (!response.ok) throw new Error("Failed to delete holiday");
       messageApi.success("Holiday deleted successfully");
@@ -119,19 +148,22 @@ export default function HolidaysAdminPage() {
       isOptional: values.isOptional || false,
     };
 
+    setSubmitting(true);
     try {
       let response;
       if (editingHoliday) {
         response = await fetch(`${API_URL}/api/admin/holidays/${editingHoliday.id}`, {
           method: "PUT",
           headers: getAuthHeaders(),
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
         });
       } else {
         response = await fetch(`${API_URL}/api/admin/holidays`, {
           method: "POST",
           headers: getAuthHeaders(),
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
         });
       }
 
@@ -140,13 +172,15 @@ export default function HolidaysAdminPage() {
         messageApi.error(errorData.message || "Failed to save holiday");
         return;
       }
-      
+
       messageApi.success(`Holiday ${editingHoliday ? "updated" : "added"} successfully`);
       setIsModalVisible(false);
       fetchHolidays();
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : "Failed to save holiday";
       messageApi.error(errMsg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -206,21 +240,33 @@ export default function HolidaysAdminPage() {
         <Title level={2} className="!mb-0">Holidays</Title>
         <div className="flex flex-nowrap items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
           <Select
-            value={selectedZone}
-            onChange={setSelectedZone}
+            value={selectedZone || undefined}
+            onChange={(val) => handleZoneChange(val || "")}
             style={{ width: 200 }}
+            allowClear
+            placeholder="All Zones"
             options={ZONES.map(zone => ({ label: zone, value: zone }))}
           />
+          {/* {selectedZone && (
+            <Tooltip title="Clear Filter">
+              <Button
+                icon={<FilterClearIcon size={26} />}
+                onClick={handleClearZoneFilter}
+                className="!flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none"
+                aria-label="Clear Filter"
+              />
+            </Tooltip>
+          )} */}
           <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             Add Holiday
           </Button>
         </div>
       </div>
 
-      <ResponsiveTable 
-        columns={columns} 
-        dataSource={filteredHolidays} 
-        rowKey="id" 
+      <ResponsiveTable
+        columns={columns}
+        dataSource={filteredHolidays}
+        rowKey="id"
         loading={loading}
         bordered
         size="middle"
@@ -235,6 +281,7 @@ export default function HolidaysAdminPage() {
         title={editingHoliday ? "Edit Holiday" : "Add Holiday"}
         open={isModalVisible}
         onOk={handleModalOk}
+        confirmLoading={submitting}
         onCancel={() => setIsModalVisible(false)}
         destroyOnHidden
         forceRender

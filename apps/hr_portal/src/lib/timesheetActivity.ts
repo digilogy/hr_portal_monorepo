@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { getSlotDurationHours } from "./timesheetSlots";
 
 export interface ActivitySlot {
   task?: string;
@@ -20,6 +21,7 @@ export interface DayActivity {
   dateLabel: string;
   isToday: boolean;
   isLogged: boolean;
+  isEditable?: boolean;
   totalHours: number;
   taskCount: number;
   slotCount: number;
@@ -141,7 +143,19 @@ export function buildDayActivity(
   entry: ActivityTimesheetEntry | null | undefined,
 ): DayActivity {
   const isToday = dayjs(date).isSame(dayjs(), "day");
-  const totalHours = entry?.totalHours ?? 0;
+  let totalHours = entry?.totalHours ?? 0;
+  if (entry?.slots && entry.slots.length > 0) {
+    let slotsSum = 0;
+    for (const slot of entry.slots) {
+      if (
+        slot.timeSlot &&
+        (slot.task?.trim() || slot.title?.trim() || (slot.taskType && slot.taskType !== "Custom"))
+      ) {
+        slotsSum += getSlotDurationHours(slot.timeSlot);
+      }
+    }
+    if (slotsSum > 0) totalHours = slotsSum;
+  }
   const isLogged = totalHours > 0;
   const filledSlots = entry ? getFilledSlots(entry.slots) : [];
   const { highlights, summary } = entry

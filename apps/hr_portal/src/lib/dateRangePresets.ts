@@ -19,6 +19,16 @@ export const PERIOD_PRESET_OPTIONS = [
   { value: "custom", label: "Custom Range" },
 ];
 
+export function startOfWeekMonday(date: Dayjs): Dayjs {
+  const day = date.day();
+  const diff = day === 0 ? -6 : 1 - day;
+  return date.add(diff, "day").startOf("day");
+}
+
+export function endOfWeekMonday(date: Dayjs): Dayjs {
+  return startOfWeekMonday(date).add(6, "day").endOf("day");
+}
+
 export function getPresetDateRange(
   preset: Exclude<PeriodPreset, "custom">,
 ): [Dayjs, Dayjs] {
@@ -32,8 +42,8 @@ export function getPresetDateRange(
       return [yesterday, yesterday];
     }
     case "last_week": {
-      const lastWeek = today.subtract(1, "week");
-      return [lastWeek.startOf("week"), lastWeek.endOf("week")];
+      const lastWeekMonday = startOfWeekMonday(today.subtract(1, "week"));
+      return [lastWeekMonday, endOfWeekMonday(lastWeekMonday)];
     }
     case "this_month":
       return [today.startOf("month"), today];
@@ -43,9 +53,10 @@ export function getPresetDateRange(
     }
     case "this_week":
     default:
-      return [today.startOf("week"), today];
+      return [startOfWeekMonday(today), today];
   }
 }
+
 
 export function getEffectiveDateRange(
   preset: PeriodPreset,
