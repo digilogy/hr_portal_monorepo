@@ -1,0 +1,39 @@
+8 to 4.10 ->general shift
+tuesday -> next meet
+
+
+admin, report, workers into separate api --> micro service
+
+k6 test case -> testing
+10k people login
+
+api heavy -> split
+
+
+
+
+remove auto save and auto save should be done outside field
+
+
+
+kpy(email logs, reports)
+need static password for all user.
+
+
+
+shift management(upload rules, upload history with name, failed reason, download sheet)
+-pagination
+
+
+
+
+
+
+
+mobile->holiday table
+
+
+
+filter removing
+pending date for user
+
