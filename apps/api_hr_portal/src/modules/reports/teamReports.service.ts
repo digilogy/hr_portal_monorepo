@@ -917,13 +917,6 @@ export class TeamReportsService {
     }
 
     const computePromise = (async () => {
-      const cachedData = await RedisService.get(cacheKey);
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {}
-      }
-
       const range = getDefaultDateRange(fromDate, toDate);
       const employees = await this.getFilteredReportScopeEmployees(
         email,
@@ -948,7 +941,6 @@ export class TeamReportsService {
         finalRows = rows.filter((r) => r.status === filters.status);
       }
 
-      await RedisService.setWithTTL(cacheKey, JSON.stringify(finalRows), 300);
       return finalRows;
     })();
 
@@ -1243,13 +1235,6 @@ export class TeamReportsService {
     }
 
     const computePromise = (async () => {
-      const cachedData = await RedisService.get(cacheKey);
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {}
-      }
-
       const employees = await AccessService.getAccessibleEmployees(email, role);
       const reportScopeEmployees = await AccessService.getReportScopeEmployees(
         email,
@@ -1316,7 +1301,6 @@ export class TeamReportsService {
         totalSignUpUsers,
       };
 
-      await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 300);
       return result;
     })();
 

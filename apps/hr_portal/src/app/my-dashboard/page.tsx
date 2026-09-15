@@ -337,35 +337,17 @@ export default function MyDashboardPage() {
   const [userRole, setUserRole] = useState<ReturnType<typeof getTokenRole>>(null);
 
   // Period & Metric Card filter
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("my_dashboard_period") as PeriodKey;
-      if (saved) return saved;
-    }
-    return "this_week";
-  });
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>("this_week");
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | undefined>();
   const [activeCard, setActiveCard] = useState<"total" | "submission" | "avg" | "pending" | null>(null);
-  const [activityFilter, setActivityFilter] = useState<ActivityFilterType>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("my_dashboard_activity_filter") as ActivityFilterType;
-      if (saved) return saved;
-    }
-    return "all";
-  });
+  const [activityFilter, setActivityFilter] = useState<ActivityFilterType>("all");
 
   const handlePeriodSelect = (period: PeriodKey) => {
     setSelectedPeriod(period);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("my_dashboard_period", period);
-    }
   };
 
   const handleActivityFilterSelect = (filter: ActivityFilterType) => {
     setActivityFilter(filter);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("my_dashboard_activity_filter", filter);
-    }
   };
 
   const activitySectionRef = useRef<HTMLDivElement>(null);
@@ -430,6 +412,8 @@ export default function MyDashboardPage() {
     void fetchPeriodData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodFromStr, periodToStr]);
+
+
 
   const stats = useMemo(() => {
     const cappedTo = periodTo.isAfter(today) ? today : periodTo;

@@ -169,7 +169,7 @@ export class TimesheetService {
   }
 
   static async invalidateHistoryCache(userId: number): Promise<void> {
-    const cachePrefix = `timesheet_history_v2:${userId}:`;
+    const cachePrefix = `timesheet_history_v2:${userId}`;
     for (const key of this.historyPromiseCache.keys()) {
       if (key.startsWith(cachePrefix)) {
         this.historyPromiseCache.delete(key);
