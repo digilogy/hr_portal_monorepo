@@ -158,10 +158,10 @@ export class ShiftUploadService {
           await writeUploadLog(job, rowNumber, name, "success", "Imported shift successfully", mappedValues);
         } else {
           const updatePayload: Partial<Shift> = {};
-          if (allowedTimings) updatePayload.allowedTimings = allowedTimings;
-          if (workingDays) updatePayload.workingDays = workingDays;
-          if (offDays) updatePayload.offDays = offDays;
-          if (halfDay) updatePayload.halfDay = halfDay;
+          if (allowedTimings !== undefined) updatePayload.allowedTimings = allowedTimings;
+          if (workingDays !== undefined) updatePayload.workingDays = workingDays;
+          if (offDays !== undefined) updatePayload.offDays = offDays;
+          if (halfDay !== undefined) updatePayload.halfDay = halfDay;
 
           if (Object.keys(updatePayload).length > 0) {
             await shiftRepository.updateShift(shift, updatePayload);

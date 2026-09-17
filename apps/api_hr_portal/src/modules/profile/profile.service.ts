@@ -202,5 +202,9 @@ export class ProfileService {
 
     assignment.preferredTiming = preferredTiming;
     await AppDataSource.getRepository(EmployeeShiftAssignment).save(assignment);
+    
+    // Invalidate profile cache so the UI gets the updated timing
+    const cacheKey = `profile_v2:${email.toLowerCase()}`;
+    await RedisService.delete(cacheKey);
   }
 }
