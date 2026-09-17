@@ -266,7 +266,7 @@ export default function MyTeamPage() {
         ),
       },
       {
-        title: "This Week's Hours",
+        title: "Today's Hours",
         dataIndex: "hours",
         key: "hours",
         render: (val: number) => <span className="font-semibold">{fmtHours(val)}</span>,
@@ -587,7 +587,7 @@ export default function MyTeamPage() {
                   {selectedMember.status}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="This Week's Hours">
+              <Descriptions.Item label="Today's Hours">
                 <span className="font-semibold">{fmtHours(selectedMember.hours)}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Utilization">

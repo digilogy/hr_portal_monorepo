@@ -457,10 +457,15 @@ export default function MyDashboardPage() {
     const avgDaily = elapsedWorkdays > 0 ? totalHours / elapsedWorkdays : 0;
     const avgTargetDaily = elapsedWorkdays > 0 ? elapsedTargetTotal / elapsedWorkdays : normalHours;
 
-    const loggedDates = new Set(periodEntries.filter((e) => e.totalHours > 0).map((e) => e.date));
+    const loggedHoursByDate = new Map(periodEntries.map((e) => [e.date, e.totalHours || 0]));
+    const fullyLoggedDates = new Set(
+      elapsedWorkdaysArray
+        .filter(d => (loggedHoursByDate.get(d.date) || 0) >= d.targetHours - 0.01)
+        .map(d => d.date)
+    );
     const weekdayDates = elapsedWorkdaysArray.map(d => d.date);
-    const pendingCount = weekdayDates.filter((d) => !loggedDates.has(d)).length;
-    const submittedWorkdays = loggedDates.size;
+    const pendingCount = weekdayDates.filter((d) => !fullyLoggedDates.has(d)).length;
+    const submittedWorkdays = fullyLoggedDates.size;
     const totalPercent = targetTotal > 0 ? (totalHours / targetTotal) * 100 : 0;
     const avgPercent = avgTargetDaily > 0 ? (avgDaily / avgTargetDaily) * 100 : 0;
     const submissionPercent = elapsedWorkdays > 0 ? (submittedWorkdays / elapsedWorkdays) * 100 : 0;
@@ -483,6 +488,7 @@ export default function MyDashboardPage() {
       needsLog: pendingCount > 0,
       normalHours,
       weekdayDates,
+      fullyLoggedDates,
     };
   }, [periodEntries, periodFrom, periodTo, today, profile]);
 
@@ -501,13 +507,14 @@ export default function MyDashboardPage() {
   }, [today, profile]);
 
   const recentActivity = useMemo(() => {
-    const activities = buildRecentWeekActivity(periodEntries, stats.weekdayDates, 7);
+    const activities = buildRecentWeekActivity(periodEntries, stats.weekdayDates, stats.weekdayDates.length);
     const todayStr = today.format("YYYY-MM-DD");
     return activities.map((act) => ({
       ...act,
+      isLogged: stats.fullyLoggedDates.has(act.date),
       isEditable: act.date === todayStr || act.date === lastWorkingDayStr,
     }));
-  }, [periodEntries, stats.weekdayDates, today, lastWorkingDayStr]);
+  }, [periodEntries, stats.weekdayDates, stats.fullyLoggedDates, today, lastWorkingDayStr]);
 
   const flatTeamMembers = useMemo(
     () => flattenTeamMembers(teamMembers),

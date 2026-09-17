@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Button, Card, Empty, Tag, Typography, Tooltip } from "antd";
+import { Button, Card, Empty, Tag, Typography, Tooltip, Pagination } from "antd";
 import {
   ArrowRightOutlined,
   CalendarOutlined,
@@ -192,9 +192,12 @@ export function RecentActivityCard({
   onFilterChange,
 }: RecentActivityCardProps) {
   const [internalFilter, setInternalFilter] = useState<ActivityFilterType>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const currentFilter = onFilterChange ? activeFilter : internalFilter;
 
   const handleFilterChange = (val: ActivityFilterType) => {
+    setCurrentPage(1);
     if (onFilterChange) {
       onFilterChange(val);
     } else {
@@ -210,6 +213,11 @@ export function RecentActivityCard({
     if (currentFilter === "pending") return !item.isLogged;
     return true;
   });
+
+  const paginatedActivities = filteredActivities.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <Card
@@ -239,9 +247,21 @@ export function RecentActivityCard({
 
       {filteredActivities.length > 0 ? (
         <div className="space-y-3">
-          {filteredActivities.map((activity) => (
+          {paginatedActivities.map((activity) => (
             <ActivityRow key={activity.date} activity={activity} />
           ))}
+          {filteredActivities.length > pageSize && (
+            <div className="flex justify-center mt-4">
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={filteredActivities.length}
+                onChange={(page) => setCurrentPage(page)}
+                size="small"
+                showSizeChanger={false}
+              />
+            </div>
+          )}
         </div>
       ) : (
         <Empty
