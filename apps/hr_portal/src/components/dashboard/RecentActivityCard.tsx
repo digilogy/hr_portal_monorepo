@@ -133,7 +133,7 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
             />
           </div>
           <span className="shrink-0 text-xs text-gray-400">
-            {activity.isLogged
+            {activity.progressPercent > 0
               ? `${activity.progressPercent}% of ${fmtHours(activity.targetHours ?? 8.5)}`
               : "0% logged"}
           </span>
