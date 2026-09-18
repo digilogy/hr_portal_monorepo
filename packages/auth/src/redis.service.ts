@@ -77,7 +77,7 @@ export class RedisService {
     try {
       const keys = await redisClient.keys(pattern);
       if (keys.length > 0) {
-        await redisClient.del(...keys);
+        await Promise.all(keys.map((k) => redisClient.del(k)));
       }
       return true;
     } catch (err: any) {
