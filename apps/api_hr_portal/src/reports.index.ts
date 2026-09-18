@@ -7,7 +7,8 @@ import app from "./reports.app";
 
 config();
 
-const PORT = env.PORT ? env.PORT + 1 : 5112; // Reports will run on 5112
+const rawPort = process.env.PORT ? Number(process.env.PORT) : env.PORT;
+const PORT = rawPort === 5111 ? 5112 : (rawPort || 5112);
 
 async function bootstrap() {
   try {

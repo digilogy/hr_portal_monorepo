@@ -82,9 +82,9 @@ jobs:
         if: ${{ github.event_name == 'push' || inputs.deploy_images }}
         run: |
           ./scripts/deploy/deploy-service.sh mail-worker "${IMAGE_TAG}"
-          ./scripts/deploy/deploy-service.sh api "${IMAGE_TAG}"
           ./scripts/deploy/deploy-service.sh reports "${IMAGE_TAG}"
           ./scripts/deploy/deploy-service.sh admin "${IMAGE_TAG}"
+          ./scripts/deploy/deploy-service.sh api "${IMAGE_TAG}"
 
       - name: Verify Backend API Health
         if: ${{ github.event_name == 'push' || inputs.deploy_images }}

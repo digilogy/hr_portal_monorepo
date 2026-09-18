@@ -84,4 +84,9 @@ app.use(reportsCacheMiddleware);
 app.use("/api/team", teamRoutes);
 app.use("/api/reports", reportsRoutes);
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "OK", message: "Reports service is running" });
+});
+
 export default app;

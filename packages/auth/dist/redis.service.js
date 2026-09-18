@@ -82,7 +82,7 @@ class RedisService {
         try {
             const keys = await queue_1.redisClient.keys(pattern);
             if (keys.length > 0) {
-                await queue_1.redisClient.del(...keys);
+                await Promise.all(keys.map((k) => queue_1.redisClient.del(k)));
             }
             return true;
         }

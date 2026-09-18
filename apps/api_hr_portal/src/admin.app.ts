@@ -53,4 +53,9 @@ app.use((req, res, next) => {
 
 app.use("/api/admin", adminRoutes);
 
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "OK", message: "Admin service is running" });
+});
+
 export default app;
