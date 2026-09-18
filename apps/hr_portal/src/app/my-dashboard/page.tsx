@@ -507,7 +507,7 @@ export default function MyDashboardPage() {
   }, [today, profile]);
 
   const recentActivity = useMemo(() => {
-    const activities = buildRecentWeekActivity(periodEntries, stats.weekdayDates, stats.weekdayDates.length);
+    const activities = buildRecentWeekActivity(periodEntries, stats.weekdayDates, stats.weekdayDates.length, stats.normalHours);
     const todayStr = today.format("YYYY-MM-DD");
     return activities.map((act) => ({
       ...act,
