@@ -210,6 +210,8 @@ export default function AnalyticsPage() {
       .catch(console.error);
   }, [router]);
 
+  const adminFiltersStr = JSON.stringify(adminFilters);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const role = getTokenRole();
@@ -222,7 +224,7 @@ export default function AnalyticsPage() {
           fromDate: dateRange.fromDate,
           toDate: dateRange.toDate,
         });
-        appendReportFilters(params, adminFilters);
+        appendReportFilters(params, JSON.parse(adminFiltersStr));
         const result = await apiFetch<AnalyticsData>(
           `/api/reports/workforce-pulse?${params}`,
         );
@@ -235,7 +237,7 @@ export default function AnalyticsPage() {
     };
 
     void loadData();
-  }, [router, dateRange.fromDate, dateRange.toDate, adminFilters]);
+  }, [router, dateRange.fromDate, dateRange.toDate, adminFiltersStr]);
 
   if (loading && !data) {
     return (
