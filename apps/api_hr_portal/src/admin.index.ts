@@ -7,7 +7,8 @@ import app from "./admin.app";
 
 config();
 
-const PORT = env.PORT ? env.PORT + 2 : 5113; // Admin will run on 5113
+const rawPort = process.env.PORT ? Number(process.env.PORT) : env.PORT;
+const PORT = rawPort === 5111 ? 5113 : (rawPort || 5113);
 
 async function bootstrap() {
   try {
