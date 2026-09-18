@@ -6,7 +6,7 @@ import { EmployeeData, UploadJob } from "@hr-portal/database";
 import { logger } from "@hr-portal/logger";
 import { employeeDataRepository } from "./employeeData.repository";
 import { shiftRepository } from "./shift.repository";
-
+import { RedisService } from "@hr-portal/auth";
 const LOG_CONTEXT = "BulkUpload";
 const PROGRESS_LOG_INTERVAL = 500;
 
@@ -239,6 +239,12 @@ export class EmployeeDataService {
               });
             }
           }
+        }
+
+        const finalEmail = officialEmailId || existing?.officialEmailId;
+        if (finalEmail) {
+          const cacheKey = `profile_v2:${finalEmail.toLowerCase()}`;
+          await RedisService.delete(cacheKey);
         }
 
         if (totalRows % PROGRESS_LOG_INTERVAL === 0) {

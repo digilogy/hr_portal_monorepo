@@ -367,24 +367,11 @@ export default function TimesheetPage() {
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [savingTiming, setSavingTiming] = useState(false);
   const [hasEditedSinceLastManualSave, setHasEditedSinceLastManualSave] = useState(false);
-  const [allHolidays, setAllHolidays] = useState<Holiday[]>([]);
-
-  useEffect(() => {
-    const fetchHolidays = async () => {
-      try {
-        const data = await apiFetch<Holiday[]>("/api/admin/holidays");
-        setAllHolidays(data || []);
-      } catch (err) {
-        // ignore
-      }
-    };
-    fetchHolidays();
-  }, []);
 
   const currentHoliday = useMemo(() => {
     const dateStr = selectedDate.format("YYYY-MM-DD");
-    const holidaysToSearch = profile?.upcomingHolidays?.length ? profile.upcomingHolidays : allHolidays;
-    if (!holidaysToSearch?.length) return null;
+    const holidaysToSearch = profile?.upcomingHolidays || [];
+    if (!holidaysToSearch.length) return null;
 
     return holidaysToSearch.find((h: any) => {
       const formatYMD = (d: string) => dayjs(d).format("YYYY-MM-DD");
@@ -392,7 +379,7 @@ export default function TimesheetPage() {
       const end = formatYMD(h.endDate);
       return dateStr >= start && dateStr <= end;
     });
-  }, [selectedDate, profile, allHolidays]);
+  }, [selectedDate, profile]);
 
   const nonWorkingInfo = useMemo(() => {
     return getNonWorkingDayInfo(selectedDate, profile, currentHoliday);
