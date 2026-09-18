@@ -72,11 +72,6 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
           <Text className="font-semibold text-gray-900 dark:text-gray-100">
             {activity.dateLabel}
           </Text>
-          {activity.isToday && (
-            <Tag color="orange" className="!m-0 !text-[10px] !leading-5">
-              Today
-            </Tag>
-          )}
           {!activity.isLogged && isEditable && (
             <Tag color="volcano" className="!m-0 !text-[10px] !leading-5">
               Missing Entry
@@ -173,10 +168,6 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
         ? "border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400"
         : "border-gray-200/60 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/30 opacity-80"
     }`;
-
-  if (!activity.isLogged && !isEditable) {
-    return <div className={containerClasses}>{rowContent}</div>;
-  }
 
   return (
     <Link href={targetUrl} className={containerClasses}>
