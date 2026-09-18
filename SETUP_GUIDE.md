@@ -286,3 +286,97 @@ This document provides a comprehensive list of all API endpoints exposed by the 
 | `GET` | `/api/echoconf` | View active sanitized configuration |
 | `GET` | `/logxz` | (or `/api/logxz`) View live raw server logs |
 | `POST` | `/logxz/clear` | (or `/api/logxz/clear`) Clear live raw server logs |
+
+
+
+
+
+
+
+
+
+
+
+
+Here is the list of endpoints for the three backend APIs, along with a brief explanation of what each one does:
+
+### 1. Main API (`app.ts`)
+This is the primary gateway that handles core user-facing features (like authentication, managing timesheets, and profile settings) and proxies other requests to the internal microservices.
+
+**General Endpoints:**
+- `GET /api/health` - Checks if the Main API is up and running.
+- `GET /api/echoconf` - Returns the sanitized current configuration/environment settings for diagnostics.
+- `GET /api/logxz` / `POST /api/logxz/clear` - Fetches or clears the live server logs (useful for debugging without SSH access).
+
+**Authentication (`/api/auth`)** - *Handles the employee login lifecycle:*
+- `POST /api/auth/request-access` - Initiates the login process (usually by validating an email and sending an OTP).
+- `GET /api/auth/verify-token` - Validates the setup/login token sent via email or OTP.
+- `POST /api/auth/setup-pin` - Allows a user to set up their 4-digit or 6-digit PIN for quicker subsequent logins.
+- `POST /api/auth/login` - Authenticates a user (via their PIN) and returns a JWT session token.
+- `POST /api/auth/forgot-pin` - Initiates a PIN reset workflow.
+
+**Timesheets (`/api/timesheets`)** - *Handles logging and reading time entries:*
+- `POST /api/timesheets/save` - Submits or updates timesheet entries for a specific day.
+- `GET /api/timesheets/history` - Fetches historical timesheet records for the logged-in user.
+- `GET /api/timesheets/day/:date` - Retrieves the timesheet entries for a specific, single date.
+
+**Profile (`/api/profile`)** - *Handles user-specific settings:*
+- `GET /api/profile/me` - Retrieves the currently logged-in user's profile details.
+- `PUT /api/profile/me/preferred-timing` - Updates the employee's preferred work schedule/timing preferences.
+
+---
+
+### 2. Admin API (`admin.app.ts`)
+This microservice handles heavy, administrative operations that are typically restricted to users with `ADMIN` roles. It offloads expensive tasks (like processing large CSVs) from the main API.
+
+**General:**
+- `GET /api/health` - Checks if the Admin API is up and running.
+
+**Admin & Bulk Uploads (`/api/admin`)** - *Handles importing large datasets into the system:*
+- `POST /api/admin/bulk-upload` - Uploads a CSV/Excel file to bulk create or update user accounts.
+- `POST /api/admin/bulk-upload-shifts` - Uploads a file to bulk assign shifts to employees.
+- `POST /api/admin/bulk-upload-master` - Uploads master data (e.g., departments, designations) into the system.
+- `GET /api/admin/bulk-upload/status/:jobId` - Checks the progress of an asynchronous bulk upload job.
+- `GET /api/admin/bulk-upload/download/:jobId` - Downloads the results or error report of a bulk upload job.
+- `GET /api/admin/bulk-upload/history` - Lists previously executed bulk upload jobs.
+- `GET /api/admin/employee-shifts` - Fetches a paginated list of all employees and their assigned shifts.
+
+**Logs & Monitoring (`/api/admin`)** - *For auditing system behavior:*
+- `GET /api/admin/logs` - Retrieves system-level audit or error logs.
+- `GET /api/admin/email-logs` - Lists the history of emails sent by the system (e.g., OTPs, notifications).
+- `GET /api/admin/email-logs/:emailLogId` - Fetches the exact details and content of a specific sent email.
+- `POST /api/admin/email-logs/:emailLogId/retry` - Re-attempts sending an email that previously failed.
+
+**Holidays (`/api/admin/holidays`)** - *Manages the organization's holiday calendar:*
+- `GET /api/admin/holidays` - Lists all configured company holidays.
+- `POST /api/admin/holidays` - Creates a new holiday entry.
+- `PUT /api/admin/holidays/:id` - Updates an existing holiday.
+- `DELETE /api/admin/holidays/:id` - Removes a holiday.
+
+---
+
+### 3. Reports API (`reports.app.ts`)
+This microservice is strictly read-only and is optimized for querying, aggregating, and exporting timesheet and employee data for managers and HR.
+
+**General:**
+- `GET /api/health` - Checks if the Reports API is up and running.
+
+**Team (`/api/team`):**
+- `GET /api/team/roster` - Retrieves the team roster (list of direct/indirect reports) for a manager.
+
+**Reports & Dashboards (`/api/reports`)** - *Fetches aggregated analytical data:*
+- `GET /api/reports/filter-options` - Gets the dropdown options available for global reporting filters (e.g., list of all departments, managers).
+- `GET /api/reports/filter-options/scoped` - Similar to above, but scoped only to the data the requesting manager has permission to see.
+- `GET /api/reports/capabilities` - Returns the reporting features and permissions the current user has access to.
+- `GET /api/reports/dashboard-summary` - Provides high-level KPIs and summaries for the main dashboard view.
+- `GET /api/reports/user-wise` - Aggregates timesheet data broken down by individual users.
+- `GET /api/reports/manager-wise` - Aggregates timesheet data grouped by managers.
+- `GET /api/reports/department-wise` - Aggregates timesheet data grouped by department.
+- `GET /api/reports/organization-wise` - Provides an organization-wide roll-up of timesheet metrics.
+- `GET /api/reports/signed-up-users` - Lists employees who have successfully onboarded/signed up vs those pending.
+- `GET /api/reports/workforce-pulse` - Likely provides attendance, active hours, or engagement metrics across the workforce.
+- `GET /api/reports/employee-timesheets` - A detailed, tabular view of individual timesheets for reporting purposes.
+
+**Exports (`/api/reports/export`):**
+- `GET /api/reports/export/excel` - Generates and downloads the current report view as an Excel spreadsheet.
+- `GET /api/reports/export/pdf` - Generates and downloads the current report view as a PDF document.
