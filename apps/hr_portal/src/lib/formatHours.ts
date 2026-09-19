@@ -4,7 +4,8 @@
  */
 export function fmtHours(h: number | null | undefined): string {
   if (h === null || h === undefined || isNaN(h) || h <= 0) return "0hrs";
-  const totalMinutes = Math.round(h * 60);
+  let totalMinutes = Math.round(h * 60);
+  totalMinutes = Math.round(totalMinutes / 5) * 5;
   const hrs = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
   if (hrs > 0 && mins > 0) return `${hrs}hrs ${mins}mins`;
