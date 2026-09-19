@@ -62,10 +62,13 @@ export class TeamReportsRepository {
 
     if (normalizedEmails.length === 0) return result;
 
-    const batchSize = 500;
+    const batchSize = 1000;
+    const batches = [];
     for (let index = 0; index < normalizedEmails.length; index += batchSize) {
-      const emailBatch = normalizedEmails.slice(index, index + batchSize);
+      batches.push(normalizedEmails.slice(index, index + batchSize));
+    }
 
+    await Promise.all(batches.map(async (emailBatch) => {
       const aggregates = await timesheetOrm
         .createQueryBuilder("timesheet")
         .innerJoin("timesheet.user", "user")
@@ -81,11 +84,11 @@ export class TeamReportsRepository {
         const email = row.email;
         if (!email) continue;
         result.set(email, {
-          hours: parseFloat(Number(row.hours).toFixed(4)),
+          hours: Number(row.hours),
           hasEntry: Number(row.entryCount) > 0,
         });
       }
-    }
+    }));
 
     return result;
   }
