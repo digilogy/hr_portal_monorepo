@@ -72,7 +72,7 @@ function getFilledSlots(slots: ActivitySlot[]): ActivitySlot[] {
 
 function getActivityStatus(totalHours: number, isLogged: boolean, targetHours: number): DayActivityStatus {
   if (!isLogged || totalHours <= 0) return "pending";
-  if (totalHours >= targetHours) return "complete";
+  if (totalHours >= targetHours - 0.01) return "complete";
   if (totalHours >= targetHours * 0.5) return "partial";
   return "low";
 }
@@ -185,9 +185,8 @@ export function buildDayActivity(
 
 export function buildRecentWeekActivity(
   weekEntries: ActivityTimesheetEntry[],
-  validDates: string[],
+  validDates: { date: string; targetHours: number }[],
   limit = 5,
-  targetHours: number = 8.5
 ): DayActivity[] {
   const entryMap = new Map(
     weekEntries.map((entry) => [dayjs(entry.date).format("YYYY-MM-DD"), entry]),
@@ -198,5 +197,5 @@ export function buildRecentWeekActivity(
 
   return reversedDates
     .slice(0, limit)
-    .map((date) => buildDayActivity(date, entryMap.get(date), targetHours));
+    .map((d) => buildDayActivity(d.date, entryMap.get(d.date), d.targetHours));
 }
