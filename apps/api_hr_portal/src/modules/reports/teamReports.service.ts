@@ -215,7 +215,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return parseFloat(diff.toFixed(4));
+  return diff;
 }
 
 function parseTimeSlotBounds(timeSlot: string): { start: number; end: number } | null {
@@ -279,7 +279,7 @@ function buildHourlySeries(
     result.push({
       hour,
       label: formatHourLabel(hour),
-      hours: parseFloat(stats.hours.toFixed(4)),
+      hours: stats.hours,
       slotCount: stats.slotCount,
     });
   }
@@ -392,7 +392,7 @@ function buildUserRows(
       name: employee.fullName || "—",
       department: employee.department || "—",
       manager: employee.directManagerName || "—",
-      hours: parseFloat(stats.hours.toFixed(4)),
+      hours: stats.hours,
       utilization,
       status: stats.hasEntry ? "Submitted" : "Pending",
     };
@@ -597,7 +597,7 @@ function buildTeamMemberNode(
     hod: employee.hodEmployeeName || "—",
     phone: employee.officeMobileNumber || "—",
     status: employee.employmentStatus || "Active",
-    hours: parseFloat(stats.hours.toFixed(4)),
+    hours: stats.hours,
     utilization:
       expectedHours > 0
         ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
@@ -729,7 +729,7 @@ function buildTeamTree(
         hod: employee.hodEmployeeName || "—",
         phone: employee.officeMobileNumber || "—",
         status: employee.employmentStatus || "Active",
-        hours: parseFloat(stats.hours.toFixed(4)),
+        hours: stats.hours,
         utilization:
           expectedHours > 0
             ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
@@ -1086,7 +1086,7 @@ export class TeamReportsService {
         managerName: pickDisplayLabel(stats.labels, "Unassigned"),
         department: pickDisplayLabel(stats.departmentLabels, "Unassigned"),
         teamSize: stats.teamSize,
-        totalHours: parseFloat(stats.totalHours.toFixed(4)),
+        totalHours: stats.totalHours,
         avgUtilization,
         status,
       };
@@ -1164,7 +1164,7 @@ export class TeamReportsService {
       department: pickDisplayLabel(stats.labels, "Unassigned"),
       hod: pickDisplayLabel(stats.hodLabels, "—"),
       headcount: stats.headcount,
-      totalHours: parseFloat(stats.totalHours.toFixed(4)),
+      totalHours: stats.totalHours,
       avgUtilization:
         stats.utilizations.length > 0
           ? parseFloat(
@@ -1210,7 +1210,7 @@ export class TeamReportsService {
         period: formatPeriodLabel(weekStart, weekEnd),
         headcount,
         expectedHours,
-        loggedHours: parseFloat(loggedHours.toFixed(4)),
+        loggedHours: loggedHours,
         utilization:
           expectedHours > 0
             ? parseFloat(((loggedHours / expectedHours) * 100).toFixed(1))
@@ -1291,7 +1291,7 @@ export class TeamReportsService {
 
       const result = {
         totalEmployees: filteredEmployees.length,
-        totalLoggedHours: parseFloat(totalLoggedHours.toFixed(4)),
+        totalLoggedHours: totalLoggedHours,
         avgUtilization: parseFloat(avgUtilization.toFixed(1)),
         timesheetsSubmitted,
         departments: filteredDepartments,
@@ -1608,7 +1608,7 @@ export class TeamReportsService {
         email: officialEmail || "—",
       },
       summary: {
-        totalHours: parseFloat(stats.hours.toFixed(4)),
+        totalHours: stats.hours,
         expectedHours,
         utilization:
           expectedHours > 0
@@ -1728,7 +1728,7 @@ export class TeamReportsService {
       .map(([date, stats]) => ({
         date,
         submittedCount: stats.submittedCount,
-        totalHours: parseFloat(stats.totalHours.toFixed(4)),
+        totalHours: stats.totalHours,
         rate:
           employeesInScope > 0
             ? parseFloat(
@@ -1749,7 +1749,7 @@ export class TeamReportsService {
 
     const byDayOfWeek = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
       day: dayLabels[dow],
-      hours: parseFloat((dowStats.get(dow)?.hours ?? 0).toFixed(4)),
+      hours: (dowStats.get(dow)?.hours ?? 0),
       entryCount: dowStats.get(dow)?.entryCount ?? 0,
     }));
 
@@ -1766,7 +1766,7 @@ export class TeamReportsService {
     const byTaskType = [...taskStats.entries()]
       .map(([taskType, stats]) => ({
         taskType,
-        hours: parseFloat(stats.hours.toFixed(4)),
+        hours: stats.hours,
         slotCount: stats.slotCount,
         pct:
           taskTotalHours > 0
@@ -1844,7 +1844,7 @@ export class TeamReportsService {
         avgDailyCompliance,
         peakDayOfWeek,
         dominantTaskType: byTaskType[0]?.taskType ?? "—",
-        totalLoggedHours: parseFloat(totalLoggedHours.toFixed(4)),
+        totalLoggedHours: totalLoggedHours,
       },
       dailyActivity,
       byDayOfWeek,
