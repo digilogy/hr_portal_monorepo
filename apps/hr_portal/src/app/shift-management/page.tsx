@@ -94,7 +94,9 @@ export default function ShiftManagementPage() {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchHistory(), fetchEmployeeShifts()]);
+    // await Promise.all([fetchHistory(), fetchEmployeeShifts()]);
+    await fetchHistory();
+
     setLoading(false);
   };
 

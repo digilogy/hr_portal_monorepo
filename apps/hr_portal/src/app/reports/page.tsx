@@ -486,6 +486,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!canAccessReports(role) || !capabilities?.userWise) return;
+    if (activeTab !== "user") return;
 
     const loadUserReport = async () => {
       setUserLoading(true);
@@ -507,7 +508,7 @@ export default function ReportsPage() {
     };
 
     void loadUserReport();
-  }, [role, capabilities?.userWise, dateParams, userPage, userPageSize]);
+  }, [role, capabilities?.userWise, dateParams, userPage, userPageSize, activeTab]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -526,34 +527,25 @@ export default function ReportsPage() {
       try {
         const params = dateParams();
 
-        if (capabilities.managerWise) {
+        if (activeTab === "manager" && capabilities.managerWise) {
           const managerRes = await apiFetch<{ rows: any[] }>(
             `/api/reports/manager-wise?${params}`,
           );
           setManagerWiseData(managerRes.rows);
-          setManagerPage(1);
-        } else {
-          setManagerWiseData([]);
         }
 
-        if (capabilities.departmentWise) {
+        if (activeTab === "dept" && capabilities.departmentWise) {
           const deptRes = await apiFetch<{ rows: any[] }>(
             `/api/reports/department-wise?${params}`,
           );
           setDeptWiseData(deptRes.rows);
-          setDeptPage(1);
-        } else {
-          setDeptWiseData([]);
         }
 
-        if (capabilities.organizationWise) {
+        if (activeTab === "org" && capabilities.organizationWise) {
           const orgRes = await apiFetch<{ rows: any[] }>(
             "/api/reports/organization-wise",
           );
           setOrgWiseData(orgRes.rows);
-          setOrgPage(1);
-        } else {
-          setOrgWiseData([]);
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load reports");
@@ -562,8 +554,10 @@ export default function ReportsPage() {
       }
     };
 
-    void loadSummaryReports();
-  }, [role, capabilities, dateParams]);
+    if (["manager", "dept", "org"].includes(activeTab)) {
+      void loadSummaryReports();
+    }
+  }, [role, capabilities, dateParams, activeTab]);
 
   const openEmployeeDetail = useCallback(
     async (row: UserReportRow) => {
