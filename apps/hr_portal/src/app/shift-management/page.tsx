@@ -387,7 +387,7 @@ export default function ShiftManagementPage() {
 
           <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-sm mt-4">
             <InfoCircleOutlined className="mr-2" />
-            <strong>Note:</strong> The system automatically looks for the sheets by name or header contents. Ensure the <strong>Attendance Shift</strong> in Tab 1 matches a <strong>Shift Detail</strong> in Tab 2 exactly!
+            <strong>Note:</strong> The system automatically looks for the sheets by name or header contents. Ensure the <strong>Employee data</strong> in Tab 1 matches a <strong>Shift Detail</strong> in Tab 2 exactly!
           </div>
         </div>
       </Modal>
