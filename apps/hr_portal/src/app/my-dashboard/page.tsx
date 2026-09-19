@@ -216,7 +216,7 @@ function parseTimeRangeHours(timeRangeStr?: string): number {
 
 function parseHalfDayInfo(halfDayStr?: string): { day: number; hours: number } | null {
   if (!halfDayStr) return null;
-  const match = halfDayStr.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
+  const match = halfDayStr.match(/^([a-zA-Z]+)\s*\((.*?)(?:\s*-\s*|\s+to\s+)(.*?)\)/i);
   if (!match) return null;
 
   const dayStr = match[1].toLowerCase();
@@ -237,8 +237,8 @@ function parseHalfDayInfo(halfDayStr?: string): { day: number; hours: number } |
   if (day === undefined) return null;
 
   const parseTime = (t: string) => {
-    const [h, m] = t.split(":").map(Number);
-    return (h || 0) + (m || 0) / 60;
+    const parts = t.replace(".", ":").split(":");
+    return parseInt(parts[0]) + (parseInt(parts[1]) || 0) / 60;
   };
   const h1 = parseTime(start);
   const h2 = parseTime(end);
@@ -488,6 +488,7 @@ export default function MyDashboardPage() {
       needsLog: pendingCount > 0,
       normalHours,
       weekdayDates,
+      elapsedWorkdaysArray,
       fullyLoggedDates,
     };
   }, [periodEntries, periodFrom, periodTo, today, profile]);
@@ -507,7 +508,7 @@ export default function MyDashboardPage() {
   }, [today, profile]);
 
   const recentActivity = useMemo(() => {
-    const activities = buildRecentWeekActivity(periodEntries, stats.weekdayDates, stats.weekdayDates.length, stats.normalHours);
+    const activities = buildRecentWeekActivity(periodEntries, stats.elapsedWorkdaysArray, stats.weekdayDates.length);
     const todayStr = today.format("YYYY-MM-DD");
     return activities.map((act) => ({
       ...act,
@@ -712,7 +713,7 @@ export default function MyDashboardPage() {
                 valueLabel={fmtHours(stats.avgDaily)}
                 targetLabel="/ day"
                 percent={stats.avgPercent}
-                footerLeft={`Target: ${fmtHours(stats.normalHours)} / day`}
+                footerLeft={`Target: ${fmtHours(stats.avgTargetDaily)} / day`}
                 footerRight={`${Math.round(stats.avgPercent)}%`}
                 icon={<SyncOutlined />}
                 iconClassName="bg-cyan-50 text-cyan-500"
@@ -792,7 +793,7 @@ export default function MyDashboardPage() {
                 <div>
                   <div className="text-xs text-gray-400">Target Benchmark</div>
                   <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                    {fmtHours(stats.normalHours)} <span className="text-xs font-normal text-gray-400">/ day</span>
+                    {fmtHours(stats.avgTargetDaily)} <span className="text-xs font-normal text-gray-400">/ day</span>
                   </div>
                 </div>
                 <div>

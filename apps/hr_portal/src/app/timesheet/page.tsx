@@ -198,7 +198,7 @@ function getEffectiveTiming(date: Dayjs, profile: any, defaultTiming: string): s
 
   const dayOfWeek = date.day();
   if (profile.halfDay) {
-    const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)\s*-\s*(.*?)\)/);
+    const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)(?:\s*-\s*|\s+to\s+)(.*?)\)/i);
     if (match) {
       const dayStr = match[1].toLowerCase();
       const start = match[2].trim();
@@ -283,12 +283,13 @@ function normalizeDaySlots(
 
 function generateDynamicSlots(timing: string): Array<{ key: string; timeSlot: string; title: string; task: string }> {
   if (!timing) return DEFAULT_TIME_SLOTS;
-  const parts = timing.split("-").map(p => p.trim());
+  let parts = timing.includes(" to ") ? timing.split(" to ") : timing.split("-");
+  parts = parts.map(p => p.trim());
   if (parts.length !== 2) return DEFAULT_TIME_SLOTS;
 
   const parseTime = (t: string) => {
-    const [h, m] = t.split(":");
-    return parseInt(h) + (parseInt(m) || 0) / 60;
+    const p = t.replace(".", ":").split(":");
+    return parseInt(p[0]) + (parseInt(p[1]) || 0) / 60;
   };
 
   const start = parseTime(parts[0]);

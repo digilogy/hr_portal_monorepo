@@ -75,9 +75,23 @@ export class RedisService {
   static async deletePattern(pattern: string): Promise<boolean> {
     if (!isRedisConnected) return false;
     try {
-      const keys = await redisClient.keys(pattern);
-      if (keys.length > 0) {
-        await Promise.all(keys.map((k) => redisClient.del(k)));
+      let cursor = "0";
+      const keysToDelete: string[] = [];
+      do {
+        const result = await redisClient.scan(cursor, "MATCH", pattern, "COUNT", 100);
+        cursor = result[0];
+        if (result[1].length > 0) {
+          keysToDelete.push(...result[1]);
+        }
+      } while (cursor !== "0");
+
+      if (keysToDelete.length > 0) {
+        // Delete in chunks to avoid blocking Redis or exceeding command limits
+        const chunkSize = 500;
+        for (let i = 0; i < keysToDelete.length; i += chunkSize) {
+          const chunk = keysToDelete.slice(i, i + chunkSize);
+          await redisClient.del(...chunk);
+        }
       }
       return true;
     } catch (err: any) {
