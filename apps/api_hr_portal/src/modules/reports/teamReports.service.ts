@@ -1187,16 +1187,17 @@ export class TeamReportsService {
 
     const employees = await teamReportsRepository.findAllEmployees();
     const headcount = employees.length;
-    const rows: OrganizationReportRow[] = [];
 
-    for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
+    const emails = employees
+      .map((employee) => employee.officialEmailId)
+      .filter(Boolean) as string[];
+
+    const weekOffsets = [0, 1, 2, 3];
+    const rows = await Promise.all(weekOffsets.map(async (weekOffset) => {
       const weekStart = addDays(startOfWeek(new Date()), -7 * weekOffset);
       const weekEnd = endOfWeek(weekStart);
       const from = formatDate(weekStart);
       const to = formatDate(weekEnd);
-      const emails = employees
-        .map((employee) => employee.officialEmailId)
-        .filter(Boolean) as string[];
       const hoursByEmail = await teamReportsRepository.getTimesheetHoursByEmail(emails, from, to);
       const loggedHours = [...hoursByEmail.values()].reduce(
         (sum, stats) => sum + stats.hours,
@@ -1205,7 +1206,7 @@ export class TeamReportsService {
       const workingDays = getWorkingDays(from, to);
       const expectedHours = headcount * workingDays * 8.5;
 
-      rows.push({
+      return {
         key: String(weekOffset + 1),
         period: formatPeriodLabel(weekStart, weekEnd),
         headcount,
@@ -1215,10 +1216,10 @@ export class TeamReportsService {
           expectedHours > 0
             ? parseFloat(((loggedHours / expectedHours) * 100).toFixed(1))
             : 0,
-      });
-    }
+      };
+    }));
 
-    return rows;
+    return rows.sort((a, b) => Number(a.key) - Number(b.key));
   }
 
   static async getDashboardSummary(
