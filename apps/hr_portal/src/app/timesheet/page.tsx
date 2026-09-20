@@ -390,11 +390,16 @@ export default function TimesheetPage() {
     return getLastWorkingDay(dayjs(), profile);
   }, [profile]);
 
+  const dayBeforeLastWorkingDate = useMemo(() => {
+    return getLastWorkingDay(lastWorkingDate, profile);
+  }, [lastWorkingDate, profile]);
+
   const dateKey = selectedDate.format("YYYY-MM-DD");
   const isReadOnly =
     (!!currentHoliday && !currentHoliday.isOptional) ||
     (!selectedDate.isSame(dayjs(), "day") &&
-      !selectedDate.isSame(lastWorkingDate, "day"));
+      !selectedDate.isSame(lastWorkingDate, "day") &&
+      !selectedDate.isSame(dayBeforeLastWorkingDate, "day"));
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -497,7 +502,7 @@ export default function TimesheetPage() {
 
   const performSave = useCallback(async (slotsToSave: TimeSlotData[], isAutoSave: boolean = false) => {
     if (isReadOnly) {
-      if (!isAutoSave) messageApi.warning("You can only edit tasks for today and yesterday.");
+      if (!isAutoSave) messageApi.warning("You can only edit tasks for today and the last two working days.");
       return;
     }
 

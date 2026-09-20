@@ -20,6 +20,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const parseTime = (timeStr: string) => {
     const [time, period] = timeStr.trim().split(" ");
     let [h, m] = time.split(":").map(Number);
+    m = m || 0;
     if (period === "PM" && h !== 12) h += 12;
     if (period === "AM" && h === 12) h = 0;
     return h + m / 60;
@@ -29,7 +30,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return parseFloat(diff.toFixed(4));
+  return isNaN(diff) ? null : diff;
 }
 
 export async function getTimesheetTaskExportRows(

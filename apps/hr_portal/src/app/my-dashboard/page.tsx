@@ -493,29 +493,34 @@ export default function MyDashboardPage() {
     };
   }, [periodEntries, periodFrom, periodTo, today, profile]);
 
-  const lastWorkingDayStr = useMemo(() => {
+  const editableDays = useMemo(() => {
     const weeklyOff = profile?.weeklyOff;
     const holidays = profile?.upcomingHolidays || [];
+    const editable = [today.format("YYYY-MM-DD")];
     let curr = today.startOf("day").subtract(1, "day");
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 14 && editable.length < 3; i++) {
       const workdays = getWorkdays(curr, curr, weeklyOff, 8.5, null, holidays);
       if (workdays.length > 0) {
-        return curr.format("YYYY-MM-DD");
+        editable.push(curr.format("YYYY-MM-DD"));
       }
       curr = curr.subtract(1, "day");
     }
-    return today.subtract(1, "day").format("YYYY-MM-DD");
+    // Fallback if loop finishes without finding 2 days
+    while (editable.length < 3) {
+      editable.push(curr.format("YYYY-MM-DD"));
+      curr = curr.subtract(1, "day");
+    }
+    return editable;
   }, [today, profile]);
 
   const recentActivity = useMemo(() => {
     const activities = buildRecentWeekActivity(periodEntries, stats.elapsedWorkdaysArray, stats.weekdayDates.length);
-    const todayStr = today.format("YYYY-MM-DD");
     return activities.map((act) => ({
       ...act,
       isLogged: stats.fullyLoggedDates.has(act.date),
-      isEditable: act.date === todayStr || act.date === lastWorkingDayStr,
+      isEditable: editableDays.includes(act.date),
     }));
-  }, [periodEntries, stats.weekdayDates, stats.fullyLoggedDates, today, lastWorkingDayStr]);
+  }, [periodEntries, stats.weekdayDates, stats.fullyLoggedDates, editableDays]);
 
   const flatTeamMembers = useMemo(
     () => flattenTeamMembers(teamMembers),
