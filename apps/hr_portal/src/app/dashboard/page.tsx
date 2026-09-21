@@ -359,12 +359,6 @@ export default function DashboardPage() {
                 />
               </Tooltip>
             )}
-            {loading && summary && (
-              <span className="text-xs text-gray-400 flex items-center gap-1.5 ml-auto">
-                <Spin size="small" />
-                Refreshing…
-              </span>
-            )}
           </div>
 
           {/*   <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100 dark:border-zinc-800">
@@ -400,11 +394,10 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* Summary metrics */}
-      <div className="relative">
-        {loading && summary && (
-          <div className="absolute inset-0 z-10 rounded-xl bg-white/40 dark:bg-black/20 pointer-events-none" />
-        )}
+      <Spin spinning={loading && !!summary} description="Refreshing..." size="large">
+        <div className="space-y-6">
+          {/* Summary metrics */}
+          <div>
         <div className="flex items-center justify-between mb-3">
           <Title level={5} className="mt-3 !mb-0 text-gray-700 dark:text-gray-200">
             Organization Summary
@@ -536,7 +529,9 @@ export default function DashboardPage() {
             }
           />
         )}
-      </Card>
+          </Card>
+        </div>
+      </Spin>
 
 
       <Drawer
