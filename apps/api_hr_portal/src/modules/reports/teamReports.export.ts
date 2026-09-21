@@ -57,7 +57,6 @@ export async function getTimesheetTaskExportRows(
         Department: employee.department || "—",
         Date: entry.date,
         "Time Slot": slot.timeSlot,
-        Title: getTaskDisplayTitle(slot),
         Description: slot.task,
         Hours: hours ?? "—",
       });
