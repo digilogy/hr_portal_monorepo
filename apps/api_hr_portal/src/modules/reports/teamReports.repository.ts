@@ -29,10 +29,39 @@ export class TeamReportsRepository {
   async findSignedUpUsersForEmails(emails: string[]): Promise<User[]> {
     if (emails.length === 0) return [];
     const lowerEmails = emails.map((e) => e.toLowerCase());
-    return userOrm
-      .createQueryBuilder("user")
-      .where("LOWER(user.email) IN (:...emails)", { emails: lowerEmails })
-      .getMany();
+    
+    const batchSize = 1000;
+    const allUsers: User[] = [];
+    
+    for (let index = 0; index < lowerEmails.length; index += batchSize) {
+      const emailBatch = lowerEmails.slice(index, index + batchSize);
+      const usersInBatch = await userOrm
+        .createQueryBuilder("user")
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
+        .getMany();
+      allUsers.push(...usersInBatch);
+    }
+    
+    return allUsers;
+  }
+
+  async getSignedUpUsersCountForEmails(emails: string[]): Promise<number> {
+    if (emails.length === 0) return 0;
+    const lowerEmails = emails.map((e) => e.toLowerCase());
+    
+    const batchSize = 1000;
+    let totalCount = 0;
+    
+    for (let index = 0; index < lowerEmails.length; index += batchSize) {
+      const emailBatch = lowerEmails.slice(index, index + batchSize);
+      const count = await userOrm
+        .createQueryBuilder("user")
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
+        .getCount();
+      totalCount += count;
+    }
+    
+    return totalCount;
   }
 
   async findTimesheetsForUserInRange(

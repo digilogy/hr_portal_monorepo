@@ -1241,20 +1241,22 @@ export class TeamReportsService {
         email,
         role,
       );
-      const userRows = await this.getUserWiseReport(
-        email,
-        role,
-        fromDate,
-        toDate,
-        filters,
-      );
-      const deptRows = await this.getDepartmentWiseReport(
-        email,
-        role,
-        fromDate,
-        toDate,
-        filters,
-      );
+      const [userRows, deptRows] = await Promise.all([
+        this.getUserWiseReport(
+          email,
+          role,
+          fromDate,
+          toDate,
+          filters,
+        ),
+        this.getDepartmentWiseReport(
+          email,
+          role,
+          fromDate,
+          toDate,
+          filters,
+        ),
+      ]);
 
       const filteredEmployees = filterEmployeesByReportFilters(
         employees,
@@ -1286,8 +1288,7 @@ export class TeamReportsService {
 
       let totalSignUpUsers = 0;
       if (emails.length > 0) {
-        const usersInBatch = await teamReportsRepository.findSignedUpUsersForEmails(emails);
-        totalSignUpUsers = usersInBatch.length;
+        totalSignUpUsers = await teamReportsRepository.getSignedUpUsersCountForEmails(emails);
       }
 
       const result = {
