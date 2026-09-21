@@ -93,8 +93,8 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
         {activity.summary && (
           <p
             className={`text-sm leading-relaxed ${activity.isLogged
-                ? "text-gray-600 dark:text-gray-300"
-                : "italic text-amber-700/80 dark:text-amber-400/90 font-medium"
+              ? "text-gray-600 dark:text-gray-300"
+              : "italic text-amber-700/80 dark:text-amber-400/90 font-medium"
               }`}
           >
             {activity.summary}
@@ -163,10 +163,10 @@ function ActivityRow({ activity }: { activity: DayActivity }) {
   );
 
   const containerClasses = `group block rounded-2xl border p-4 transition-all ${activity.isLogged
-      ? "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 hover:border-[#F5A623]/40"
-      : isEditable
-        ? "border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400"
-        : "border-gray-200/60 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/30 opacity-80"
+    ? "border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 hover:border-[#F5A623]/40"
+    : isEditable
+      ? "border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-400"
+      : "border-gray-200/60 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-900/30 opacity-80"
     }`;
 
   return (
@@ -220,13 +220,13 @@ export function RecentActivityCard({
           <span>{periodLabel ? `Timesheet Activity · ${periodLabel}` : "Recent Activity"}</span>
         </div>
       }
-      extra={
-        <Link href="/timesheet">
-          <Button type="link" icon={<ArrowRightOutlined />} iconPlacement="end" className="!px-0">
-            Open timesheet
-          </Button>
-        </Link>
-      }
+    // extra={
+    //   <Link href="/timesheet">
+    //     <Button type="link" icon={<ArrowRightOutlined />} iconPlacement="end" className="!px-0">
+    //       Open timesheet
+    //     </Button>
+    //   </Link>
+    // }
     >
       <Text className="mb-4 block text-sm text-gray-500">
         {currentFilter === "pending"

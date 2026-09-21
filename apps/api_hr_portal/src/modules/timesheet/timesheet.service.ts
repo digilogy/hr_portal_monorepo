@@ -61,7 +61,8 @@ function calculateTotalHours(slots: TimesheetSlot[]): number {
 
 export class TimesheetService {
   static isNonWorkingDay(dateStr: string, profile: EmployeeProfile): boolean {
-    const date = new Date(dateStr);
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
     const dayOfWeek = date.getDay(); // 0 (Sun) to 6 (Sat)
 
     if (profile.weeklyOff) {
@@ -149,6 +150,9 @@ export class TimesheetService {
 
     let savedEntry: Timesheet;
     if (existing) {
+      if (existing.status === "approved") {
+        throw new Error("Cannot edit an approved timesheet");
+      }
       existing.slots = slots;
       existing.totalHours = totalHours;
       existing.status = "saved";
@@ -175,7 +179,11 @@ export class TimesheetService {
         this.historyPromiseCache.delete(key);
       }
     }
-    await RedisService.deletePattern(`${cachePrefix}*`);
+    
+    // Instead of using deletePattern (which fails on Redis Clusters due to SCAN restrictions),
+    // we use a cache versioning strategy. Bumping the version instantly orphans old cache keys.
+    const versionKey = `timesheet_history_version:${userId}`;
+    await RedisService.setWithTTL(versionKey, Date.now().toString(), 86400);
   }
 
   static async getDay(
@@ -191,7 +199,14 @@ export class TimesheetService {
     userId: number,
     options: TimesheetHistoryOptions = {},
   ): Promise<Timesheet[]> {
-    const cacheKey = `timesheet_history_v2:${userId}:${JSON.stringify(options)}`;
+    const versionKey = `timesheet_history_version:${userId}`;
+    let version = await RedisService.get(versionKey);
+    if (!version) {
+      version = Date.now().toString();
+      await RedisService.setWithTTL(versionKey, version, 86400);
+    }
+
+    const cacheKey = `timesheet_history_v2:${userId}:${version}:${JSON.stringify(options)}`;
 
     if (this.historyPromiseCache.has(cacheKey)) {
       return this.historyPromiseCache.get(cacheKey)!;

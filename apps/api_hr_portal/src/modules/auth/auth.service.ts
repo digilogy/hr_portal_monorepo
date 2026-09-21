@@ -220,7 +220,7 @@ export class AuthService {
       await authRepository.save(user);
     } else {
       user = authRepository.create({
-        email,
+        email: email.toLowerCase(),
         pin: hashedPin,
         name: employeeName || undefined,
       });
