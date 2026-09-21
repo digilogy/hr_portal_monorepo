@@ -394,7 +394,7 @@ function buildUserRows(
       manager: employee.directManagerName || "—",
       hours: stats.hours,
       utilization,
-      status: stats.hasEntry ? "Submitted" : "Pending",
+      status: (stats.hasEntry && stats.hours > 0) ? "Submitted" : "Pending",
     };
   });
 }
@@ -602,7 +602,7 @@ function buildTeamMemberNode(
       expectedHours > 0
         ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
         : 0,
-    timesheetStatus: stats.hasEntry ? "Submitted" : "Pending",
+    timesheetStatus: (stats.hasEntry && stats.hours > 0) ? "Submitted" : "Pending",
   };
 }
 
@@ -734,7 +734,7 @@ function buildTeamTree(
           expectedHours > 0
             ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
             : 0,
-        timesheetStatus: stats.hasEntry ? "Submitted" : "Pending",
+        timesheetStatus: (stats.hasEntry && stats.hours > 0) ? "Submitted" : "Pending",
       };
 
       const managerEmployeeId = employee.employeeId?.trim();
@@ -1615,7 +1615,7 @@ export class TeamReportsService {
           expectedHours > 0
             ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
             : 0,
-        status: stats.hasEntry ? ("Submitted" as const) : ("Pending" as const),
+        status: (stats.hasEntry && stats.hours > 0) ? ("Submitted" as const) : ("Pending" as const),
       },
       days,
     };
