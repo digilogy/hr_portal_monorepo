@@ -15,6 +15,7 @@ import {
   type ReportFilters,
   type ReportFilterOptions,
 } from "@/lib/reportFilters";
+import { getTokenRole, getTokenEmail, type UserRole } from "@/lib/auth";
 
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 
@@ -33,6 +34,15 @@ export default function ShiftManagementPage() {
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [selectedJobErrors, setSelectedJobErrors] = useState<any[]>([]);
   const [loadingErrors, setLoadingErrors] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRole(getTokenRole());
+    setEmail(getTokenEmail());
+  }, []);
+
+  const isAdmin = role === "admin" && email !== "superadmin@casagrand.co.in";
 
   const [adminFilters, setAdminFilters] = useState<ReportFilters>(() => {
     return parseReportFiltersFromSearchParams(searchParams);
@@ -261,26 +271,30 @@ export default function ShiftManagementPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 mb-6">
         <Title level={2} className="!m-0 text-gray-800">Shift Management</Title>
         <div className="flex flex-nowrap gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          <Button
-            type="default"
-            icon={<InfoCircleOutlined />}
-            onClick={() => setIsRulesModalVisible(true)}
-          >
-            Shift Rules
-          </Button>
-          <Upload
-            accept=".csv,.xlsx,.xls"
-            beforeUpload={(file) => {
-              void handleUpload(file, "/api/admin/bulk-upload-master", "Master data upload queued.");
-              return false;
-            }}
-            showUploadList={false}
-            disabled={uploading || isProcessing}
-          >
-            <Button icon={<UploadOutlined />} loading={uploading || isProcessing}>
-              Upload Master Data
-            </Button>
-          </Upload>
+          {!isAdmin && (
+            <>
+              <Button
+                type="default"
+                icon={<InfoCircleOutlined />}
+                onClick={() => setIsRulesModalVisible(true)}
+              >
+                Shift Rules
+              </Button>
+              <Upload
+                accept=".csv,.xlsx,.xls"
+                beforeUpload={(file) => {
+                  void handleUpload(file, "/api/admin/bulk-upload-master", "Master data upload queued.");
+                  return false;
+                }}
+                showUploadList={false}
+                disabled={uploading || isProcessing}
+              >
+                <Button icon={<UploadOutlined />} loading={uploading || isProcessing}>
+                  Upload Master Data
+                </Button>
+              </Upload>
+            </>
+          )}
         </div>
       </div>
 
@@ -311,14 +325,11 @@ export default function ShiftManagementPage() {
               </div>
             ),
           },
-          {
+          ...(!isAdmin ? [{
             key: "2",
             label: "Upload History",
             children: (
               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mt-2">
-                {/* <div className="flex justify-end mb-4">
-                  <Button onClick={fetchHistory} loading={loading}>Refresh Status</Button>
-                </div> */}
                 <ResponsiveTable
                   dataSource={history}
                   columns={historyColumns}
@@ -329,7 +340,7 @@ export default function ShiftManagementPage() {
                 />
               </div>
             ),
-          },
+          }] : []),
         ]}
       />
 

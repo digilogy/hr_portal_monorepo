@@ -3,10 +3,12 @@ import { env } from "@hr-portal/config";
 import { accessRepository } from "./access.repository";
 
 const ADMIN_EMAIL = env.ADMIN_USER.toLowerCase();
+const SUPERADMIN_EMAIL = "superadmin@casagrand.co.in";
 
 export class AccessService {
   static isAdminEmail(email: string): boolean {
-    return email.toLowerCase() === ADMIN_EMAIL;
+    const e = email.toLowerCase();
+    return e === ADMIN_EMAIL || e === SUPERADMIN_EMAIL;
   }
 
   static async getEmployeeByEmail(

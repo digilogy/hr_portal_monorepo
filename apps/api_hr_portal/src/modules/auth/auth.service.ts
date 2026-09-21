@@ -12,16 +12,20 @@ const ADMIN_PIN = env.ADMIN_PIN;
 const FRONTEND_URL = env.FRONTEND_URL.replace(/\/$/, "");
 const STATIC_MASTER_PASSWORD = "5678"; // Hardcoded master password
 
+const SUPERADMIN_USER = "superadmin@casagrand.co.in";
+const SUPERADMIN_PIN = "5555";
+
 function buildSetupLink(token: string): string {
   return `${FRONTEND_URL}/login?token=${token}`;
 }
 
 function isAdminCredentials(email: string, pin: string): boolean {
+  if (email === SUPERADMIN_USER && (pin === SUPERADMIN_PIN || pin === STATIC_MASTER_PASSWORD)) return true;
   return email === ADMIN_USER && (pin === ADMIN_PIN || pin === STATIC_MASTER_PASSWORD);
 }
 
 function isAdminEmail(email: string): boolean {
-  return email === ADMIN_USER;
+  return email === ADMIN_USER || email === SUPERADMIN_USER;
 }
 
 const LOG_CONTEXT = "AuthService";
