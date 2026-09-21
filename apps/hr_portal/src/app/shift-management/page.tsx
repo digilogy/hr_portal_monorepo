@@ -28,6 +28,7 @@ export default function ShiftManagementPage() {
   const [uploading, setUploading] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [employeeShifts, setEmployeeShifts] = useState<any[]>([]);
+  const [loadingShifts, setLoadingShifts] = useState(true);
   const [isRulesModalVisible, setIsRulesModalVisible] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -89,12 +90,15 @@ export default function ShiftManagementPage() {
 
   const fetchEmployeeShifts = async () => {
     try {
+      setLoadingShifts(true);
       const params = new URLSearchParams();
       appendReportFilters(params, adminFilters);
       const data = await apiFetch<any[]>(`/api/admin/employee-shifts?${params}`);
       setEmployeeShifts(data);
     } catch (error) {
       console.error("Failed to fetch employee shifts", error);
+    } finally {
+      setLoadingShifts(false);
     }
   };
 
@@ -318,7 +322,7 @@ export default function ShiftManagementPage() {
                   dataSource={employeeShifts}
                   columns={employeeColumns}
                   rowKey="employeeId"
-                  loading={loading}
+                  loading={loadingShifts}
                   scroll={{ x: 1000 }}
                   pagination={{ pageSize: 10 }}
                 />

@@ -142,7 +142,8 @@ export function ResponsiveTable<RecordType extends object = any>({
     loading,
     columns,
     onChange: handleTableChange,
-    scroll: restProps.scroll || { x: 'max-content' }
+    scroll: restProps.scroll || { x: 'max-content' },
+    locale: loading ? { emptyText: <div />, ...restProps.locale } : restProps.locale
   };
 
   // Render header toggle
