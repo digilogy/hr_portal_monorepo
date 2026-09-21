@@ -181,7 +181,7 @@ export class ProfileService {
   }
 
   static async updatePreferredTiming(email: string, preferredTiming: string): Promise<void> {
-    const employee = await AppDataSource.getRepository(EmployeeData).findOneBy({ officialEmailId: email });
+    const employee = await profileRepository.findByEmail(email);
     if (!employee || !employee.employeeId) {
       throw new Error("Employee not found");
     }
