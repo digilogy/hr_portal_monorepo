@@ -58,15 +58,16 @@ export class ProfileService {
 
     if (!employee) {
       if (AccessService.isAdminEmail(email)) {
+        const isSuperAdmin = email === "superadmin@casagrand.co.in";
         const adminProfile = {
-          name: "Admin",
+          name: isSuperAdmin ? "Superadmin" : "Admin",
           employeeId: "—",
           reportingManager: "—",
           hod: "—",
           department: "HR / Admin",
           email,
           phone: "—",
-          jobTitle: "Administrator",
+          jobTitle: isSuperAdmin ? "Super Administrator" : "Administrator",
           employmentStatus: "Active",
           subDepartment: "—",
           role: UserRole.ADMIN,

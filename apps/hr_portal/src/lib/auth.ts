@@ -88,6 +88,17 @@ export function logoutAndRedirectToLogin(): void {
   redirectToLoginPage();
 }
 
+export function getTokenEmail(): string | null {
+  if (typeof window === "undefined") return null;
+  const token = getAuthToken();
+  if (!token) return null;
+
+  const payload = decodeTokenPayload(token);
+  if (!payload) return null;
+
+  return typeof payload.email === "string" ? payload.email : null;
+}
+
 export function getTokenRole(): UserRole | null {
   if (typeof window === "undefined") return null;
   const token = getAuthToken();
