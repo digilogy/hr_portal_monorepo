@@ -398,136 +398,136 @@ export default function DashboardPage() {
         <div className="space-y-6">
           {/* Summary metrics */}
           <div>
-        <div className="flex items-center justify-between mb-3">
-          <Title level={5} className="mt-3 !mb-0 text-gray-700 dark:text-gray-200">
-            Organization Summary
-          </Title>
-        </div>
-        <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
-          <Col xs={12} sm={12} lg={4}>
-            <DashboardMetricCard
-              title="Total Employees"
-              valueLabel={(summary?.totalEmployees ?? 0).toLocaleString()}
-              icon={<TeamOutlined />}
-              iconClassName="bg-blue-50 text-blue-500"
-              barClassName="bg-blue-500"
-            />
-          </Col>
-          <Col xs={12} sm={12} lg={4}>
-            <DashboardMetricCard
-              title="Total App Users"
-              valueLabel={(summary?.totalSignUpUsers ?? 0).toLocaleString()}
-              icon={<TeamOutlined />}
-              iconClassName="bg-purple-50 text-purple-500"
-              barClassName="bg-purple-500"
-              onClick={() => setIsUserDrawerVisible(true)}
-              active={false}
-            />
-          </Col>
-          <Col xs={12} sm={12} lg={5}>
-            <DashboardMetricCard
-              title="Total Logged Hours"
-              valueLabel={fmtHours(summary?.totalLoggedHours ?? 0)}
-              percent={Math.min((summary?.totalLoggedHours ?? 0) > 0 ? 100 : 0, 100)}
-              footerLeft="Selected period"
-              icon={<ClockCircleOutlined />}
-              iconClassName="bg-indigo-50 text-indigo-500"
-              barClassName="bg-indigo-500"
-              onClick={() => toggleCardFilter("with_hours")}
-              active={cardFilter === "with_hours"}
-            />
-          </Col>
-          <Col xs={12} sm={12} lg={5}>
-            <DashboardMetricCard
-              title="Avg. Utilization"
-              valueLabel={String(summary?.avgUtilization ?? 0)}
-              targetLabel="%"
-              percent={Math.min(summary?.avgUtilization ?? 0, 100)}
-              footerLeft={
-                (summary?.avgUtilization ?? 0) >= 90 ? "On track" : "Needs attention"
-              }
-              footerRight={`${summary?.avgUtilization ?? 0}%`}
-              icon={<CheckCircleOutlined />}
-              iconClassName="bg-green-50 text-green-500"
-              barClassName={
-                (summary?.avgUtilization ?? 0) >= 90 ? "bg-green-500" : "bg-amber-500"
-              }
-              valueClassName={
-                (summary?.avgUtilization ?? 0) >= 90
-                  ? "text-green-600"
-                  : "text-amber-600"
-              }
-              onClick={() => toggleCardFilter("low_utilization")}
-              active={cardFilter === "low_utilization"}
-            />
-          </Col>
-          <Col xs={24} sm={24} lg={6}>
-            <DashboardMetricCard
-              title="Timesheets Submitted"
-              valueLabel={String(summary?.timesheetsSubmitted ?? 0)}
-              targetLabel={`/ ${(summary?.totalEmployees ?? 0).toLocaleString()}`}
-              percent={submissionRate}
-              footerLeft="Submission rate"
-              footerRight={`${Math.round(submissionRate)}%`}
-              icon={<CheckCircleOutlined />}
-              iconClassName="bg-amber-50 text-[#F5A623]"
-              barClassName="bg-[#F5A623]"
-              valueClassName="text-[#F5A623]"
-              onClick={() => toggleCardFilter("with_activity")}
-              active={cardFilter === "with_activity"}
-            />
-          </Col>
-        </Row>
-      </div>
+            <div className="flex items-center justify-between mb-3">
+              <Title level={5} className="mt-3 !mb-0 text-gray-700 dark:text-gray-200">
+                Organization Summary
+              </Title>
+            </div>
+            <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
+              <Col xs={12} sm={12} lg={4}>
+                <DashboardMetricCard
+                  title="Total Employees"
+                  valueLabel={(summary?.totalEmployees ?? 0).toLocaleString()}
+                  icon={<TeamOutlined />}
+                  iconClassName="bg-blue-50 text-blue-500"
+                  barClassName="bg-blue-500"
+                />
+              </Col>
+              <Col xs={12} sm={12} lg={4}>
+                <DashboardMetricCard
+                  title="Total App Users"
+                  valueLabel={(summary?.totalSignUpUsers ?? 0).toLocaleString()}
+                  icon={<TeamOutlined />}
+                  iconClassName="bg-purple-50 text-purple-500"
+                  barClassName="bg-purple-500"
+                  onClick={() => setIsUserDrawerVisible(true)}
+                  active={false}
+                />
+              </Col>
+              <Col xs={12} sm={12} lg={5}>
+                <DashboardMetricCard
+                  title="Total Logged Hours"
+                  valueLabel={fmtHours(summary?.totalLoggedHours ?? 0)}
+                  percent={Math.min((summary?.totalLoggedHours ?? 0) > 0 ? 100 : 0, 100)}
+                  footerLeft="Selected period"
+                  icon={<ClockCircleOutlined />}
+                  iconClassName="bg-indigo-50 text-indigo-500"
+                  barClassName="bg-indigo-500"
+                  onClick={() => toggleCardFilter("with_hours")}
+                  active={cardFilter === "with_hours"}
+                />
+              </Col>
+              <Col xs={12} sm={12} lg={5}>
+                <DashboardMetricCard
+                  title="Avg. Utilization"
+                  valueLabel={String(summary?.avgUtilization ?? 0)}
+                  targetLabel="%"
+                  percent={Math.min(summary?.avgUtilization ?? 0, 100)}
+                  footerLeft={
+                    (summary?.avgUtilization ?? 0) >= 90 ? "On track" : "Needs attention"
+                  }
+                  footerRight={`${summary?.avgUtilization ?? 0}%`}
+                  icon={<CheckCircleOutlined />}
+                  iconClassName="bg-green-50 text-green-500"
+                  barClassName={
+                    (summary?.avgUtilization ?? 0) >= 90 ? "bg-green-500" : "bg-amber-500"
+                  }
+                  valueClassName={
+                    (summary?.avgUtilization ?? 0) >= 90
+                      ? "text-green-600"
+                      : "text-amber-600"
+                  }
+                  onClick={() => toggleCardFilter("low_utilization")}
+                  active={cardFilter === "low_utilization"}
+                />
+              </Col>
+              <Col xs={24} sm={24} lg={6}>
+                <DashboardMetricCard
+                  title="Timesheets Submitted"
+                  valueLabel={String(summary?.timesheetsSubmitted ?? 0)}
+                  targetLabel={`/ ${(summary?.totalEmployees ?? 0).toLocaleString()}`}
+                  percent={submissionRate}
+                  footerLeft="Submission rate"
+                  footerRight={`${Math.round(submissionRate)}%`}
+                  icon={<CheckCircleOutlined />}
+                  iconClassName="bg-amber-50 text-[#F5A623]"
+                  barClassName="bg-[#F5A623]"
+                  valueClassName="text-[#F5A623]"
+                  onClick={() => toggleCardFilter("with_activity")}
+                  active={cardFilter === "with_activity"}
+                />
+              </Col>
+            </Row>
+          </div>
 
-      {/* Department utilization */}
-      <Card
-        variant="borderless"
-        className="shadow-sm rounded-xl border border-gray-100 dark:border-zinc-800"
-        styles={{ body: { padding: 20 } }}
-        title={
-          <span className="flex items-center gap-2 text-base font-semibold">
-            <BarChartOutlined className="text-[#F5A623]" />
-            Department Utilization
-          </span>
-        }
-        extra={
-          <div className="flex items-center gap-3">
-            <Text className="text-xs text-gray-400 hidden sm:inline">
-              Click a department to view reports →
-            </Text>
-          </div>
-        }
-      >
-        {cardFilter !== "all" && (
-          <div className="mb-4">
-            <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-[#F5A623]/30 !bg-[#F5A623]/10 !text-[#c4841a]">
-              {DASHBOARD_CARD_FILTER_LABELS[cardFilter]} ({filteredDepartments.length})
-            </Tag>
-          </div>
-        )}
-        {filteredDepartments.length ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {filteredDepartments.map((dept) => (
-              <DepartmentUtilizationRow
-                key={dept.department}
-                department={dept.department}
-                avgUtilization={dept.avgUtilization}
-                headcount={dept.headcount}
-                totalHours={dept.totalHours}
-                onClick={() => router.push(buildReportsUrl(dept.department))}
-              />
-            ))}
-          </div>
-        ) : (
-          <Empty
-            description={
-              cardFilter === "all"
-                ? "No department utilization data for the selected period."
-                : `No departments match "${DASHBOARD_CARD_FILTER_LABELS[cardFilter]}".`
+          {/* Department utilization */}
+          <Card
+            variant="borderless"
+            className="shadow-sm rounded-xl border border-gray-100 dark:border-zinc-800"
+            styles={{ body: { padding: 20 } }}
+            title={
+              <span className="flex items-center gap-2 text-base font-semibold">
+                <BarChartOutlined className="text-[#F5A623]" />
+                Department Utilization
+              </span>
             }
-          />
-        )}
+            extra={
+              <div className="flex items-center gap-3">
+                <Text className="text-xs text-gray-400 hidden sm:inline">
+                  Click a department to view reports →
+                </Text>
+              </div>
+            }
+          >
+            {cardFilter !== "all" && (
+              <div className="mb-4">
+                <Tag className="!m-0 !rounded-full !px-3 !py-0.5 !border-[#F5A623]/30 !bg-[#F5A623]/10 !text-[#c4841a]">
+                  {DASHBOARD_CARD_FILTER_LABELS[cardFilter]} ({filteredDepartments.length})
+                </Tag>
+              </div>
+            )}
+            {filteredDepartments.length ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {filteredDepartments.map((dept) => (
+                  <DepartmentUtilizationRow
+                    key={dept.department}
+                    department={dept.department}
+                    avgUtilization={dept.avgUtilization}
+                    headcount={dept.headcount}
+                    totalHours={dept.totalHours}
+                    onClick={() => router.push(buildReportsUrl(dept.department))}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Empty
+                description={
+                  cardFilter === "all"
+                    ? "No department utilization data for the selected period."
+                    : `No departments match "${DASHBOARD_CARD_FILTER_LABELS[cardFilter]}".`
+                }
+              />
+            )}
           </Card>
         </div>
       </Spin>

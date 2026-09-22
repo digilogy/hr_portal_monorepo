@@ -341,6 +341,7 @@ export default function MyDashboardPage() {
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | undefined>();
   const [activeCard, setActiveCard] = useState<"total" | "submission" | "avg" | "pending" | null>(null);
   const [activityFilter, setActivityFilter] = useState<ActivityFilterType>("all");
+  const [stats, setStats] = useState<any>(null);
 
   const handlePeriodSelect = (period: PeriodKey) => {
     setSelectedPeriod(period);
@@ -371,14 +372,20 @@ export default function MyDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [profileRes, entriesRes] = await Promise.all([
+      const [profileRes, summaryRes] = await Promise.all([
         apiFetch<{ profile: EmployeeProfile }>("/api/profile/me"),
-        apiFetch<TimesheetRecord[]>(
-          `/api/timesheets/history?fromDate=${periodFromStr}&toDate=${periodToStr}`,
+        apiFetch<any>(
+          `/api/timesheets/my-summary?fromDate=${periodFromStr}&toDate=${periodToStr}`
         ),
       ]);
       setProfile(profileRes.profile);
-      setPeriodEntries(entriesRes);
+      setPeriodEntries(summaryRes.entries);
+      
+      const rawStats = summaryRes.stats;
+      setStats({
+        ...rawStats,
+        fullyLoggedDates: new Set(rawStats.fullyLoggedDates || []),
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard");
     } finally {
@@ -415,83 +422,7 @@ export default function MyDashboardPage() {
 
 
 
-  const stats = useMemo(() => {
-    const cappedTo = periodTo.isAfter(today) ? today : periodTo;
-    const totalHours = periodEntries.reduce((sum, e) => {
-      if (Array.isArray(e.slots) && e.slots.length > 0) {
-        let slotsSum = 0;
-        for (const slot of e.slots) {
-          if (
-            slot.timeSlot &&
-            (slot.task?.trim() || slot.title?.trim() || (slot.taskType && slot.taskType !== "Custom"))
-          ) {
-            slotsSum += getSlotDurationHours(slot.timeSlot);
-          }
-        }
-        if (slotsSum > 0) return sum + slotsSum;
-      }
-      return sum + (e.totalHours || 0);
-    }, 0);
-
-    const weeklyOff = profile?.weeklyOff;
-    // Validate preferredTiming against allowedTimings to ignore stale database values
-    let validTiming = profile?.allowedTimings;
-    if (profile?.preferredTiming && profile?.allowedTimings) {
-      const opts = profile.allowedTimings.split(/[\n,]+/).map((s: string) => s.trim());
-      if (opts.includes(profile.preferredTiming)) {
-        validTiming = profile.preferredTiming;
-      }
-    }
-    const normalHours = parseTimeRangeHours(validTiming);
-    const halfDayInfo = parseHalfDayInfo(profile?.halfDay);
-
-    const workingDaysArray = getWorkdays(periodFrom, periodTo, weeklyOff, normalHours, halfDayInfo, profile?.upcomingHolidays || []);
-    const elapsedWorkdaysArray = getWorkdays(periodFrom, cappedTo, weeklyOff, normalHours, halfDayInfo, profile?.upcomingHolidays || []);
-
-    const workingDays = workingDaysArray.length;
-    const elapsedWorkdays = elapsedWorkdaysArray.length;
-
-    const targetTotal = workingDaysArray.reduce((sum, d) => sum + d.targetHours, 0);
-    const elapsedTargetTotal = elapsedWorkdaysArray.reduce((sum, d) => sum + d.targetHours, 0);
-
-    const avgDaily = elapsedWorkdays > 0 ? totalHours / elapsedWorkdays : 0;
-    const avgTargetDaily = elapsedWorkdays > 0 ? elapsedTargetTotal / elapsedWorkdays : normalHours;
-
-    const loggedHoursByDate = new Map(periodEntries.map((e) => [e.date, e.totalHours || 0]));
-    const fullyLoggedDates = new Set(
-      elapsedWorkdaysArray
-        .filter(d => (loggedHoursByDate.get(d.date) || 0) >= d.targetHours - 0.01)
-        .map(d => d.date)
-    );
-    const weekdayDates = elapsedWorkdaysArray.map(d => d.date);
-    const pendingCount = weekdayDates.filter((d) => !fullyLoggedDates.has(d)).length;
-    const submittedWorkdays = fullyLoggedDates.size;
-    const totalPercent = targetTotal > 0 ? (totalHours / targetTotal) * 100 : 0;
-    const avgPercent = avgTargetDaily > 0 ? (avgDaily / avgTargetDaily) * 100 : 0;
-    const submissionPercent = elapsedWorkdays > 0 ? (submittedWorkdays / elapsedWorkdays) * 100 : 0;
-    const pendingPercent = weekdayDates.length > 0
-      ? ((weekdayDates.length - pendingCount) / weekdayDates.length) * 100
-      : 100;
-    return {
-      totalHours: parseFloat(totalHours.toFixed(4)),
-      targetTotal,
-      totalPercent,
-      avgDaily: parseFloat(avgDaily.toFixed(4)),
-      avgTargetDaily: parseFloat(avgTargetDaily.toFixed(4)),
-
-      avgPercent,
-      submittedWorkdays,
-      elapsedWorkdays,
-      submissionPercent,
-      pendingCount,
-      pendingPercent,
-      needsLog: pendingCount > 0,
-      normalHours,
-      weekdayDates,
-      elapsedWorkdaysArray,
-      fullyLoggedDates,
-    };
-  }, [periodEntries, periodFrom, periodTo, today, profile]);
+  // Stats are now calculated on the backend!
 
   const editableDays = useMemo(() => {
     const weeklyOff = profile?.weeklyOff;
@@ -514,13 +445,14 @@ export default function MyDashboardPage() {
   }, [today, profile]);
 
   const recentActivity = useMemo(() => {
+    if (!stats) return [];
     const activities = buildRecentWeekActivity(periodEntries, stats.elapsedWorkdaysArray, stats.weekdayDates.length);
     return activities.map((act) => ({
       ...act,
       isLogged: stats.fullyLoggedDates.has(act.date),
       isEditable: editableDays.includes(act.date),
     }));
-  }, [periodEntries, stats.weekdayDates, stats.fullyLoggedDates, editableDays]);
+  }, [periodEntries, stats, editableDays]);
 
   const flatTeamMembers = useMemo(
     () => flattenTeamMembers(teamMembers),
@@ -589,7 +521,7 @@ export default function MyDashboardPage() {
       });
   }, [flatTeamMembers]);
 
-  if (loading) {
+  if (loading || !stats) {
     return (
       <div className="flex justify-center py-24">
         <Spin size="large" />
