@@ -263,20 +263,37 @@ export function calculateDashboardStats(
   const pendingPercent =
     weekdayDates.length > 0 ? ((weekdayDates.length - pendingCount) / weekdayDates.length) * 100 : 100;
     
+  const fmtHours = (h: number | null | undefined): string => {
+    if (h === null || h === undefined || Number.isNaN(h) || h <= 0) return "0hrs";
+    let totalMinutes = Math.round(h * 60);
+    totalMinutes = Math.round(totalMinutes / 5) * 5;
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    if (hrs > 0 && mins > 0) return `${hrs}hrs ${mins}mins`;
+    if (hrs > 0) return `${hrs}hrs`;
+    if (mins > 0) return `${mins}mins`;
+    return "0hrs";
+  };
+
   return {
     totalHours: parseFloat(totalHours.toFixed(4)),
+    totalHoursFormatted: fmtHours(totalHours),
     targetTotal,
-    totalPercent,
+    targetTotalFormatted: fmtHours(targetTotal),
+    totalPercent: Math.round(totalPercent),
     avgDaily: parseFloat(avgDaily.toFixed(4)),
+    avgDailyFormatted: fmtHours(avgDaily),
     avgTargetDaily: parseFloat(avgTargetDaily.toFixed(4)),
-    avgPercent,
+    avgTargetDailyFormatted: fmtHours(avgTargetDaily),
+    avgPercent: Math.round(avgPercent),
     submittedWorkdays,
     elapsedWorkdays,
-    submissionPercent,
+    submissionPercent: Math.round(submissionPercent),
     pendingCount,
-    pendingPercent,
+    pendingPercent: Math.round(pendingPercent),
     needsLog: pendingCount > 0,
     normalHours,
+    normalHoursFormatted: fmtHours(normalHours),
     weekdayDates,
     elapsedWorkdaysArray,
     fullyLoggedDates: Array.from(fullyLoggedDates),
