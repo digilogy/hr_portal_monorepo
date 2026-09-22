@@ -116,7 +116,7 @@ export function AdminReportFilters({
   return (
     <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-4 w-full">
       {showDept && (
-        <FilterField label="Department" icon={<ApartmentOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
+        <FilterField label="Department" icon={<ApartmentOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px] sm:max-w-[320px]">
           <Select
             popupMatchSelectWidth={false}
             virtual={false}
@@ -138,7 +138,7 @@ export function AdminReportFilters({
       )}
 
       {showSubDept && (
-        <FilterField label="Sub Department" icon={<PartitionOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
+        <FilterField label="Sub Department" icon={<PartitionOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px] sm:max-w-[320px]">
           <Select
             popupMatchSelectWidth={false}
             virtual={false}
@@ -160,7 +160,7 @@ export function AdminReportFilters({
       )}
 
       {showManager && (
-        <FilterField label="Reporting Manager" icon={<TeamOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
+        <FilterField label="Reporting Manager" icon={<TeamOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px] sm:max-w-[320px]">
           <Select
             popupMatchSelectWidth={false}
             virtual={false}
@@ -182,7 +182,7 @@ export function AdminReportFilters({
       )}
 
       {showEmployee && (
-        <FilterField label="Employee" icon={<UserOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
+        <FilterField label="Employee" icon={<UserOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px] sm:max-w-[320px]">
           <Select
             popupMatchSelectWidth={true}
             virtual={false}
@@ -205,7 +205,7 @@ export function AdminReportFilters({
       )}
 
       {showStatus && (
-        <FilterField label="Status" icon={<CheckCircleOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
+        <FilterField label="Status" icon={<CheckCircleOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px] sm:max-w-[320px]">
           <Select
             allowClear
             value={value.status === "all" ? undefined : value.status}
