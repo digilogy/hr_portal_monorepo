@@ -7,6 +7,7 @@ const router = Router();
 router.use(authenticateJWT);
 
 router.post("/save", TimesheetController.saveDay);
+router.get("/my-summary", TimesheetController.getMySummary);
 router.get("/history", TimesheetController.getHistory);
 router.get("/day/:date", TimesheetController.getDay);
 
