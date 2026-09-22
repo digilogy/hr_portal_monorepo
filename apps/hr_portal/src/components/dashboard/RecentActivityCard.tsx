@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import type { DayActivity } from "@/lib/timesheetActivity";
 import { fmtHours } from "@/lib/formatHours";
+import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
 
 const { Text } = Typography;
 
@@ -220,13 +221,19 @@ export function RecentActivityCard({
           <span>{periodLabel ? `Timesheet Activity · ${periodLabel}` : "Recent Activity"}</span>
         </div>
       }
-    // extra={
-    //   <Link href="/timesheet">
-    //     <Button type="link" icon={<ArrowRightOutlined />} iconPlacement="end" className="!px-0">
-    //       Open timesheet
-    //     </Button>
-    //   </Link>
-    // }
+      extra={
+        currentFilter !== "all" ? (
+          <Tooltip title="Clear Filters">
+            <Button
+              size="small"
+              icon={<FilterClearIcon size={26} />}
+              onClick={() => handleFilterChange("all")}
+              className="!flex-none !flex !items-center !justify-center !p-1 !bg-transparent hover:!opacity-80 !border-none shadow-none mb-1"
+              aria-label="Clear Filters"
+            />
+          </Tooltip>
+        ) : null
+      }
     >
       <Text className="mb-4 block text-sm text-gray-500">
         {currentFilter === "pending"
