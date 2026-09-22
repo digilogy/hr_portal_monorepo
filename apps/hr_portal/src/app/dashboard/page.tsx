@@ -430,7 +430,6 @@ export default function DashboardPage() {
               valueLabel={fmtHours(summary?.totalLoggedHours ?? 0)}
               percent={Math.min((summary?.totalLoggedHours ?? 0) > 0 ? 100 : 0, 100)}
               footerLeft="Selected period"
-              footerRight={`${fmtHours(summary?.totalLoggedHours ?? 0)} total`}
               icon={<ClockCircleOutlined />}
               iconClassName="bg-indigo-50 text-indigo-500"
               barClassName="bg-indigo-500"
