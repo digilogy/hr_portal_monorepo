@@ -46,6 +46,7 @@ export interface PaginatedTeamRosterResult {
   summary: {
     totalMembers: number;
     submittedCount: number;
+    pendingCount: number;
     avgUtilization: number;
   };
 }
@@ -627,6 +628,7 @@ function summarizeFlatTeamMembers(
   return {
     totalMembers: members.length,
     submittedCount,
+    pendingCount: members.length - submittedCount,
     avgUtilization,
   };
 }
@@ -683,6 +685,7 @@ function summarizeTeamMembers(
     summary: {
       totalMembers: flatMembers.length,
       submittedCount,
+      pendingCount: flatMembers.length - submittedCount,
       avgUtilization,
     },
   };
