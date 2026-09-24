@@ -48,6 +48,8 @@ export interface PaginatedTeamRosterResult {
     submittedCount: number;
     pendingCount: number;
     avgUtilization: number;
+    teamStats?: any;
+    attentionMembers?: any[];
   };
 }
 
@@ -625,11 +627,44 @@ function summarizeFlatTeamMembers(
       )
       : 0;
 
+  const activeCount = members.filter(
+    (member) => member.status.toLowerCase() === "active",
+  ).length;
+  
+  const teamStats = {
+    total: members.length,
+    submitted: submittedCount,
+    pending: members.length - submittedCount,
+    submissionRate: members.length > 0 ? (submittedCount / members.length) * 100 : 0,
+    utilization: avgUtilization,
+    activeCount,
+    activeRate: members.length > 0 ? (activeCount / members.length) * 100 : 0,
+    onTrack: avgUtilization >= 90,
+  };
+
+  const byIdentity = new Map<string, TeamMemberNode>();
+  for (const member of members) {
+    if (member.status.toLowerCase() !== "active") continue;
+    if (member.timesheetStatus !== "Pending" && member.utilization >= 50) continue;
+    if (!byIdentity.has(member.key)) {
+      byIdentity.set(member.key, member);
+    }
+  }
+
+  const attentionMembers = [...byIdentity.values()].sort((a, b) => {
+    if (a.timesheetStatus !== b.timesheetStatus) {
+      return a.timesheetStatus === "Pending" ? -1 : 1;
+    }
+    return a.utilization - b.utilization;
+  });
+
   return {
     totalMembers: members.length,
     submittedCount,
     pendingCount: members.length - submittedCount,
     avgUtilization,
+    teamStats,
+    attentionMembers,
   };
 }
 
@@ -655,41 +690,7 @@ function applyRosterCardFilter(
   }
 }
 
-function summarizeTeamMembers(
-  members: TeamMemberNode[],
-  expectedHoursPerEmployee: number,
-) {
-  const flatten = (nodes: TeamMemberNode[]): TeamMemberNode[] =>
-    nodes.flatMap((node) => [
-      node,
-      ...(node.children ? flatten(node.children) : []),
-    ]);
 
-  const flatMembers = flatten(members);
-  const submittedCount = flatMembers.filter(
-    (member) => member.timesheetStatus === "Submitted",
-  ).length;
-  const totalHours = flatMembers.reduce((sum, member) => sum + member.hours, 0);
-  const avgUtilization =
-    flatMembers.length > 0 && expectedHoursPerEmployee > 0
-      ? parseFloat(
-        (
-          (totalHours / (flatMembers.length * expectedHoursPerEmployee)) *
-          100
-        ).toFixed(1),
-      )
-      : 0;
-
-  return {
-    members,
-    summary: {
-      totalMembers: flatMembers.length,
-      submittedCount,
-      pendingCount: flatMembers.length - submittedCount,
-      avgUtilization,
-    },
-  };
-}
 
 function buildTeamTree(
   employees: EmployeeData[],

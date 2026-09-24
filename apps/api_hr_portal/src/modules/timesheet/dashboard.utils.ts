@@ -263,6 +263,18 @@ export function calculateDashboardStats(
   const pendingPercent =
     weekdayDates.length > 0 ? ((weekdayDates.length - pendingCount) / weekdayDates.length) * 100 : 100;
     
+  const editableDays = [today.format("YYYY-MM-DD")];
+  let curr = today.startOf("day").subtract(1, "day");
+  for (let i = 0; i < 14 && editableDays.length < 3; i++) {
+    const w = getWorkdays(curr, curr, weeklyOff, normalHours, null, profile?.upcomingHolidays || []);
+    if (w.length > 0) editableDays.push(curr.format("YYYY-MM-DD"));
+    curr = curr.subtract(1, "day");
+  }
+  while (editableDays.length < 3) {
+    editableDays.push(curr.format("YYYY-MM-DD"));
+    curr = curr.subtract(1, "day");
+  }
+
   const fmtHours = (h: number | null | undefined): string => {
     if (h === null || h === undefined || Number.isNaN(h) || h <= 0) return "0hrs";
     let totalMinutes = Math.round(h * 60);
@@ -297,5 +309,6 @@ export function calculateDashboardStats(
     weekdayDates,
     elapsedWorkdaysArray,
     fullyLoggedDates: Array.from(fullyLoggedDates),
+    editableDays,
   };
 }

@@ -186,142 +186,14 @@ interface TeamResponse {
     totalMembers: number;
     submittedCount: number;
     avgUtilization: number;
+    teamStats?: any;
+    attentionMembers?: any[];
   };
 }
 
-function parseTimeRangeHours(timeRangeStr?: string): number {
-  if (!timeRangeStr) return 8.5; // fallback
 
-  const parseTime = (t: string) => {
-    const [h, m] = t.split(":").map(Number);
-    return (h || 0) + (m || 0) / 60;
-  };
 
-  const ranges = timeRangeStr.split(',');
-  const possibleHours = ranges.map(range => {
-    const [start, end] = range.split("-").map((s) => s.trim());
-    if (!start || !end) return 8.5;
-    const h1 = parseTime(start);
-    const h2 = parseTime(end);
-    return h2 > h1 ? h2 - h1 : 8.5;
-  });
 
-  // If there are multiple allowed timings and one evaluates to 8.5 (standard), default to it
-  if (possibleHours.includes(8.5)) {
-    return 8.5;
-  }
-
-  return possibleHours[0];
-}
-
-function parseHalfDayInfo(halfDayStr?: string): { day: number; hours: number } | null {
-  if (!halfDayStr) return null;
-  const match = halfDayStr.match(/^([a-zA-Z]+)\s*\((.*?)(?:\s*-\s*|\s+to\s+)(.*?)\)/i);
-  if (!match) return null;
-
-  const dayStr = match[1].toLowerCase();
-  const start = match[2].trim();
-  const end = match[3].trim();
-
-  const daysMap: Record<string, number> = {
-    sun: 0, sunday: 0,
-    mon: 1, monday: 1,
-    tue: 2, tuesday: 2,
-    wed: 3, wednesday: 3,
-    thu: 4, thursday: 4,
-    fri: 5, friday: 5,
-    sat: 6, saturday: 6,
-  };
-
-  const day = daysMap[dayStr];
-  if (day === undefined) return null;
-
-  const parseTime = (t: string) => {
-    const parts = t.replace(".", ":").split(":");
-    return parseInt(parts[0]) + (parseInt(parts[1]) || 0) / 60;
-  };
-  const h1 = parseTime(start);
-  const h2 = parseTime(end);
-  const hours = h2 > h1 ? h2 - h1 : 4.5;
-
-  return { day, hours };
-}
-
-export interface WorkdayTarget {
-  date: string;
-  targetHours: number;
-}
-
-function getWorkdays(
-  from: dayjs.Dayjs,
-  to: dayjs.Dayjs,
-  weeklyOffRule?: string,
-  normalHours: number = 8.5,
-  halfDayInfo: { day: number; hours: number } | null = null,
-  holidays: any[] = []
-): WorkdayTarget[] {
-  const dates: WorkdayTarget[] = [];
-  let current = from.startOf("day");
-  const end = to.startOf("day");
-
-  const rule = (weeklyOffRule || "").toLowerCase();
-
-  const isDayOff = (dayName: string, shortName: string) => {
-    const regex = new RegExp(`\\b(${dayName}|${shortName})\\b`, 'i');
-    return regex.test(rule);
-  };
-
-  const excludeSunday = isDayOff("sunday", "sun") || !rule; // Default to Sunday if empty
-  const excludeMonday = isDayOff("monday", "mon");
-  const excludeTuesday = isDayOff("tuesday", "tue");
-  const excludeWednesday = isDayOff("wednesday", "wed");
-  const excludeThursday = isDayOff("thursday", "thu");
-  const excludeFriday = isDayOff("friday", "fri");
-  const excludeSaturday = isDayOff("saturday", "sat") && !rule.includes("2nd sat");
-  const excludeSecondSaturday = rule.includes("2nd sat");
-
-  while (current.isBefore(end) || current.isSame(end, "day")) {
-    const dayOfWeek = current.day(); // 0 = Sunday, 6 = Saturday
-    let isWorkday = true;
-
-    if (dayOfWeek === 0 && excludeSunday) isWorkday = false;
-    else if (dayOfWeek === 1 && excludeMonday) isWorkday = false;
-    else if (dayOfWeek === 2 && excludeTuesday) isWorkday = false;
-    else if (dayOfWeek === 3 && excludeWednesday) isWorkday = false;
-    else if (dayOfWeek === 4 && excludeThursday) isWorkday = false;
-    else if (dayOfWeek === 5 && excludeFriday) isWorkday = false;
-    else if (dayOfWeek === 6) {
-      if (excludeSaturday) isWorkday = false;
-      else if (excludeSecondSaturday) {
-        // Calculate if it's the second Saturday
-        const weekOfMonth = Math.ceil(current.date() / 7);
-        if (weekOfMonth === 2) isWorkday = false;
-      }
-    }
-
-    if (isWorkday && holidays.length > 0) {
-      const currentStr = current.format("YYYY-MM-DD");
-      const isHoliday = holidays.some((h) => {
-        if (h.isOptional) return false;
-        const start = dayjs(h.startDate).format("YYYY-MM-DD");
-        const end = dayjs(h.endDate).format("YYYY-MM-DD");
-        return currentStr >= start && currentStr <= end;
-      });
-      if (isHoliday) isWorkday = false;
-    }
-
-    if (isWorkday) {
-      let hours = normalHours;
-      if (halfDayInfo && dayOfWeek === halfDayInfo.day) {
-        hours = halfDayInfo.hours;
-      }
-      dates.push({ date: current.format("YYYY-MM-DD"), targetHours: hours });
-    }
-    current = current.add(1, "day");
-  }
-
-  return dates;
-}
 
 export default function MyDashboardPage() {
   const router = useRouter();
@@ -424,25 +296,7 @@ export default function MyDashboardPage() {
 
   // Stats are now calculated on the backend!
 
-  const editableDays = useMemo(() => {
-    const weeklyOff = profile?.weeklyOff;
-    const holidays = profile?.upcomingHolidays || [];
-    const editable = [today.format("YYYY-MM-DD")];
-    let curr = today.startOf("day").subtract(1, "day");
-    for (let i = 0; i < 14 && editable.length < 3; i++) {
-      const workdays = getWorkdays(curr, curr, weeklyOff, 8.5, null, holidays);
-      if (workdays.length > 0) {
-        editable.push(curr.format("YYYY-MM-DD"));
-      }
-      curr = curr.subtract(1, "day");
-    }
-    // Fallback if loop finishes without finding 2 days
-    while (editable.length < 3) {
-      editable.push(curr.format("YYYY-MM-DD"));
-      curr = curr.subtract(1, "day");
-    }
-    return editable;
-  }, [today, profile]);
+  const editableDays = useMemo(() => stats?.editableDays || [], [stats]);
 
   const recentActivity = useMemo(() => {
     if (!stats) return [];
@@ -460,66 +314,35 @@ export default function MyDashboardPage() {
   );
 
   const teamStats = useMemo(() => {
-    const total = teamSummary?.totalMembers ?? 0;
-    const submitted = teamSummary?.submittedCount ?? 0;
-    const pending = Math.max(0, total - submitted);
-    const submissionRate = total > 0 ? (submitted / total) * 100 : 0;
-    const utilization = teamSummary?.avgUtilization ?? 0;
-    const activeCount = flatTeamMembers.filter(
-      (member) => member.status.toLowerCase() === "active",
-    ).length;
-    const activeRate = total > 0 ? (activeCount / total) * 100 : 0;
-
-    return {
-      total,
-      submitted,
-      pending,
-      submissionRate,
-      utilization,
-      activeCount,
-      activeRate,
-      onTrack: utilization >= 90,
+    return teamSummary?.teamStats || {
+      total: 0,
+      submitted: 0,
+      pending: 0,
+      submissionRate: 0,
+      utilization: 0,
+      activeCount: 0,
+      activeRate: 0,
+      onTrack: false,
     };
-  }, [teamSummary, flatTeamMembers]);
+  }, [teamSummary]);
 
   const attentionMembers = useMemo((): AttentionMemberRow[] => {
-    const byIdentity = new Map<string, TeamMemberNode>();
-
-    for (const member of flatTeamMembers) {
-      if (member.status.toLowerCase() !== "active") continue;
-      if (member.timesheetStatus !== "Pending" && member.utilization >= 50) continue;
-
-      const identity = getMemberIdentity(member);
-      if (!byIdentity.has(identity)) {
-        byIdentity.set(identity, member);
-      }
-    }
-
-    return [...byIdentity.values()]
-      .sort((a, b) => {
-        if (a.timesheetStatus !== b.timesheetStatus) {
-          return a.timesheetStatus === "Pending" ? -1 : 1;
-        }
-        return a.utilization - b.utilization;
-      })
-      .map((member, index) => {
-        const identity = getMemberIdentity(member);
-        return {
-          tableRowKey: `${identity}-${index}`,
-          key: member.key,
-          employeeId: member.employeeId,
-          name: member.name,
-          email: member.email,
-          role: member.role,
-          department: member.department,
-          subDepartment: member.subDepartment,
-          status: member.status,
-          hours: member.hours,
-          utilization: member.utilization,
-          timesheetStatus: member.timesheetStatus,
-        };
-      });
-  }, [flatTeamMembers]);
+    const raw = teamSummary?.attentionMembers || [];
+    return raw.map((member: any, index: number) => ({
+      tableRowKey: `${member.key}-${index}`,
+      key: member.key,
+      employeeId: member.employeeId,
+      name: member.name,
+      email: member.email,
+      role: member.role,
+      department: member.department,
+      subDepartment: member.subDepartment,
+      status: member.status,
+      hours: member.hours,
+      utilization: member.utilization,
+      timesheetStatus: member.timesheetStatus,
+    }));
+  }, [teamSummary]);
 
   if (loading || !stats) {
     return (
