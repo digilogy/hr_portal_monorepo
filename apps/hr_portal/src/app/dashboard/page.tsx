@@ -201,6 +201,7 @@ export default function DashboardPage() {
   const [isUserDrawerVisible, setIsUserDrawerVisible] = useState(false);
   const [signedUpUsers, setSignedUpUsers] = useState<any[]>([]);
   const [loadingSignedUpUsers, setLoadingSignedUpUsers] = useState(false);
+  const [userTablePage, setUserTablePage] = useState({ current: 1, pageSize: 15 });
 
   const dateRange = useMemo(() => {
     const [from, to] = getEffectiveDateRange(periodPreset, customRange);
@@ -568,9 +569,19 @@ export default function DashboardPage() {
           loading={loadingSignedUpUsers}
           dataSource={signedUpUsers}
           rowKey="email"
-          pagination={{ pageSize: 15 }}
+          pagination={{
+            current: userTablePage.current,
+            pageSize: userTablePage.pageSize,
+            onChange: (page, pageSize) => setUserTablePage({ current: page, pageSize }),
+          }}
           columns={[
-            { title: "S.No", key: "sno", width: 60, render: (_: any, __: any, index: number) => index + 1 },
+            {
+              title: "S.No",
+              key: "sno",
+              width: 60,
+              render: (_: any, __: any, index: number) =>
+                (userTablePage.current - 1) * userTablePage.pageSize + index + 1,
+            },
             { title: "Emp ID", dataIndex: "employeeId", key: "employeeId", width: 100 },
             { title: "Name", dataIndex: "name", key: "name" },
             { title: "Email", dataIndex: "email", key: "email" },
