@@ -386,7 +386,7 @@ function buildUserRows(
     const stats = hoursByEmail.get(emailKey) ?? { hours: 0, hasEntry: false };
     const utilization =
       expectedHours > 0
-        ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
+        ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(4))
         : 0;
 
     return {
@@ -1175,7 +1175,7 @@ export class TeamReportsService {
             (
               stats.utilizations.reduce((sum, value) => sum + value, 0) /
               stats.utilizations.length
-            ).toFixed(1),
+            ).toFixed(4),
           )
           : 0,
     }));
@@ -1295,10 +1295,15 @@ export class TeamReportsService {
         totalSignUpUsers = await teamReportsRepository.getSignedUpUsersCountForEmails(emails);
       }
 
+      const range = getDefaultDateRange(fromDate, toDate);
+      const expectedHoursPerUser = getWorkingDays(range.from, range.to) * 8.5;
+      const totalExpectedHours = filteredEmployees.length * expectedHoursPerUser;
+
       const result = {
         totalEmployees: filteredEmployees.length,
         totalLoggedHours: totalLoggedHours,
-        avgUtilization: parseFloat(avgUtilization.toFixed(1)),
+        totalExpectedHours: totalExpectedHours,
+        avgUtilization: parseFloat(avgUtilization.toFixed(4)),
         timesheetsSubmitted,
         departments: filteredDepartments,
         filterOptions: {

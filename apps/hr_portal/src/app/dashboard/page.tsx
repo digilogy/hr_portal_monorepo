@@ -57,6 +57,7 @@ const { RangePicker } = DatePicker;
 interface DashboardSummary {
   totalEmployees: number;
   totalLoggedHours: number;
+  totalExpectedHours?: number;
   avgUtilization: number;
   timesheetsSubmitted: number;
   departments: Array<{
@@ -103,6 +104,12 @@ function filterDepartmentsByCard(
   }
 }
 
+function formatPercentage(val: number, includeSign = true) {
+  if (!val || val === 0) return includeSign ? "0%" : "0";
+  if (val > 0 && val < 0.01) return includeSign ? "<0.01%" : "<0.01";
+  return includeSign ? `${Number(val.toFixed(2))}%` : `${Number(val.toFixed(2))}`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -113,7 +120,14 @@ export default function DashboardPage() {
     return urlPreset || "this_week";
   });
 
-  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(null);
+  const [customRange, setCustomRange] = useState<[Dayjs, Dayjs] | null>(() => {
+    const from = searchParams?.get("fromDate");
+    const to = searchParams?.get("toDate");
+    if (from && to && dayjs(from).isValid() && dayjs(to).isValid()) {
+      return [dayjs(from), dayjs(to)];
+    }
+    return null;
+  });
 
   const [adminFilters, setAdminFilters] = useState<DepartmentFilter>(() => {
     const urlDept = searchParams?.get("department");
@@ -131,11 +145,18 @@ export default function DashboardPage() {
     return urlCard || "all";
   });
 
-  const handlePeriodChange = (preset: PeriodPreset) => {
+  const handlePeriodChange = (preset: PeriodPreset, range?: [Dayjs, Dayjs] | null) => {
     setPeriodPreset(preset);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("period", preset);
+      if (preset === "custom" && range) {
+        url.searchParams.set("fromDate", range[0].format("YYYY-MM-DD"));
+        url.searchParams.set("toDate", range[1].format("YYYY-MM-DD"));
+      } else if (preset !== "custom") {
+        url.searchParams.delete("fromDate");
+        url.searchParams.delete("toDate");
+      }
       window.history.replaceState({}, "", url.toString());
     }
   };
@@ -253,6 +274,12 @@ export default function DashboardPage() {
     return total > 0 ? (submitted / total) * 100 : 0;
   }, [summary]);
 
+  const appUsersPercent = useMemo(() => {
+    const total = summary?.totalEmployees ?? 0;
+    const users = summary?.totalSignUpUsers ?? 0;
+    return total > 0 ? (users / total) * 100 : 0;
+  }, [summary]);
+
   const filteredDepartments = useMemo(() => {
     const departments = summary?.departments ?? [];
     const filtered = filterDepartmentsByCard(departments, cardFilter);
@@ -310,11 +337,13 @@ export default function DashboardPage() {
                   value={periodPreset}
                   onChange={(value: PeriodPreset) => {
                     if (value === "custom") {
-                      setCustomRange(getEffectiveDateRange(periodPreset, customRange));
+                      const newRange = getEffectiveDateRange(value, customRange);
+                      setCustomRange(newRange);
+                      handlePeriodChange(value, newRange);
                     } else {
                       setCustomRange(null);
+                      handlePeriodChange(value);
                     }
-                    handlePeriodChange(value);
                   }}
                   className="w-full"
                   options={PERIOD_PRESET_OPTIONS}
@@ -327,8 +356,9 @@ export default function DashboardPage() {
                   value={getEffectiveDateRange(periodPreset, customRange)}
                   onChange={(dates) => {
                     if (dates?.[0] && dates?.[1]) {
-                      handlePeriodChange("custom");
-                      setCustomRange([dates[0], dates[1]]);
+                      const newRange: [Dayjs, Dayjs] = [dates[0], dates[1]];
+                      setCustomRange(newRange);
+                      handlePeriodChange("custom", newRange);
                     } else {
                       setCustomRange(null);
                       handlePeriodChange("this_week");
@@ -404,19 +434,14 @@ export default function DashboardPage() {
               </Title>
             </div>
             <Row gutter={[{ xs: 8, sm: 12, md: 16 }, { xs: 8, sm: 12, md: 16 }]}>
-              <Col xs={12} sm={12} lg={4}>
-                <DashboardMetricCard
-                  title="Total Employees"
-                  valueLabel={(summary?.totalEmployees ?? 0).toLocaleString()}
-                  icon={<TeamOutlined />}
-                  iconClassName="bg-blue-50 text-blue-500"
-                  barClassName="bg-blue-500"
-                />
-              </Col>
-              <Col xs={12} sm={12} lg={4}>
+              <Col xs={12} sm={12} lg={6}>
                 <DashboardMetricCard
                   title="Total App Users"
                   valueLabel={(summary?.totalSignUpUsers ?? 0).toLocaleString()}
+                  targetLabel={`/ ${(summary?.totalEmployees ?? 0).toLocaleString()}`}
+                  percent={appUsersPercent}
+                  footerLeft="Adoption rate"
+                  footerRight={formatPercentage(appUsersPercent)}
                   icon={<TeamOutlined />}
                   iconClassName="bg-purple-50 text-purple-500"
                   barClassName="bg-purple-500"
@@ -424,12 +449,13 @@ export default function DashboardPage() {
                   active={false}
                 />
               </Col>
-              <Col xs={12} sm={12} lg={5}>
+              <Col xs={12} sm={12} lg={6}>
                 <DashboardMetricCard
                   title="Total Logged Hours"
                   valueLabel={fmtHours(summary?.totalLoggedHours ?? 0)}
-                  percent={Math.min((summary?.totalLoggedHours ?? 0) > 0 ? 100 : 0, 100)}
-                  footerLeft="Selected period"
+                  percent={Math.min(summary?.avgUtilization ?? 0, 100)}
+                  footerLeft="Pending"
+                  footerRight={fmtHours(Math.max(0, (summary?.totalExpectedHours ?? 0) - (summary?.totalLoggedHours ?? 0)))}
                   icon={<ClockCircleOutlined />}
                   iconClassName="bg-indigo-50 text-indigo-500"
                   barClassName="bg-indigo-500"
@@ -437,16 +463,15 @@ export default function DashboardPage() {
                   active={cardFilter === "with_hours"}
                 />
               </Col>
-              <Col xs={12} sm={12} lg={5}>
+              <Col xs={12} sm={12} lg={6}>
                 <DashboardMetricCard
                   title="Avg. Utilization"
-                  valueLabel={String(summary?.avgUtilization ?? 0)}
+                  valueLabel={formatPercentage(summary?.avgUtilization ?? 0, false)}
                   targetLabel="%"
                   percent={Math.min(summary?.avgUtilization ?? 0, 100)}
                   footerLeft={
                     (summary?.avgUtilization ?? 0) >= 90 ? "On track" : "Needs attention"
                   }
-                  footerRight={`${summary?.avgUtilization ?? 0}%`}
                   icon={<CheckCircleOutlined />}
                   iconClassName="bg-green-50 text-green-500"
                   barClassName={
@@ -461,14 +486,14 @@ export default function DashboardPage() {
                   active={cardFilter === "low_utilization"}
                 />
               </Col>
-              <Col xs={24} sm={24} lg={6}>
+              <Col xs={12} sm={12} lg={6}>
                 <DashboardMetricCard
                   title="Timesheets Submitted"
                   valueLabel={String(summary?.timesheetsSubmitted ?? 0)}
                   targetLabel={`/ ${(summary?.totalEmployees ?? 0).toLocaleString()}`}
                   percent={submissionRate}
                   footerLeft="Submission rate"
-                  footerRight={`${Math.round(submissionRate)}%`}
+                  footerRight={formatPercentage(submissionRate)}
                   icon={<CheckCircleOutlined />}
                   iconClassName="bg-amber-50 text-[#F5A623]"
                   barClassName="bg-[#F5A623]"
