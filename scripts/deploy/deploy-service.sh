@@ -24,8 +24,13 @@ FAMILY="${NAME_PREFIX}-${SERVICE}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 IMAGE="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NAME_PREFIX}/${SERVICE}:${TAG}"
 
-echo "==> Deploying ${ECS_SERVICE} with image ${IMAGE}"
+echo "==> Validating image in ECR: ${NAME_PREFIX}/${SERVICE}:${TAG}"
+aws ecr describe-images \
+  --repository-name "${NAME_PREFIX}/${SERVICE}" \
+  --image-ids imageTag="${TAG}" \
+  --region "${AWS_REGION}" >/dev/null
 
+echo "==> Deploying ${ECS_SERVICE} with image ${IMAGE}"
 # 1. Current task definition
 CURRENT_TD=$(aws ecs describe-task-definition \
   --task-definition "${FAMILY}" \
@@ -62,15 +67,15 @@ if ! aws ecs wait services-stable \
   --cluster "${CLUSTER}" \
   --services "${ECS_SERVICE}" \
   --region "${AWS_REGION}"; then
-  echo "!!> ${ECS_SERVICE} failed to stabilize" >&2
+  echo "::error::ECS service failed to stabilize: ${ECS_SERVICE}"
   
   echo "Recent service events:"
   aws ecs describe-services \
     --cluster "${CLUSTER}" \
     --services "${ECS_SERVICE}" \
     --region "${AWS_REGION}" \
-    --query 'services[0].events[:10].[createdAt,message]' \
-    --output table
+    --query 'services[0].events[0:20].[createdAt,message]' \
+    --output table || true
 
   echo "Deployment state:"
   aws ecs describe-services \
@@ -78,7 +83,7 @@ if ! aws ecs wait services-stable \
     --services "${ECS_SERVICE}" \
     --region "${AWS_REGION}" \
     --query 'services[0].[taskDefinition,desiredCount,runningCount,pendingCount,deployments]' \
-    --output json
+    --output json || true
 
   TASK_ARNS=$(aws ecs list-tasks \
     --cluster "${CLUSTER}" \
@@ -87,26 +92,27 @@ if ! aws ecs wait services-stable \
     --region "${AWS_REGION}" \
     --max-items 10 \
     --query 'taskArns[]' \
-    --output text)
+    --output text || true)
 
-  if [ -n "${TASK_ARNS}" ]; then
+  if [[ -n "${TASK_ARNS}" && "${TASK_ARNS}" != "None" ]]; then
     echo "Stopped tasks details:"
     aws ecs describe-tasks \
       --cluster "${CLUSTER}" \
       --tasks ${TASK_ARNS} \
       --region "${AWS_REGION}" \
-      --query 'tasks[].{
+      --query 'tasks[*].{
         taskArn: taskArn,
-        lastStatus: lastStatus,
+        stopCode: stopCode,
         stoppedReason: stoppedReason,
-        containers: containers[].{
+        containers: containers[*].{
           name: name,
           reason: reason,
           exitCode: exitCode,
+          lastStatus: lastStatus,
           health: healthStatus
         }
       }' \
-      --output json
+      --output json || true
   fi
 
   exit 1
