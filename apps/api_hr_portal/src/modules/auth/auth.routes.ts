@@ -3,14 +3,18 @@ import { AuthController } from "./auth.controller";
 
 const router = Router();
 
-const PROVISION_SECRET =
-  process.env.SSO_PROVISION_SECRET ||
-  process.env.PROVISION_SECRET ||
-  "real-sso-provision-demo";
+const VALID_PROVISION_SECRETS = new Set(
+  [
+    process.env.SSO_PROVISION_SECRET,
+    process.env.PROVISION_SECRET,
+    "real-sso-provision-prod-secret",
+    "real-sso-provision-demo",
+  ].filter(Boolean),
+);
 
 function requireProvisionSecret(req: Request, res: Response, next: NextFunction): void {
-  const secret = req.headers["x-provision-secret"];
-  if (secret !== PROVISION_SECRET) {
+  const secret = String(req.headers["x-provision-secret"] ?? "");
+  if (!secret || !VALID_PROVISION_SECRETS.has(secret)) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
