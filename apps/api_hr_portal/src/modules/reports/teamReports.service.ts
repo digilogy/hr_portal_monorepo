@@ -1270,9 +1270,9 @@ export class TeamReportsService {
       const filteredUserRows = userRows;
 
       const totalLoggedHours = filteredUserRows.reduce(
-        (sum, row) => sum + row.hours,
+        (sum, row) => sum + Math.round(row.hours * 60),
         0,
-      );
+      ) / 60.0;
       const timesheetsSubmitted = filteredUserRows.filter(
         (row) => row.status === "Submitted",
       ).length;
