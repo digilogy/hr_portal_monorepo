@@ -63,6 +63,52 @@ if ! aws ecs wait services-stable \
   --services "${ECS_SERVICE}" \
   --region "${AWS_REGION}"; then
   echo "!!> ${ECS_SERVICE} failed to stabilize" >&2
+  
+  echo "Recent service events:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].events[:10].[createdAt,message]' \
+    --output table
+
+  echo "Deployment state:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].[taskDefinition,desiredCount,runningCount,pendingCount,deployments]' \
+    --output json
+
+  TASK_ARNS=$(aws ecs list-tasks \
+    --cluster "${CLUSTER}" \
+    --service-name "${ECS_SERVICE}" \
+    --desired-status STOPPED \
+    --region "${AWS_REGION}" \
+    --max-items 10 \
+    --query 'taskArns[]' \
+    --output text)
+
+  if [ -n "${TASK_ARNS}" ]; then
+    echo "Stopped tasks details:"
+    aws ecs describe-tasks \
+      --cluster "${CLUSTER}" \
+      --tasks ${TASK_ARNS} \
+      --region "${AWS_REGION}" \
+      --query 'tasks[].{
+        taskArn: taskArn,
+        lastStatus: lastStatus,
+        stoppedReason: stoppedReason,
+        containers: containers[].{
+          name: name,
+          reason: reason,
+          exitCode: exitCode,
+          health: healthStatus
+        }
+      }' \
+      --output json
+  fi
+
   exit 1
 fi
 
