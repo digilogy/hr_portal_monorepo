@@ -125,7 +125,54 @@ RUNNING_TD=$(aws ecs describe-services \
   --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
 
 if [ "${RUNNING_TD}" != "${NEW_TD_ARN}" ]; then
-  echo "!!> Circuit breaker rolled ${ECS_SERVICE} back to ${RUNNING_TD}" >&2
+  echo "::error::Circuit breaker rolled ${ECS_SERVICE} back to ${RUNNING_TD}"
+
+  echo "Recent service events:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].events[0:20].[createdAt,message]' \
+    --output table || true
+
+  echo "Deployment state:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].[taskDefinition,desiredCount,runningCount,pendingCount,deployments]' \
+    --output json || true
+
+  TASK_ARNS=$(aws ecs list-tasks \
+    --cluster "${CLUSTER}" \
+    --service-name "${ECS_SERVICE}" \
+    --desired-status STOPPED \
+    --region "${AWS_REGION}" \
+    --max-items 10 \
+    --query 'taskArns[]' \
+    --output text || true)
+
+  if [[ -n "${TASK_ARNS}" && "${TASK_ARNS}" != "None" ]]; then
+    echo "Stopped tasks details:"
+    aws ecs describe-tasks \
+      --cluster "${CLUSTER}" \
+      --tasks ${TASK_ARNS} \
+      --region "${AWS_REGION}" \
+      --query 'tasks[*].{
+        taskArn: taskArn,
+        stopCode: stopCode,
+        stoppedReason: stoppedReason,
+        containers: containers[*].{
+          name: name,
+          reason: reason,
+          exitCode: exitCode,
+          lastStatus: lastStatus,
+          health: healthStatus
+        }
+      }' \
+      --output json || true
+  fi
+
   exit 1
 fi
 

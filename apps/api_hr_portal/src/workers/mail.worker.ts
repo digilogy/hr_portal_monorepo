@@ -84,11 +84,17 @@ export function startMailWorker(): Worker<MailJobPayload> {
 // Auto-run if executed via `npm run worker`
 if (require.main === module) {
   logger.info(LOG_CONTEXT, "Starting standalone Mail Worker instance...");
+  
+  // Ensure the Node event loop never empties out and exits with code 0, 
+  // which causes ECS to think the background task stopped and roll it back.
+  setInterval(() => {}, 1000 * 60 * 60);
+
   initializeDatabase()
     .then(() => {
       startMailWorker();
     })
     .catch((err) => {
       logger.error(LOG_CONTEXT, "Database initialization error in worker process", { error: err.message });
+      process.exit(1);
     });
 }
