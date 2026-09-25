@@ -194,7 +194,7 @@ export function calculateDashboardStats(
   today: dayjs.Dayjs
 ) {
   const cappedTo = periodTo.isAfter(today) ? today : periodTo;
-  const totalHours = periodEntries.reduce((sum, e) => {
+  const totalMinutes = periodEntries.reduce((sum, e) => {
     if (Array.isArray(e.slots) && e.slots.length > 0) {
       let slotsSum = 0;
       for (const slot of e.slots as any[]) {
@@ -202,13 +202,14 @@ export function calculateDashboardStats(
           slot.timeSlot &&
           (slot.task?.trim() || slot.title?.trim() || (slot.taskType && slot.taskType !== "Custom"))
         ) {
-          slotsSum += getSlotDurationHours(slot.timeSlot);
+          slotsSum += Math.round(getSlotDurationHours(slot.timeSlot) * 60);
         }
       }
       if (slotsSum > 0) return sum + slotsSum;
     }
-    return sum + (e.totalHours || 0);
+    return sum + Math.round((e.totalHours || 0) * 60);
   }, 0);
+  const totalHours = totalMinutes / 60.0;
 
   const weeklyOff = profile?.weeklyOff;
   // Validate preferredTiming against allowedTimings to ignore stale database values
