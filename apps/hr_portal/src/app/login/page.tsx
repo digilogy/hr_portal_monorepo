@@ -14,6 +14,7 @@ import {
   isAuthenticated,
   setRememberedLogin,
 } from "@/lib/auth";
+import { bridgeFromHubOrLogin } from "@/lib/ssoHub";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -175,6 +176,11 @@ function LoginPageContent() {
     if (tokenFromUrl && !hasVerifiedToken.current) {
       hasVerifiedToken.current = true;
       verifyTokenAndOpenPinSetup(tokenFromUrl);
+      return;
+    }
+    // Silent bridge: hub session → authorize → /sso/callback/
+    if (!tokenFromUrl) {
+      void bridgeFromHubOrLogin();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenFromUrl, router]);

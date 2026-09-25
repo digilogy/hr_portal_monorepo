@@ -16,9 +16,10 @@ import {
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, canAccessShiftManagement, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
+import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, canAccessShiftManagement, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenEmail, getTokenRole, isAuthenticated, UserRole } from "@/lib/auth";
 import { isAdminPortalHost } from "@/lib/host";
 import { apiFetch } from "@/lib/api";
+import { logoutToSsoHub, startHubSessionWatch } from "@/lib/ssoHub";
 
 import { Grid } from "antd";
 const { useBreakpoint } = Grid;
@@ -54,7 +55,8 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }, [pathname]);
 
   useEffect(() => {
-    if (!mounted || pathname === "/login" || pathname === "/login/") return;
+    if (!mounted) return;
+    if (pathname === "/login" || pathname === "/sso/callback") return;
 
     // Initial check
     if (!isAuthenticated()) {
@@ -66,7 +68,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const interval = setInterval(() => {
       if (!isAuthenticated()) {
         clearInterval(interval);
-        logoutAndRedirectToLogin();
+        void logoutToSsoHub();
       }
     }, 2000); // Check every 2 seconds for snappier redirect during testing
 
@@ -74,7 +76,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   }, [mounted, pathname, router]);
 
   useEffect(() => {
-    if (pathname === "/login") return;
+    if (pathname === "/login" || pathname === "/sso/callback") return;
 
     const loadProfileInitials = async () => {
       try {
@@ -94,7 +96,16 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     void loadProfileInitials();
   }, [pathname]);
 
-  const isLoginPage = pathname === "/login" || pathname === "/login/";
+  // Hub session watch when signed in
+  useEffect(() => {
+    if (pathname === "/login" || pathname === "/sso/callback") return;
+    if (!isAuthenticated()) return;
+    return startHubSessionWatch(() => {
+      void logoutToSsoHub();
+    }, { localEmail: getTokenEmail() });
+  }, [pathname]);
+
+  const isLoginPage = pathname === "/login" || pathname === "/login/" || pathname.startsWith("/sso/callback");
 
   if (!mounted) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
 
@@ -176,7 +187,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
       key: "logout",
       label: "Logout",
       icon: <LogoutOutlined />,
-      onClick: () => logoutAndRedirectToLogin(),
+      onClick: () => void logoutToSsoHub(),
       danger: true,
     },
   ];
@@ -274,11 +285,6 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             )}
             {/* <div className="flex items-center"> */}
             <div className="flex items-center gap-3">
-              {process.env.NODE_ENV === "development" && (
-                <div className="px-3 py-1 bg-rose-500 text-white text-xs font-bold tracking-wider rounded-full shadow-sm animate-pulse">
-                  LOCAL DEV
-                </div>
-              )}
               <Dropdown menu={{ items: profileMenuItems }} placement="bottomRight" trigger={["click"]}>
                 <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 px-2 py-1.5 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
                   <Avatar className="!bg-[#fbb33b] text-white font-bold shrink-0 !text-xs" size={32}>

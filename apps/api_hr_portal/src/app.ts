@@ -24,8 +24,12 @@ function getCorsOptions(): cors.CorsOptions {
     allowedOrigins.add("http://localhost:3600");
     allowedOrigins.add("http://localhost:3000");
     allowedOrigins.add("http://localhost:3001");
+    allowedOrigins.add("http://localhost:3110");
+    allowedOrigins.add("http://localhost:5160");
   } else {
     allowedOrigins.add("https://timesheet.cgworkflow.com");
+    allowedOrigins.add("https://sso.cgworkflow.com");
+    allowedOrigins.add("https://auth.cgworkflow.com");
   }
 
   const origins = [...allowedOrigins];
