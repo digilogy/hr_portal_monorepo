@@ -12,7 +12,7 @@ import {
   Tooltip,
 } from "antd";
 import { CalendarOutlined, ClearOutlined } from "@ant-design/icons";
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { canAccessAnalytics, getTokenRole } from "@/lib/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api";
@@ -294,6 +294,7 @@ export default function AnalyticsPage() {
                     }
                   }}
                   disabled={periodPreset !== "custom"}
+                  disabledDate={(current) => current && current > dayjs().endOf("day")}
                 />
               </FilterField>
 

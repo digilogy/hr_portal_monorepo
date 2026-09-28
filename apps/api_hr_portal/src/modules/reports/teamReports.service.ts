@@ -203,14 +203,18 @@ export interface WorkforcePulseResult {
 
 function calculateSlotHours(timeSlot: string): number | null {
   if (!timeSlot || timeSlot === "—") return null;
-  const parts = timeSlot.split(/\s*-\s*/);
+  const firstSlot = timeSlot.split(",")[0].trim();
+  const parts = firstSlot.split(/\s*[-–—]\s*/);
   if (parts.length !== 2) return null;
 
   const parseTime = (timeStr: string) => {
-    const [time, period] = timeStr.trim().split(" ");
-    let [h, m] = time.split(":").map(Number);
-    if (period === "PM" && h !== 12) h += 12;
-    if (period === "AM" && h === 12) h = 0;
+    const match = timeStr.trim().toLowerCase().match(/(\d+)(?:\s*[:.]\s*(\d+))?\s*(am|pm)?/);
+    if (!match) return 0;
+    let h = parseInt(match[1], 10);
+    let m = match[2] ? parseInt(match[2], 10) : 0;
+    const period = match[3];
+    if (period === "pm" && h !== 12) h += 12;
+    if (period === "am" && h === 12) h = 0;
     return h + m / 60;
   };
 
@@ -223,14 +227,18 @@ function calculateSlotHours(timeSlot: string): number | null {
 
 function parseTimeSlotBounds(timeSlot: string): { start: number; end: number } | null {
   if (!timeSlot || timeSlot === "—") return null;
-  const parts = timeSlot.split(/\s*-\s*/);
+  const firstSlot = timeSlot.split(",")[0].trim();
+  const parts = firstSlot.split(/\s*[-–—]\s*/);
   if (parts.length !== 2) return null;
 
   const parseTime = (timeStr: string) => {
-    const [time, period] = timeStr.trim().split(" ");
-    let [h, m] = time.split(":").map(Number);
-    if (period === "PM" && h !== 12) h += 12;
-    if (period === "AM" && h === 12) h = 0;
+    const match = timeStr.trim().toLowerCase().match(/(\d+)(?:\s*[:.]\s*(\d+))?\s*(am|pm)?/);
+    if (!match) return 0;
+    let h = parseInt(match[1], 10);
+    let m = match[2] ? parseInt(match[2], 10) : 0;
+    const period = match[3];
+    if (period === "pm" && h !== 12) h += 12;
+    if (period === "am" && h === 12) h = 0;
     return h + m / 60;
   };
 
