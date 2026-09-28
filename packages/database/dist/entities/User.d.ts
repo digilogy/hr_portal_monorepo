@@ -7,10 +7,8 @@ export declare enum UserRole {
 }
 export declare class User {
     id: number;
-    firstName: string;
-    lastName: string;
+    name: string;
     email: string;
-    phone: string;
     pin: string;
     role: UserRole;
     timesheets: Timesheet[];

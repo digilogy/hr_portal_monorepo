@@ -4,7 +4,10 @@ const userOrm = AppDataSource.getRepository(User);
 
 export class AuthRepository {
   async findByEmail(email: string): Promise<User | null> {
-    return userOrm.findOneBy({ email });
+    return userOrm
+      .createQueryBuilder("user")
+      .where("LOWER(user.email) = LOWER(:email)", { email })
+      .getOne();
   }
 
   create(data: { email: string; pin: string; name?: string }): User {

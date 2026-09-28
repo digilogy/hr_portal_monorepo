@@ -54,6 +54,7 @@ __decorate([
     __metadata("design:type", String)
 ], EmployeeData.prototype, "jobTitle", void 0);
 __decorate([
+    (0, typeorm_1.Index)(),
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], EmployeeData.prototype, "department", void 0);
@@ -62,6 +63,7 @@ __decorate([
     __metadata("design:type", String)
 ], EmployeeData.prototype, "subDepartment", void 0);
 __decorate([
+    (0, typeorm_1.Index)(),
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], EmployeeData.prototype, "directManagerEmployeeId", void 0);
@@ -78,6 +80,7 @@ __decorate([
     __metadata("design:type", String)
 ], EmployeeData.prototype, "hrbpName", void 0);
 __decorate([
+    (0, typeorm_1.Index)(),
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], EmployeeData.prototype, "hodEmployeeId", void 0);
@@ -95,6 +98,7 @@ __decorate([
     __metadata("design:type", String)
 ], EmployeeData.prototype, "officeMobileNumber", void 0);
 __decorate([
+    (0, typeorm_1.Index)(),
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], EmployeeData.prototype, "zone", void 0);

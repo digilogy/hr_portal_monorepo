@@ -13,7 +13,10 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "db:generate": "npm run db:generate --workspace=@hr-portal/database",
     "db:migrate": "npm run db:migrate --workspace=@hr-portal/database",
-    "db:migrate:deploy": "npm run db:migrate:deploy --workspace=@hr-portal/database"
+    "db:migrate:deploy": "npm run db:migrate:deploy --workspace=@hr-portal/database",
+    "test:load:login": "npx autocannon -c 200 -d 10 -m POST -H \"Content-Type: application/json\" -b '{\"email\":\"admin@casagrand.co.in\",\"pin\":\"1234\"}' http://localhost:5111/api/auth/login",
+    "test:load:otp": "npx autocannon -c 100 -d 10 -m POST -H \"Content-Type: application/json\" -b '{\"email\":\"admin@casagrand.co.in\"}' http://localhost:5111/api/auth/request-access",
+    "test:load:k6": "k6 run scripts/load-test-k6.js"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

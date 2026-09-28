@@ -8,7 +8,7 @@
 # this script exits non-zero in that case so CI marks the build failed.
 #
 # Usage: ./scripts/deploy/deploy-service.sh <service> <image-tag>
-#   service: api | mail-worker
+#   service: api | reports | admin | mail-worker
 # =============================================================================
 set -euo pipefail
 
@@ -24,8 +24,13 @@ FAMILY="${NAME_PREFIX}-${SERVICE}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 IMAGE="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${NAME_PREFIX}/${SERVICE}:${TAG}"
 
-echo "==> Deploying ${ECS_SERVICE} with image ${IMAGE}"
+echo "==> Validating image in ECR: ${NAME_PREFIX}/${SERVICE}:${TAG}"
+aws ecr describe-images \
+  --repository-name "${NAME_PREFIX}/${SERVICE}" \
+  --image-ids imageTag="${TAG}" \
+  --region "${AWS_REGION}" >/dev/null
 
+echo "==> Deploying ${ECS_SERVICE} with image ${IMAGE}"
 # 1. Current task definition
 CURRENT_TD=$(aws ecs describe-task-definition \
   --task-definition "${FAMILY}" \
@@ -62,7 +67,54 @@ if ! aws ecs wait services-stable \
   --cluster "${CLUSTER}" \
   --services "${ECS_SERVICE}" \
   --region "${AWS_REGION}"; then
-  echo "!!> ${ECS_SERVICE} failed to stabilize" >&2
+  echo "::error::ECS service failed to stabilize: ${ECS_SERVICE}"
+  
+  echo "Recent service events:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].events[0:20].[createdAt,message]' \
+    --output table || true
+
+  echo "Deployment state:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].[taskDefinition,desiredCount,runningCount,pendingCount,deployments]' \
+    --output json || true
+
+  TASK_ARNS=$(aws ecs list-tasks \
+    --cluster "${CLUSTER}" \
+    --service-name "${ECS_SERVICE}" \
+    --desired-status STOPPED \
+    --region "${AWS_REGION}" \
+    --max-items 10 \
+    --query 'taskArns[]' \
+    --output text || true)
+
+  if [[ -n "${TASK_ARNS}" && "${TASK_ARNS}" != "None" ]]; then
+    echo "Stopped tasks details:"
+    aws ecs describe-tasks \
+      --cluster "${CLUSTER}" \
+      --tasks ${TASK_ARNS} \
+      --region "${AWS_REGION}" \
+      --query 'tasks[*].{
+        taskArn: taskArn,
+        stopCode: stopCode,
+        stoppedReason: stoppedReason,
+        containers: containers[*].{
+          name: name,
+          reason: reason,
+          exitCode: exitCode,
+          lastStatus: lastStatus,
+          health: healthStatus
+        }
+      }' \
+      --output json || true
+  fi
+
   exit 1
 fi
 
@@ -73,7 +125,54 @@ RUNNING_TD=$(aws ecs describe-services \
   --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
 
 if [ "${RUNNING_TD}" != "${NEW_TD_ARN}" ]; then
-  echo "!!> Circuit breaker rolled ${ECS_SERVICE} back to ${RUNNING_TD}" >&2
+  echo "::error::Circuit breaker rolled ${ECS_SERVICE} back to ${RUNNING_TD}"
+
+  echo "Recent service events:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].events[0:20].[createdAt,message]' \
+    --output table || true
+
+  echo "Deployment state:"
+  aws ecs describe-services \
+    --cluster "${CLUSTER}" \
+    --services "${ECS_SERVICE}" \
+    --region "${AWS_REGION}" \
+    --query 'services[0].[taskDefinition,desiredCount,runningCount,pendingCount,deployments]' \
+    --output json || true
+
+  TASK_ARNS=$(aws ecs list-tasks \
+    --cluster "${CLUSTER}" \
+    --service-name "${ECS_SERVICE}" \
+    --desired-status STOPPED \
+    --region "${AWS_REGION}" \
+    --max-items 10 \
+    --query 'taskArns[]' \
+    --output text || true)
+
+  if [[ -n "${TASK_ARNS}" && "${TASK_ARNS}" != "None" ]]; then
+    echo "Stopped tasks details:"
+    aws ecs describe-tasks \
+      --cluster "${CLUSTER}" \
+      --tasks ${TASK_ARNS} \
+      --region "${AWS_REGION}" \
+      --query 'tasks[*].{
+        taskArn: taskArn,
+        stopCode: stopCode,
+        stoppedReason: stoppedReason,
+        containers: containers[*].{
+          name: name,
+          reason: reason,
+          exitCode: exitCode,
+          lastStatus: lastStatus,
+          health: healthStatus
+        }
+      }' \
+      --output json || true
+  fi
+
   exit 1
 fi
 

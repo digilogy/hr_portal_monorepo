@@ -24,6 +24,7 @@ const envSchema = z.object({
   DB_NAME: z.string().default("hr-portal"),
   DATABASE_URL: z.string().optional(),
   DB_SSL: z.string().optional(),
+  DB_POOL_MAX: z.coerce.number().default(20),
   TYPEORM_SYNCHRONIZE: z.string().optional(),
 
   // Not enforcing a minimum length (unlike ideas-staging-backend's 32-char rule): the current

@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { getSlotDurationHours } from "./timesheetSlots";
 
 export interface ActivitySlot {
   task?: string;
@@ -20,6 +21,8 @@ export interface DayActivity {
   dateLabel: string;
   isToday: boolean;
   isLogged: boolean;
+  isEditable?: boolean;
+  targetHours?: number;
   totalHours: number;
   taskCount: number;
   slotCount: number;
@@ -30,7 +33,6 @@ export interface DayActivity {
   timeRange?: string;
 }
 
-const DAILY_TARGET_HOURS = 8.5;
 
 function getSlotLabel(slot: ActivitySlot): string {
   if (slot.taskType === "Custom" && slot.title?.trim()) {
@@ -68,10 +70,10 @@ function getFilledSlots(slots: ActivitySlot[]): ActivitySlot[] {
   );
 }
 
-function getActivityStatus(totalHours: number, isLogged: boolean): DayActivityStatus {
+function getActivityStatus(totalHours: number, isLogged: boolean, targetHours: number): DayActivityStatus {
   if (!isLogged || totalHours <= 0) return "pending";
-  if (totalHours >= DAILY_TARGET_HOURS) return "complete";
-  if (totalHours >= DAILY_TARGET_HOURS * 0.5) return "partial";
+  if (totalHours >= targetHours - 0.01) return "complete";
+  if (totalHours >= targetHours * 0.5) return "partial";
   return "low";
 }
 
@@ -139,9 +141,22 @@ export function summarizeDayActivity(entry: ActivityTimesheetEntry): {
 export function buildDayActivity(
   date: string,
   entry: ActivityTimesheetEntry | null | undefined,
+  targetHours: number = 8.5
 ): DayActivity {
   const isToday = dayjs(date).isSame(dayjs(), "day");
-  const totalHours = entry?.totalHours ?? 0;
+  let totalHours = entry?.totalHours ?? 0;
+  if (entry?.slots && entry.slots.length > 0) {
+    let slotsSum = 0;
+    for (const slot of entry.slots) {
+      if (
+        slot.timeSlot &&
+        (slot.task?.trim() || slot.title?.trim() || (slot.taskType && slot.taskType !== "Custom"))
+      ) {
+        slotsSum += getSlotDurationHours(slot.timeSlot);
+      }
+    }
+    if (slotsSum > 0) totalHours = slotsSum;
+  }
   const isLogged = totalHours > 0;
   const filledSlots = entry ? getFilledSlots(entry.slots) : [];
   const { highlights, summary } = entry
@@ -156,11 +171,12 @@ export function buildDayActivity(
     totalHours,
     taskCount: filledSlots.length,
     slotCount: entry?.slots.length ?? 0,
+    targetHours,
     progressPercent: Math.min(
       100,
-      Math.round((totalHours / DAILY_TARGET_HOURS) * 100),
+      Math.round((totalHours / targetHours) * 100),
     ),
-    status: getActivityStatus(totalHours, isLogged),
+    status: getActivityStatus(totalHours, isLogged, targetHours),
     highlights,
     summary,
     timeRange: entry ? getTimeRange(filledSlots) : undefined,
@@ -169,7 +185,7 @@ export function buildDayActivity(
 
 export function buildRecentWeekActivity(
   weekEntries: ActivityTimesheetEntry[],
-  validDates: string[],
+  validDates: { date: string; targetHours: number }[],
   limit = 5,
 ): DayActivity[] {
   const entryMap = new Map(
@@ -181,5 +197,5 @@ export function buildRecentWeekActivity(
 
   return reversedDates
     .slice(0, limit)
-    .map((date) => buildDayActivity(date, entryMap.get(date)));
+    .map((d) => buildDayActivity(d.date, entryMap.get(d.date), d.targetHours));
 }

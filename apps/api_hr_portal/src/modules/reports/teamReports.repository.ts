@@ -29,10 +29,39 @@ export class TeamReportsRepository {
   async findSignedUpUsersForEmails(emails: string[]): Promise<User[]> {
     if (emails.length === 0) return [];
     const lowerEmails = emails.map((e) => e.toLowerCase());
-    return userOrm
-      .createQueryBuilder("user")
-      .where("LOWER(user.email) IN (:...emails)", { emails: lowerEmails })
-      .getMany();
+    
+    const batchSize = 1000;
+    const allUsers: User[] = [];
+    
+    for (let index = 0; index < lowerEmails.length; index += batchSize) {
+      const emailBatch = lowerEmails.slice(index, index + batchSize);
+      const usersInBatch = await userOrm
+        .createQueryBuilder("user")
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
+        .getMany();
+      allUsers.push(...usersInBatch);
+    }
+    
+    return allUsers;
+  }
+
+  async getSignedUpUsersCountForEmails(emails: string[]): Promise<number> {
+    if (emails.length === 0) return 0;
+    const lowerEmails = emails.map((e) => e.toLowerCase());
+    
+    const batchSize = 1000;
+    let totalCount = 0;
+    
+    for (let index = 0; index < lowerEmails.length; index += batchSize) {
+      const emailBatch = lowerEmails.slice(index, index + batchSize);
+      const count = await userOrm
+        .createQueryBuilder("user")
+        .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
+        .getCount();
+      totalCount += count;
+    }
+    
+    return totalCount;
   }
 
   async findTimesheetsForUserInRange(
@@ -62,15 +91,18 @@ export class TeamReportsRepository {
 
     if (normalizedEmails.length === 0) return result;
 
-    const batchSize = 500;
+    const batchSize = 1000;
+    const batches = [];
     for (let index = 0; index < normalizedEmails.length; index += batchSize) {
-      const emailBatch = normalizedEmails.slice(index, index + batchSize);
+      batches.push(normalizedEmails.slice(index, index + batchSize));
+    }
 
+    await Promise.all(batches.map(async (emailBatch) => {
       const aggregates = await timesheetOrm
         .createQueryBuilder("timesheet")
         .innerJoin("timesheet.user", "user")
         .select("LOWER(user.email)", "email")
-        .addSelect("COALESCE(SUM(timesheet.totalHours), 0)", "hours")
+        .addSelect("COALESCE(SUM(ROUND(timesheet.totalHours * 60)), 0) / 60.0", "hours")
         .addSelect("COUNT(timesheet.id)", "entryCount")
         .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
         .andWhere("timesheet.date BETWEEN :from AND :to", { from, to })
@@ -81,11 +113,11 @@ export class TeamReportsRepository {
         const email = row.email;
         if (!email) continue;
         result.set(email, {
-          hours: Math.round(Number(row.hours) * 60) / 60,
+          hours: Number(row.hours),
           hasEntry: Number(row.entryCount) > 0,
         });
       }
-    }
+    }));
 
     return result;
   }
@@ -159,7 +191,7 @@ export class TeamReportsRepository {
         .innerJoin("timesheet.user", "user")
         .select("timesheet.date", "date")
         .addSelect("COUNT(DISTINCT timesheet.userId)", "submittedCount")
-        .addSelect("COALESCE(SUM(timesheet.totalHours), 0)", "totalHours")
+        .addSelect("COALESCE(SUM(ROUND(timesheet.totalHours * 60)), 0) / 60.0", "totalHours")
         .where("LOWER(user.email) IN (:...emails)", { emails: emailBatch })
         .andWhere("timesheet.date BETWEEN :from AND :to", { from, to })
         .groupBy("timesheet.date")
@@ -178,6 +210,32 @@ export class TeamReportsRepository {
     }
 
     return { dailyRows: dailyRowsResult, entries: entriesResult };
+  }
+
+  async getEmployeeShiftAssignments(employeeIds: string[]): Promise<Map<string, { shiftTimings: string, workingDays: string, offDays: string, halfDay: string }>> {
+    const result = new Map<string, any>();
+    if (employeeIds.length === 0) return result;
+    
+    const assignmentOrm = AppDataSource.getRepository("EmployeeShiftAssignment");
+    const batchSize = 1000;
+    for (let index = 0; index < employeeIds.length; index += batchSize) {
+      const batch = employeeIds.slice(index, index + batchSize);
+      const assignments = await assignmentOrm
+        .createQueryBuilder("assignment")
+        .leftJoinAndSelect("assignment.shift", "shift")
+        .where("assignment.employeeId IN (:...batch)", { batch })
+        .getMany();
+        
+      for (const a of assignments as any[]) {
+        result.set(a.employeeId, {
+          shiftTimings: a.shift?.allowedTimings || null,
+          workingDays: a.shift?.workingDays || null,
+          offDays: a.shift?.offDays || null,
+          halfDay: a.shift?.halfDay || null,
+        });
+      }
+    }
+    return result;
   }
 }
 

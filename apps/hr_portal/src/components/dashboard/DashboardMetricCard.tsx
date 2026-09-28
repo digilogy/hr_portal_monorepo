@@ -10,8 +10,8 @@ export interface DashboardMetricCardProps {
   valueLabel: string;
   targetLabel?: string;
   percent?: number;
-  footerLeft?: string;
-  footerRight?: string;
+  footerLeft?: React.ReactNode;
+  footerRight?: React.ReactNode;
   icon: React.ReactNode;
   iconClassName: string;
   barClassName?: string;

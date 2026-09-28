@@ -207,10 +207,10 @@ export function aggregateActivityForCharts(
         label: `${week.displayStart.format("MMM D")} – ${week.displayEnd.format("MMM D, YYYY")}`,
         shortLabel:
           week.displayStart.month() === week.displayEnd.month() &&
-          week.displayStart.year() === week.displayEnd.year()
+            week.displayStart.year() === week.displayEnd.year()
             ? `${week.displayStart.format("MMM D")}–${week.displayEnd.format("D")}`
             : `${week.displayStart.format("MMM D")}–${week.displayEnd.format("MMM D")}`,
-        hours: Math.round(week.hours * 60) / 60,
+        hours: parseFloat(week.hours.toFixed(4)),
         entryCount: week.entryCount,
         secondaryValue: `${week.entryCount} employee-days logged`,
       }));
@@ -244,7 +244,7 @@ export function aggregateActivityForCharts(
       key,
       label: month.month.format("MMMM YYYY"),
       shortLabel: month.month.format("MMM YY"),
-      hours: Math.round(month.hours * 60) / 60,
+      hours: parseFloat(month.hours.toFixed(4)),
       entryCount: month.entryCount,
       secondaryValue: `${month.entryCount} employee-days logged`,
     }));

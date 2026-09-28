@@ -46,7 +46,10 @@ export interface PaginatedTeamRosterResult {
   summary: {
     totalMembers: number;
     submittedCount: number;
+    pendingCount: number;
     avgUtilization: number;
+    teamStats?: any;
+    attentionMembers?: any[];
   };
 }
 
@@ -215,7 +218,7 @@ function calculateSlotHours(timeSlot: string): number | null {
   const end = parseTime(parts[1]);
   let diff = end - start;
   if (diff < 0) diff += 24;
-  return Math.round(diff * 60) / 60;
+  return diff;
 }
 
 function parseTimeSlotBounds(timeSlot: string): { start: number; end: number } | null {
@@ -279,7 +282,7 @@ function buildHourlySeries(
     result.push({
       hour,
       label: formatHourLabel(hour),
-      hours: Math.round(stats.hours * 60) / 60,
+      hours: stats.hours,
       slotCount: stats.slotCount,
     });
   }
@@ -345,6 +348,101 @@ function getWorkingDays(from: string, to: string): number {
   return Math.max(count, 1);
 }
 
+const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function isDayMatch(date: Date, conditionsStr: string): boolean {
+  if (!conditionsStr) return false;
+  
+  const dayPrefix = dayNames[date.getDay()].toLowerCase().substring(0, 3);
+  const conditions = conditionsStr.toLowerCase().split(",").map(c => c.trim());
+  const occurrence = Math.ceil(date.getDate() / 7);
+  
+  for (const condition of conditions) {
+    if (!condition.includes(dayPrefix)) continue;
+    
+    const has1st = condition.includes("1st");
+    const has2nd = condition.includes("2nd");
+    const has3rd = condition.includes("3rd");
+    const has4th = condition.includes("4th");
+    const has5th = condition.includes("5th");
+    
+    const hasOccurrenceRule = has1st || has2nd || has3rd || has4th || has5th;
+    
+    if (hasOccurrenceRule) {
+      if (has1st && occurrence === 1) return true;
+      if (has2nd && occurrence === 2) return true;
+      if (has3rd && occurrence === 3) return true;
+      if (has4th && occurrence === 4) return true;
+      if (has5th && occurrence === 5) return true;
+    } else {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+async function getExpectedHoursMap(
+  employees: EmployeeData[],
+  from: string,
+  to: string,
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (employees.length === 0) return result;
+
+  const employeeIds = employees.map(e => e.employeeId?.trim()).filter(Boolean) as string[];
+  const shiftsMap = await teamReportsRepository.getEmployeeShiftAssignments(employeeIds);
+
+  const defaultWorkingDays = getWorkingDays(from, to);
+
+  for (const emp of employees) {
+    const emailKey = (emp.officialEmailId || "").toLowerCase();
+    const shiftInfo = emp.employeeId ? shiftsMap.get(emp.employeeId.trim()) : null;
+
+    if (!shiftInfo || (!shiftInfo.shiftTimings && !shiftInfo.offDays && !shiftInfo.halfDay)) {
+      result.set(emailKey, defaultWorkingDays * 8.5);
+      continue;
+    }
+
+    let totalHours = 0;
+    let current = parseDate(from);
+    const end = parseDate(to);
+
+    let fullDayHours = 8.5;
+    if (shiftInfo.shiftTimings) {
+      const parsed = calculateSlotHours(shiftInfo.shiftTimings);
+      if (parsed) fullDayHours = parsed;
+    }
+
+    while (current <= end) {
+      const offDaysStr = shiftInfo.offDays || "Sunday";
+      const isOff = isDayMatch(current, offDaysStr);
+
+      if (!isOff) {
+        const halfDayStr = shiftInfo.halfDay || "";
+        const isHalf = isDayMatch(current, halfDayStr);
+
+        if (isHalf) {
+          let halfDayHours = fullDayHours / 2;
+          const match = halfDayStr.match(/\((.*?)\)/);
+          if (match && match[1]) {
+            const parsed = calculateSlotHours(match[1]);
+            if (parsed) halfDayHours = parsed;
+          }
+          totalHours += halfDayHours;
+        } else {
+          totalHours += fullDayHours;
+        }
+      }
+      current = addDays(current, 1);
+    }
+
+    result.set(emailKey, Math.max(totalHours, 0));
+  }
+
+  return result;
+}
+
 function formatPeriodLabel(from: Date, to: Date): string {
   const monthNames = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -376,14 +474,15 @@ function pickDisplayLabel(
 function buildUserRows(
   employees: EmployeeData[],
   hoursByEmail: Map<string, TimesheetHoursStats>,
-  expectedHours: number,
+  expectedHoursMap: Map<string, number>,
 ): UserReportRow[] {
   return employees.map((employee, index) => {
     const emailKey = (employee.officialEmailId || "").toLowerCase();
     const stats = hoursByEmail.get(emailKey) ?? { hours: 0, hasEntry: false };
+    const expectedHours = expectedHoursMap.get(emailKey) ?? 0;
     const utilization =
       expectedHours > 0
-        ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
+        ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(4))
         : 0;
 
     return {
@@ -392,9 +491,9 @@ function buildUserRows(
       name: employee.fullName || "—",
       department: employee.department || "—",
       manager: employee.directManagerName || "—",
-      hours: Math.round(stats.hours * 60) / 60,
+      hours: stats.hours,
       utilization,
-      status: stats.hasEntry ? "Submitted" : "Pending",
+      status: (stats.hasEntry && stats.hours > 0) ? "Submitted" : "Pending",
     };
   });
 }
@@ -580,10 +679,11 @@ function dedupeEmployeesByEmployeeId(employees: EmployeeData[]): EmployeeData[] 
 function buildTeamMemberNode(
   employee: EmployeeData,
   hoursByEmail: Map<string, TimesheetHoursStats>,
-  expectedHours: number,
+  expectedHoursMap: Map<string, number>,
 ): TeamMemberNode {
   const email = (employee.officialEmailId || "").toLowerCase();
   const stats = hoursByEmail.get(email) ?? { hours: 0, hasEntry: false };
+  const expectedHours = expectedHoursMap.get(email) ?? 0;
 
   return {
     key: getEmployeeNodeKey(employee),
@@ -597,37 +697,66 @@ function buildTeamMemberNode(
     hod: employee.hodEmployeeName || "—",
     phone: employee.officeMobileNumber || "—",
     status: employee.employmentStatus || "Active",
-    hours: Math.round(stats.hours * 60) / 60,
+    hours: stats.hours,
     utilization:
       expectedHours > 0
         ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
         : 0,
-    timesheetStatus: stats.hasEntry ? "Submitted" : "Pending",
+    timesheetStatus: (stats.hasEntry && stats.hours > 0) ? "Submitted" : "Pending",
   };
 }
 
 function summarizeFlatTeamMembers(
   members: TeamMemberNode[],
-  expectedHoursPerEmployee: number,
+  totalExpectedHours: number,
 ) {
   const submittedCount = members.filter(
     (member) => member.timesheetStatus === "Submitted",
   ).length;
   const totalHours = members.reduce((sum, member) => sum + member.hours, 0);
   const avgUtilization =
-    members.length > 0 && expectedHoursPerEmployee > 0
-      ? parseFloat(
-          (
-            (totalHours / (members.length * expectedHoursPerEmployee)) *
-            100
-          ).toFixed(1),
-        )
+    totalExpectedHours > 0
+      ? parseFloat(((totalHours / totalExpectedHours) * 100).toFixed(1))
       : 0;
+
+  const activeCount = members.filter(
+    (member) => member.status.toLowerCase() === "active",
+  ).length;
+  
+  const teamStats = {
+    total: members.length,
+    submitted: submittedCount,
+    pending: members.length - submittedCount,
+    submissionRate: members.length > 0 ? (submittedCount / members.length) * 100 : 0,
+    utilization: avgUtilization,
+    activeCount,
+    activeRate: members.length > 0 ? (activeCount / members.length) * 100 : 0,
+    onTrack: avgUtilization >= 90,
+  };
+
+  const byIdentity = new Map<string, TeamMemberNode>();
+  for (const member of members) {
+    if (member.status.toLowerCase() !== "active") continue;
+    if (member.timesheetStatus !== "Pending" && member.utilization >= 50) continue;
+    if (!byIdentity.has(member.key)) {
+      byIdentity.set(member.key, member);
+    }
+  }
+
+  const attentionMembers = [...byIdentity.values()].sort((a, b) => {
+    if (a.timesheetStatus !== b.timesheetStatus) {
+      return a.timesheetStatus === "Pending" ? -1 : 1;
+    }
+    return a.utilization - b.utilization;
+  });
 
   return {
     totalMembers: members.length,
     submittedCount,
+    pendingCount: members.length - submittedCount,
     avgUtilization,
+    teamStats,
+    attentionMembers,
   };
 }
 
@@ -653,46 +782,13 @@ function applyRosterCardFilter(
   }
 }
 
-function summarizeTeamMembers(
-  members: TeamMemberNode[],
-  expectedHoursPerEmployee: number,
-) {
-  const flatten = (nodes: TeamMemberNode[]): TeamMemberNode[] =>
-    nodes.flatMap((node) => [
-      node,
-      ...(node.children ? flatten(node.children) : []),
-    ]);
 
-  const flatMembers = flatten(members);
-  const submittedCount = flatMembers.filter(
-    (member) => member.timesheetStatus === "Submitted",
-  ).length;
-  const totalHours = flatMembers.reduce((sum, member) => sum + member.hours, 0);
-  const avgUtilization =
-    flatMembers.length > 0 && expectedHoursPerEmployee > 0
-      ? parseFloat(
-          (
-            (totalHours / (flatMembers.length * expectedHoursPerEmployee)) *
-            100
-          ).toFixed(1),
-        )
-      : 0;
-
-  return {
-    members,
-    summary: {
-      totalMembers: flatMembers.length,
-      submittedCount,
-      avgUtilization,
-    },
-  };
-}
 
 function buildTeamTree(
   employees: EmployeeData[],
   rootManagerId: string | null,
   hoursByEmail: Map<string, TimesheetHoursStats>,
-  expectedHours: number,
+  expectedHoursMap: Map<string, number>,
 ): TeamMemberNode[] {
   const placedKeys = new Set<string>();
   const childrenByManager = new Map<string, EmployeeData[]>();
@@ -717,6 +813,7 @@ function buildTeamTree(
 
       const email = (employee.officialEmailId || "").toLowerCase();
       const stats = hoursByEmail.get(email) ?? { hours: 0, hasEntry: false };
+      const expectedHours = expectedHoursMap.get(email) ?? 0;
       const node: TeamMemberNode = {
         key: nodeKey,
         employeeId: employee.employeeId || "—",
@@ -729,12 +826,12 @@ function buildTeamTree(
         hod: employee.hodEmployeeName || "—",
         phone: employee.officeMobileNumber || "—",
         status: employee.employmentStatus || "Active",
-        hours: Math.round(stats.hours * 60) / 60,
+        hours: stats.hours,
         utilization:
           expectedHours > 0
             ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
             : 0,
-        timesheetStatus: stats.hasEntry ? "Submitted" : "Pending",
+        timesheetStatus: (stats.hasEntry && stats.hours > 0) ? "Submitted" : "Pending",
       };
 
       const managerEmployeeId = employee.employeeId?.trim();
@@ -830,8 +927,8 @@ export class TeamReportsService {
 
     let visibleEmployees = excludeSelf
       ? employees.filter(
-          (employee) => employee.employeeId !== currentEmployee.employeeId,
-        )
+        (employee) => employee.employeeId !== currentEmployee.employeeId,
+      )
       : employees;
 
     visibleEmployees = filterEmployeesByReportFilters(
@@ -848,16 +945,16 @@ export class TeamReportsService {
       range.to,
     );
 
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHoursPerEmployee = workingDays * 8.5;
+    const expectedHoursMap = await getExpectedHoursMap(visibleEmployees, range.from, range.to);
+    const totalExpectedHours = Array.from(expectedHoursMap.values()).reduce((a, b) => a + b, 0);
 
     const flatMembers = visibleEmployees.map((employee) =>
-      buildTeamMemberNode(employee, hoursByEmail, expectedHoursPerEmployee),
+      buildTeamMemberNode(employee, hoursByEmail, expectedHoursMap),
     );
 
     const summary = summarizeFlatTeamMembers(
       flatMembers,
-      expectedHoursPerEmployee,
+      totalExpectedHours,
     );
 
     const filteredMembers = applyRosterCardFilter(flatMembers, rosterFilter);
@@ -875,7 +972,7 @@ export class TeamReportsService {
         ),
         rootManagerId,
         hoursByEmail,
-        expectedHoursPerEmployee,
+        expectedHoursMap,
       );
 
       return {
@@ -911,19 +1008,12 @@ export class TeamReportsService {
     filters?: ReportFilters,
   ): Promise<UserReportRow[]> {
     const cacheKey = `report_userwise_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
-    
+
     if (this.userWisePromiseCache.has(cacheKey)) {
       return this.userWisePromiseCache.get(cacheKey)!;
     }
 
     const computePromise = (async () => {
-      const cachedData = await RedisService.get(cacheKey);
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {}
-      }
-
       const range = getDefaultDateRange(fromDate, toDate);
       const employees = await this.getFilteredReportScopeEmployees(
         email,
@@ -938,17 +1028,15 @@ export class TeamReportsService {
         range.from,
         range.to,
       );
-      const workingDays = getWorkingDays(range.from, range.to);
-      const expectedHours = workingDays * 8.5;
+      const expectedHoursMap = await getExpectedHoursMap(employees, range.from, range.to);
 
-      const rows = buildUserRows(employees, hoursByEmail, expectedHours);
+      const rows = buildUserRows(employees, hoursByEmail, expectedHoursMap);
 
       let finalRows = rows;
       if (filters?.status && filters.status !== "all") {
         finalRows = rows.filter((r) => r.status === filters.status);
       }
 
-      await RedisService.setWithTTL(cacheKey, JSON.stringify(finalRows), 300);
       return finalRows;
     })();
 
@@ -1003,11 +1091,10 @@ export class TeamReportsService {
       range.from,
       range.to,
     );
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8.5;
+    const expectedHoursMap = await getExpectedHoursMap(pagedEmployees, range.from, range.to);
 
     return {
-      rows: buildUserRows(pagedEmployees, hoursByEmail, expectedHours),
+      rows: buildUserRows(pagedEmployees, hoursByEmail, expectedHoursMap),
       total,
       page: safePage,
       pageSize: safePageSize,
@@ -1078,11 +1165,11 @@ export class TeamReportsService {
       const avgUtilization =
         stats.utilizations.length > 0
           ? parseFloat(
-              (
-                stats.utilizations.reduce((sum, value) => sum + value, 0) /
-                stats.utilizations.length
-              ).toFixed(1),
-            )
+            (
+              stats.utilizations.reduce((sum, value) => sum + value, 0) /
+              stats.utilizations.length
+            ).toFixed(1),
+          )
           : 0;
 
       let status = "On Track";
@@ -1094,7 +1181,7 @@ export class TeamReportsService {
         managerName: pickDisplayLabel(stats.labels, "Unassigned"),
         department: pickDisplayLabel(stats.departmentLabels, "Unassigned"),
         teamSize: stats.teamSize,
-        totalHours: Math.round(stats.totalHours * 60) / 60,
+        totalHours: stats.totalHours,
         avgUtilization,
         status,
       };
@@ -1172,15 +1259,15 @@ export class TeamReportsService {
       department: pickDisplayLabel(stats.labels, "Unassigned"),
       hod: pickDisplayLabel(stats.hodLabels, "—"),
       headcount: stats.headcount,
-      totalHours: Math.round(stats.totalHours * 60) / 60,
+      totalHours: stats.totalHours,
       avgUtilization:
         stats.utilizations.length > 0
           ? parseFloat(
-              (
-                stats.utilizations.reduce((sum, value) => sum + value, 0) /
-                stats.utilizations.length
-              ).toFixed(1),
-            )
+            (
+              stats.utilizations.reduce((sum, value) => sum + value, 0) /
+              stats.utilizations.length
+            ).toFixed(4),
+          )
           : 0,
     }));
   }
@@ -1195,38 +1282,39 @@ export class TeamReportsService {
 
     const employees = await teamReportsRepository.findAllEmployees();
     const headcount = employees.length;
-    const rows: OrganizationReportRow[] = [];
 
-    for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
+    const emails = employees
+      .map((employee) => employee.officialEmailId)
+      .filter(Boolean) as string[];
+
+    const weekOffsets = [0, 1, 2, 3];
+    const rows = await Promise.all(weekOffsets.map(async (weekOffset) => {
       const weekStart = addDays(startOfWeek(new Date()), -7 * weekOffset);
       const weekEnd = endOfWeek(weekStart);
       const from = formatDate(weekStart);
       const to = formatDate(weekEnd);
-      const emails = employees
-        .map((employee) => employee.officialEmailId)
-        .filter(Boolean) as string[];
       const hoursByEmail = await teamReportsRepository.getTimesheetHoursByEmail(emails, from, to);
       const loggedHours = [...hoursByEmail.values()].reduce(
         (sum, stats) => sum + stats.hours,
         0,
       );
-      const workingDays = getWorkingDays(from, to);
-      const expectedHours = headcount * workingDays * 8.5;
+      const expectedHoursMap = await getExpectedHoursMap(employees, from, to);
+      const expectedHours = Array.from(expectedHoursMap.values()).reduce((a, b) => a + b, 0);
 
-      rows.push({
+      return {
         key: String(weekOffset + 1),
         period: formatPeriodLabel(weekStart, weekEnd),
         headcount,
         expectedHours,
-        loggedHours: Math.round(loggedHours * 60) / 60,
+        loggedHours: loggedHours,
         utilization:
           expectedHours > 0
             ? parseFloat(((loggedHours / expectedHours) * 100).toFixed(1))
             : 0,
-      });
-    }
+      };
+    }));
 
-    return rows;
+    return rows.sort((a, b) => Number(a.key) - Number(b.key));
   }
 
   static async getDashboardSummary(
@@ -1237,38 +1325,33 @@ export class TeamReportsService {
     filters?: ReportFilters,
   ): Promise<DashboardSummary> {
     const cacheKey = `report_dash_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
-    
+
     if (this.dashboardPromiseCache.has(cacheKey)) {
       return this.dashboardPromiseCache.get(cacheKey)!;
     }
 
     const computePromise = (async () => {
-      const cachedData = await RedisService.get(cacheKey);
-      if (cachedData) {
-        try {
-          return JSON.parse(cachedData);
-        } catch (e) {}
-      }
-
       const employees = await AccessService.getAccessibleEmployees(email, role);
       const reportScopeEmployees = await AccessService.getReportScopeEmployees(
         email,
         role,
       );
-      const userRows = await this.getUserWiseReport(
-        email,
-        role,
-        fromDate,
-        toDate,
-        filters,
-      );
-      const deptRows = await this.getDepartmentWiseReport(
-        email,
-        role,
-        fromDate,
-        toDate,
-        filters,
-      );
+      const [userRows, deptRows] = await Promise.all([
+        this.getUserWiseReport(
+          email,
+          role,
+          fromDate,
+          toDate,
+          filters,
+        ),
+        this.getDepartmentWiseReport(
+          email,
+          role,
+          fromDate,
+          toDate,
+          filters,
+        ),
+      ]);
 
       const filteredEmployees = filterEmployeesByReportFilters(
         employees,
@@ -1278,16 +1361,16 @@ export class TeamReportsService {
       const filteredUserRows = userRows;
 
       const totalLoggedHours = filteredUserRows.reduce(
-        (sum, row) => sum + row.hours,
+        (sum, row) => sum + Math.round(row.hours * 60),
         0,
-      );
+      ) / 60.0;
       const timesheetsSubmitted = filteredUserRows.filter(
         (row) => row.status === "Submitted",
       ).length;
       const avgUtilization =
         filteredUserRows.length > 0
           ? filteredUserRows.reduce((sum, row) => sum + row.utilization, 0) /
-            filteredUserRows.length
+          filteredUserRows.length
           : 0;
 
       const filteredDepartments = [...deptRows].sort(
@@ -1300,14 +1383,18 @@ export class TeamReportsService {
 
       let totalSignUpUsers = 0;
       if (emails.length > 0) {
-        const usersInBatch = await teamReportsRepository.findSignedUpUsersForEmails(emails);
-        totalSignUpUsers = usersInBatch.length;
+        totalSignUpUsers = await teamReportsRepository.getSignedUpUsersCountForEmails(emails);
       }
+
+      const range = getDefaultDateRange(fromDate, toDate);
+      const expectedHoursMap = await getExpectedHoursMap(filteredEmployees, range.from, range.to);
+      const totalExpectedHours = Array.from(expectedHoursMap.values()).reduce((a, b) => a + b, 0);
 
       const result = {
         totalEmployees: filteredEmployees.length,
-        totalLoggedHours: Math.round(totalLoggedHours * 60) / 60,
-        avgUtilization: parseFloat(avgUtilization.toFixed(1)),
+        totalLoggedHours: totalLoggedHours,
+        totalExpectedHours: totalExpectedHours,
+        avgUtilization: parseFloat(avgUtilization.toFixed(4)),
         timesheetsSubmitted,
         departments: filteredDepartments,
         filterOptions: {
@@ -1316,7 +1403,6 @@ export class TeamReportsService {
         totalSignUpUsers,
       };
 
-      await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 300);
       return result;
     })();
 
@@ -1575,12 +1661,12 @@ export class TeamReportsService {
     );
     const stats = officialEmail
       ? hoursByEmail.get(officialEmail.toLowerCase()) ?? {
-          hours: 0,
-          hasEntry: false,
-        }
+        hours: 0,
+        hasEntry: false,
+      }
       : { hours: 0, hasEntry: false };
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8.5;
+    const expectedHoursMap = await getExpectedHoursMap([employee], range.from, range.to);
+    const expectedHours = expectedHoursMap.get(officialEmail?.toLowerCase() ?? "") ?? 0;
 
     const days: Array<{
       date: string;
@@ -1624,13 +1710,13 @@ export class TeamReportsService {
         email: officialEmail || "—",
       },
       summary: {
-        totalHours: Math.round(stats.hours * 60) / 60,
+        totalHours: stats.hours,
         expectedHours,
         utilization:
           expectedHours > 0
             ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(1))
             : 0,
-        status: stats.hasEntry ? ("Submitted" as const) : ("Pending" as const),
+        status: (stats.hasEntry && stats.hours > 0) ? ("Submitted" as const) : ("Pending" as const),
       },
       days,
     };
@@ -1713,7 +1799,7 @@ export class TeamReportsService {
       const existing = dailyStats.get(dateKey);
       if (!existing) continue;
       existing.submittedCount += Number(row.submittedCount);
-      existing.totalHours += Math.round(Number(row.totalHours) * 60) / 60;
+      existing.totalHours += Number(row.totalHours);
     }
 
     for (const entry of entries) {
@@ -1744,28 +1830,28 @@ export class TeamReportsService {
       .map(([date, stats]) => ({
         date,
         submittedCount: stats.submittedCount,
-        totalHours: Math.round(stats.totalHours * 60) / 60,
+        totalHours: stats.totalHours,
         rate:
           employeesInScope > 0
             ? parseFloat(
-                ((stats.submittedCount / employeesInScope) * 100).toFixed(1),
-              )
+              ((stats.submittedCount / employeesInScope) * 100).toFixed(1),
+            )
             : 0,
       }));
 
     const avgDailyCompliance =
       dailyActivity.length > 0
         ? parseFloat(
-            (
-              dailyActivity.reduce((sum, day) => sum + day.rate, 0) /
-              dailyActivity.length
-            ).toFixed(1),
-          )
+          (
+            dailyActivity.reduce((sum, day) => sum + day.rate, 0) /
+            dailyActivity.length
+          ).toFixed(1),
+        )
         : 0;
 
     const byDayOfWeek = [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
       day: dayLabels[dow],
-      hours: Math.round((dowStats.get(dow)?.hours ?? 0) * 60) / 60,
+      hours: (dowStats.get(dow)?.hours ?? 0),
       entryCount: dowStats.get(dow)?.entryCount ?? 0,
     }));
 
@@ -1782,7 +1868,7 @@ export class TeamReportsService {
     const byTaskType = [...taskStats.entries()]
       .map(([taskType, stats]) => ({
         taskType,
-        hours: Math.round(stats.hours * 60) / 60,
+        hours: stats.hours,
         slotCount: stats.slotCount,
         pct:
           taskTotalHours > 0
@@ -1860,7 +1946,7 @@ export class TeamReportsService {
         avgDailyCompliance,
         peakDayOfWeek,
         dominantTaskType: byTaskType[0]?.taskType ?? "—",
-        totalLoggedHours: Math.round(totalLoggedHours * 60) / 60,
+        totalLoggedHours: totalLoggedHours,
       },
       dailyActivity,
       byDayOfWeek,

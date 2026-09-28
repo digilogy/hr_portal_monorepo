@@ -1,35 +1,76 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Button, Table, Typography, Upload, Tag, message, Tabs, Modal, Spin } from "antd";
 import { UploadOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_BASE, getAuthHeaders } from "@/lib/api";
 import dayjs from "dayjs";
 import { AdminReportFilters } from "@/components/reports/AdminReportFilters";
 import {
   DEFAULT_REPORT_FILTERS,
   appendReportFilters,
+  parseReportFiltersFromSearchParams,
+  reportFiltersToSearchParams,
   type ReportFilters,
   type ReportFilterOptions,
 } from "@/lib/reportFilters";
+import { getTokenRole, getTokenEmail, type UserRole } from "@/lib/auth";
 
 import { ResponsiveTable } from "@/components/ui/ResponsiveTable";
 
 const { Title } = Typography;
 
 export default function ShiftManagementPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [employeeShifts, setEmployeeShifts] = useState<any[]>([]);
+  const [loadingShifts, setLoadingShifts] = useState(true);
   const [isRulesModalVisible, setIsRulesModalVisible] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [selectedJobErrors, setSelectedJobErrors] = useState<any[]>([]);
   const [loadingErrors, setLoadingErrors] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
 
-  const [adminFilters, setAdminFilters] = useState<ReportFilters>(DEFAULT_REPORT_FILTERS);
+  useEffect(() => {
+    setRole(getTokenRole());
+    setEmail(getTokenEmail());
+  }, []);
+
+  const isAdmin = role === "admin" && email !== "superadmin@casagrand.co.in";
+
+  const [adminFilters, setAdminFilters] = useState<ReportFilters>(() => {
+    return parseReportFiltersFromSearchParams(searchParams);
+  });
+
+  const syncShiftMgmtUrl = useCallback(
+    (filters: ReportFilters) => {
+      const params = reportFiltersToSearchParams(filters);
+      const query = params.toString();
+      router.replace(query ? `/shift-management?${query}` : "/shift-management", { scroll: false });
+    },
+    [router],
+  );
+
+  const handleAdminFiltersChange = useCallback(
+    (filters: ReportFilters) => {
+      setAdminFilters(filters);
+      syncShiftMgmtUrl(filters);
+    },
+    [syncShiftMgmtUrl],
+  );
+
+  const handleClearAllShiftMgmtFilters = useCallback(() => {
+    const defaultFilters = DEFAULT_REPORT_FILTERS;
+    setAdminFilters(defaultFilters);
+    syncShiftMgmtUrl(defaultFilters);
+  }, [syncShiftMgmtUrl]);
   const [filterOptions, setFilterOptions] = useState<ReportFilterOptions | null>(null);
 
   useEffect(() => {
@@ -49,12 +90,15 @@ export default function ShiftManagementPage() {
 
   const fetchEmployeeShifts = async () => {
     try {
+      setLoadingShifts(true);
       const params = new URLSearchParams();
       appendReportFilters(params, adminFilters);
       const data = await apiFetch<any[]>(`/api/admin/employee-shifts?${params}`);
       setEmployeeShifts(data);
     } catch (error) {
       console.error("Failed to fetch employee shifts", error);
+    } finally {
+      setLoadingShifts(false);
     }
   };
 
@@ -64,7 +108,9 @@ export default function ShiftManagementPage() {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchHistory(), fetchEmployeeShifts()]);
+    // await Promise.all([fetchHistory(), fetchEmployeeShifts()]);
+    await fetchHistory();
+
     setLoading(false);
   };
 
@@ -147,12 +193,12 @@ export default function ShiftManagementPage() {
       const response = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      
+
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || "Failed to download file");
       }
-      
+
       const blob = await response.blob();
       const objectUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -168,12 +214,12 @@ export default function ShiftManagementPage() {
   };
 
   const historyColumns = [
-    { 
-      title: "File Name", 
-      dataIndex: "fileName", 
+    {
+      title: "File Name",
+      dataIndex: "fileName",
       key: "fileName",
       render: (fileName: string, row: any) => (
-        <button 
+        <button
           onClick={() => handleDownload(row.id, fileName)}
           className="text-[#F5A623] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer p-0 text-left"
         >
@@ -229,26 +275,30 @@ export default function ShiftManagementPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 mb-6">
         <Title level={2} className="!m-0 text-gray-800">Shift Management</Title>
         <div className="flex flex-nowrap gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          <Button
-            type="default"
-            icon={<InfoCircleOutlined />}
-            onClick={() => setIsRulesModalVisible(true)}
-          >
-            Shift Rules
-          </Button>
-          <Upload
-            accept=".csv,.xlsx,.xls"
-            beforeUpload={(file) => {
-              void handleUpload(file, "/api/admin/bulk-upload-master", "Master data upload queued.");
-              return false;
-            }}
-            showUploadList={false}
-            disabled={uploading || isProcessing}
-          >
-            <Button icon={<UploadOutlined />} loading={uploading || isProcessing}>
-              Upload Master Data
-            </Button>
-          </Upload>
+          {!isAdmin && (
+            <>
+              <Button
+                type="default"
+                icon={<InfoCircleOutlined />}
+                onClick={() => setIsRulesModalVisible(true)}
+              >
+                Shift Rules
+              </Button>
+              <Upload
+                accept=".csv,.xlsx,.xls"
+                beforeUpload={(file) => {
+                  void handleUpload(file, "/api/admin/bulk-upload-master", "Master data upload queued.");
+                  return false;
+                }}
+                showUploadList={false}
+                disabled={uploading || isProcessing}
+              >
+                <Button icon={<UploadOutlined />} loading={uploading || isProcessing}>
+                  Upload Master Data
+                </Button>
+              </Upload>
+            </>
+          )}
         </div>
       </div>
 
@@ -265,27 +315,25 @@ export default function ShiftManagementPage() {
                   options={filterOptions}
                   loading={!filterOptions && loading}
                   hideStatus={true}
-                  onChange={setAdminFilters}
+                  onChange={handleAdminFiltersChange}
+                  onClearAll={handleClearAllShiftMgmtFilters}
                 />
                 <ResponsiveTable
                   dataSource={employeeShifts}
                   columns={employeeColumns}
                   rowKey="employeeId"
-                  loading={loading}
+                  loading={loadingShifts}
                   scroll={{ x: 1000 }}
-                  pagination={{ pageSize: 20 }}
+                  pagination={{ pageSize: 10 }}
                 />
               </div>
             ),
           },
-          {
+          ...(!isAdmin ? [{
             key: "2",
             label: "Upload History",
             children: (
               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mt-2">
-                {/* <div className="flex justify-end mb-4">
-                  <Button onClick={fetchHistory} loading={loading}>Refresh Status</Button>
-                </div> */}
                 <ResponsiveTable
                   dataSource={history}
                   columns={historyColumns}
@@ -296,7 +344,7 @@ export default function ShiftManagementPage() {
                 />
               </div>
             ),
-          },
+          }] : []),
         ]}
       />
 
@@ -354,7 +402,7 @@ export default function ShiftManagementPage() {
 
           <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-sm mt-4">
             <InfoCircleOutlined className="mr-2" />
-            <strong>Note:</strong> The system automatically looks for the sheets by name or header contents. Ensure the <strong>Attendance Shift</strong> in Tab 1 matches a <strong>Shift Name</strong> in Tab 2 exactly!
+            <strong>Note:</strong> The system automatically looks for the sheets by name or header contents. Ensure the <strong>Employee data</strong> in Tab 1 matches a <strong>Shift Detail</strong> in Tab 2 exactly!
           </div>
         </div>
       </Modal>

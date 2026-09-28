@@ -29,6 +29,11 @@ exports.AppDataSource = new typeorm_1.DataSource({
             database: config_1.env.DB_NAME,
         }),
     ssl: useSsl ? { rejectUnauthorized: false } : false,
+    extra: {
+        max: config_1.env.DB_POOL_MAX || 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+    },
     // Disable automatic DDL synchronization in production to prevent "DROP INDEX check that it exists" errors
     synchronize: config_1.env.NODE_ENV !== "production" && config_1.env.TYPEORM_SYNCHRONIZE === "true",
     logging: false,

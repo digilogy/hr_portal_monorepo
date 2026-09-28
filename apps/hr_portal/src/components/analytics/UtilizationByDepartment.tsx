@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Segmented, Tag, Button, Modal, Input, Table } from "antd";
 import { UnorderedListOutlined, SearchOutlined } from "@ant-design/icons";
+import { fmtHours } from "@/lib/formatHours";
 
 export interface DepartmentUtilizationItem {
   department: string;
@@ -93,14 +94,7 @@ export function UtilizationByDepartment({
       dataIndex: "totalHours",
       key: "totalHours",
       align: "right" as const,
-      render: (val: number) => {
-        const h = Math.floor(val);
-        const m = Math.round((val - h) * 60);
-        if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-        if (h > 0) return `${h}hrs`;
-        if (m > 0) return `${m}mins`;
-        return "0hrs";
-      },
+      render: (val: number) => fmtHours(val),
     },
     {
       title: "Avg. Utilization (%)",
@@ -109,13 +103,12 @@ export function UtilizationByDepartment({
       align: "right" as const,
       render: (val: number) => (
         <span
-          className={`font-bold ${
-            val >= 90
+          className={`font-bold ${val >= 90
               ? "text-emerald-600"
               : val >= 70
-              ? "text-amber-600"
-              : "text-red-500"
-          }`}
+                ? "text-amber-600"
+                : "text-red-500"
+            }`}
         >
           {val.toFixed(1)}%
         </span>

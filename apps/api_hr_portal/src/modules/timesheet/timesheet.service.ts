@@ -55,43 +55,45 @@ function calculateTotalHours(slots: TimesheetSlot[]): number {
       );
     })
     .reduce((sum, slot) => sum + calculateSlotHours(slot.timeSlot), 0);
-  return Math.round(total * 60) / 60;
+  return parseFloat(total.toFixed(4));
 }
+
 
 export class TimesheetService {
   static isNonWorkingDay(dateStr: string, profile: EmployeeProfile): boolean {
-    const date = new Date(dateStr);
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
     const dayOfWeek = date.getDay(); // 0 (Sun) to 6 (Sat)
-    
+
     if (profile.weeklyOff) {
       const offDaysMap: Record<string, number> = {
         sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
         wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
       };
-      
+
       const offDays = profile.weeklyOff.split(",").map(d => d.trim().toLowerCase());
       for (const off of offDays) {
         if (offDaysMap[off] === dayOfWeek) {
           return true;
         }
-        
+
         const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
         if (nthMatch) {
-          const nthMap: Record<string, number> = { 
-            first: 1, '1st': 1, 
-            second: 2, '2nd': 2, 
-            third: 3, '3rd': 3, 
-            fourth: 4, '4th': 4, 
-            fifth: 5, '5th': 5 
+          const nthMap: Record<string, number> = {
+            first: 1, '1st': 1,
+            second: 2, '2nd': 2,
+            third: 3, '3rd': 3,
+            fourth: 4, '4th': 4,
+            fifth: 5, '5th': 5
           };
           const n = nthMap[nthMatch[1]];
           const targetDay = offDaysMap[nthMatch[2]];
           if (n && targetDay !== undefined) {
-             const dateNum = date.getDate();
-             const currentNth = Math.ceil(dateNum / 7);
-             if (dayOfWeek === targetDay && currentNth === n) {
-               return true;
-             }
+            const dateNum = date.getDate();
+            const currentNth = Math.ceil(dateNum / 7);
+            if (dayOfWeek === targetDay && currentNth === n) {
+              return true;
+            }
           }
         }
       }
@@ -100,13 +102,13 @@ export class TimesheetService {
     if (profile.upcomingHolidays && profile.upcomingHolidays.length > 0) {
       const holiday = profile.upcomingHolidays.find((h: any) => {
         if (h.isOptional) return false;
-        
+
         // Convert Date objects to YYYY-MM-DD strings for comparison
         const formatYMD = (d: Date | string) => {
           const dt = new Date(d);
           return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
         };
-        
+
         const start = formatYMD(h.startDate);
         const end = formatYMD(h.endDate);
         return dateStr >= start && dateStr <= end;
@@ -146,22 +148,42 @@ export class TimesheetService {
     const totalHours = calculateTotalHours(slots);
     const existing = await timesheetRepository.findForUpdate(userId, date);
 
+    let savedEntry: Timesheet;
     if (existing) {
+      if (existing.status === "approved") {
+        throw new Error("Cannot edit an approved timesheet");
+      }
       existing.slots = slots;
       existing.totalHours = totalHours;
       existing.status = "saved";
-      return timesheetRepository.save(existing);
+      savedEntry = await timesheetRepository.save(existing);
+    } else {
+      const entry = timesheetRepository.create({
+        user,
+        date,
+        slots,
+        totalHours,
+        status: "saved",
+      });
+      savedEntry = await timesheetRepository.save(entry);
     }
 
-    const entry = timesheetRepository.create({
-      user,
-      date,
-      slots,
-      totalHours,
-      status: "saved",
-    });
+    await this.invalidateHistoryCache(userId);
+    return savedEntry;
+  }
 
-    return timesheetRepository.save(entry);
+  static async invalidateHistoryCache(userId: number): Promise<void> {
+    const cachePrefix = `timesheet_history_v2:${userId}`;
+    for (const key of this.historyPromiseCache.keys()) {
+      if (key.startsWith(cachePrefix)) {
+        this.historyPromiseCache.delete(key);
+      }
+    }
+    
+    // Instead of using deletePattern (which fails on Redis Clusters due to SCAN restrictions),
+    // we use a cache versioning strategy. Bumping the version instantly orphans old cache keys.
+    const versionKey = `timesheet_history_version:${userId}`;
+    await RedisService.setWithTTL(versionKey, Date.now().toString(), 86400);
   }
 
   static async getDay(
@@ -177,8 +199,15 @@ export class TimesheetService {
     userId: number,
     options: TimesheetHistoryOptions = {},
   ): Promise<Timesheet[]> {
-    const cacheKey = `timesheet_history_v2:${userId}:${JSON.stringify(options)}`;
-    
+    const versionKey = `timesheet_history_version:${userId}`;
+    let version = await RedisService.get(versionKey);
+    if (!version) {
+      version = Date.now().toString();
+      await RedisService.setWithTTL(versionKey, version, 86400);
+    }
+
+    const cacheKey = `timesheet_history_v2:${userId}:${version}:${JSON.stringify(options)}`;
+
     if (this.historyPromiseCache.has(cacheKey)) {
       return this.historyPromiseCache.get(cacheKey)!;
     }
@@ -188,7 +217,7 @@ export class TimesheetService {
       if (cached) {
         try {
           return JSON.parse(cached);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const result = await timesheetRepository.findHistory(userId, options);

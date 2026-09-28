@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { fmtHours } from "@/lib/formatHours";
 
 interface BarDataPoint {
   label: string;
@@ -16,10 +17,10 @@ interface BarChartProps {
   threshold?: number;
 }
 
-export function BarChart({ 
-  data, 
-  height = 300, 
-  color = "#2a78d6", 
+export function BarChart({
+  data,
+  height = 300,
+  color = "#2a78d6",
   yAxisLabel = "",
   threshold
 }: BarChartProps) {
@@ -54,9 +55,9 @@ export function BarChart({
       <div className="absolute inset-0 flex items-end justify-between" style={{ left: padding.left, right: padding.right, top: padding.top, bottom: padding.bottom }}>
         {/* Threshold Line */}
         {threshold !== undefined && (
-          <div 
-            className="absolute left-0 w-full border-t border-dashed z-0 pointer-events-none" 
-            style={{ 
+          <div
+            className="absolute left-0 w-full border-t border-dashed z-0 pointer-events-none"
+            style={{
               bottom: `${(threshold / yRange) * 100}%`,
               borderColor: "#52c41a",
               borderWidth: "1px"
@@ -71,8 +72,8 @@ export function BarChart({
           const heightPct = (d.value / yRange) * 100;
           const isHovered = hoveredIndex === i;
           return (
-            <div 
-              key={i} 
+            <div
+              key={i}
               className="relative flex flex-col items-center justify-end group z-10"
               style={{ width: `${100 / data.length}%`, height: "100%" }}
               onMouseEnter={() => setHoveredIndex(i)}
@@ -83,26 +84,18 @@ export function BarChart({
                 <div className="absolute bottom-full mb-2 bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg z-50 animate-fade-in-up">
                   <div className="font-semibold">{d.label}</div>
                   <div>
-                    {(() => {
-                      if (yAxisLabel === "h") {
-                        const h = Math.floor(d.value);
-                        const m = Math.round((d.value - h) * 60);
-                        if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-                        if (h > 0) return `${h}hrs`;
-                        if (m > 0) return `${m}mins`;
-                        return "0hrs";
-                      }
-                      return `${d.value.toFixed(1)}${yAxisLabel}`;
-                    })()}
+                    {yAxisLabel === "h" || yAxisLabel === "hrs"
+                      ? fmtHours(d.value)
+                      : `${d.value.toFixed(1)}${yAxisLabel}`}
                   </div>
                   {d.secondaryValue && <div className="text-gray-300 text-[10px]">{d.secondaryValue}</div>}
                 </div>
               )}
-              
-              <div 
+
+              <div
                 className="w-4/5 max-w-[40px] rounded-t-sm transition-all duration-300 relative overflow-hidden cursor-pointer"
-                style={{ 
-                  height: `${heightPct}%`, 
+                style={{
+                  height: `${heightPct}%`,
                   backgroundColor: isHovered ? `${color}dd` : color,
                   boxShadow: isHovered ? `0 4px 12px ${color}40` : "none"
                 }}
@@ -117,8 +110,8 @@ export function BarChart({
       {/* X-Axis labels */}
       <div className="absolute bottom-0 flex justify-between" style={{ left: padding.left, right: padding.right, height: padding.bottom }}>
         {data.map((d, i) => (
-          <div 
-            key={i} 
+          <div
+            key={i}
             className="flex items-start justify-center pt-2"
             style={{ width: `${100 / data.length}%` }}
           >

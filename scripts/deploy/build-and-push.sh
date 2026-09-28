@@ -13,7 +13,7 @@ set -euo pipefail
 TAG="${1:?Usage: build-and-push.sh <image-tag> [service ...]}"
 shift || true
 SERVICES=("${@:-}")
-if [ -z "${SERVICES[0]:-}" ]; then SERVICES=(api mail-worker); fi
+if [ -z "${SERVICES[0]:-}" ]; then SERVICES=(api reports admin mail-worker); fi
 
 AWS_REGION="${AWS_REGION:-ap-south-2}"
 ECR_PREFIX="${ECR_PREFIX:-timesheet}"

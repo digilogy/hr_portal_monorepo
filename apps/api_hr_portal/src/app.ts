@@ -5,9 +5,6 @@ import { logger } from "@hr-portal/logger";
 import authRoutes from "./modules/auth/auth.routes";
 import timesheetRoutes from "./modules/timesheet/timesheet.routes";
 import profileRoutes from "./modules/profile/profile.routes";
-import adminRoutes from "./modules/admin/admin.routes";
-import teamRoutes from "./modules/reports/team.routes";
-import reportsRoutes from "./modules/reports/reports.routes";
 
 const app = express();
 
@@ -72,12 +69,12 @@ const apiCache = new Map<string, { expiresAt: number; data: any; isRawText?: boo
 const apiInflight = new Map<string, express.Response[]>();
 
 function apiCacheMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' || req.originalUrl.includes('/download')) {
     return next();
   }
   const cacheKey = `${req.originalUrl}::${req.headers.authorization || ''}`;
   const cached = apiCache.get(cacheKey);
-  
+
   if (cached && cached.expiresAt > Date.now()) {
     if (cached.isRawText) {
       return res.type('json').status(200).send(cached.data);
@@ -95,7 +92,7 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
 
   // Intercept response to cache it and notify waiting requests
   const originalSend = res.send.bind(res);
-  
+
   res.send = (body: any) => {
     if (apiInflight.has(cacheKey)) {
       const waiting = apiInflight.get(cacheKey) || [];
@@ -103,7 +100,7 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
 
       if (res.statusCode === 200 && String(res.get('Content-Type')).includes('json')) {
         const rawString = typeof body === "string" ? body : JSON.stringify(body);
-        
+
         apiCache.set(cacheKey, {
           expiresAt: Date.now() + 5000, // 5 seconds TTL
           data: rawString,
@@ -147,13 +144,95 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
 
 app.use(apiCacheMiddleware);
 
+import http from "http";
+
+const proxyAgent = new http.Agent({ keepAlive: true, maxSockets: 10000 });
+
+const getPromises = new Map<string, Promise<any>>();
+
+function createProxy(targetHost: string, targetPort: number) {
+  return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // For GET requests, avoid stream pipes and use fetch (except for downloads/exports which are binary)
+    if (req.method === "GET" && !req.originalUrl.includes("/download") && !req.originalUrl.includes("/export")) {
+      try {
+        const r = await fetch(`http://${targetHost}:${targetPort}${req.originalUrl}`, {
+          headers: { ...req.headers, host: `${targetHost}:${targetPort}` } as any
+        });
+        const data = await r.text();
+        return res.type("json").status(r.status).send(data);
+      } catch (error: any) {
+        logger.error("ProxyErrorHandler", `Fetch GET failed to ${targetHost}:${targetPort}`, { error: error.message });
+        return res.status(502).json({ error: "Bad Gateway" });
+      }
+    }
+
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (typeof value === "string") {
+        headers[key] = value;
+      } else if (Array.isArray(value)) {
+        headers[key] = value.join(", ");
+      }
+    }
+    headers["host"] = `${targetHost}:${targetPort}`;
+
+    let bodyData: string | Buffer | null = null;
+    if (req.body && (typeof req.body === "object" ? Object.keys(req.body).length > 0 : true)) {
+      bodyData = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+      headers["content-length"] = String(Buffer.byteLength(bodyData));
+    }
+
+    const options = {
+      hostname: targetHost,
+      port: targetPort,
+      path: req.originalUrl,
+      method: req.method,
+      headers,
+      agent: proxyAgent,
+    };
+
+    const proxyReq = http.request(options, (proxyRes) => {
+      proxyRes.on("error", (err) => {
+        logger.error("ProxyErrorHandler", "proxyRes error", { error: err.message });
+      });
+
+      res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+    });
+
+    req.on("error", (err) => {
+      logger.error("ProxyErrorHandler", "Incoming request error", { error: err.message });
+      proxyReq.destroy(err);
+    });
+
+    res.on("error", (err) => {
+      logger.error("ProxyErrorHandler", "Outgoing response error", { error: err.message });
+      proxyReq.destroy(err);
+    });
+
+    proxyReq.on("error", (e) => {
+      logger.error("ProxyErrorHandler", `Failed to proxy to ${targetHost}:${targetPort}`, { error: e.message });
+      if (!res.headersSent) {
+        res.status(502).json({ error: "Bad Gateway", message: "Microservice is unreachable." });
+      }
+    });
+
+    if (bodyData !== null) {
+      proxyReq.write(bodyData);
+      proxyReq.end();
+    } else {
+      req.pipe(proxyReq, { end: true });
+    }
+  };
+}
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/timesheets", timesheetRoutes);
 app.use("/api/profile", profileRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/team", teamRoutes);
-app.use("/api/reports", reportsRoutes);
+app.use("/api/admin", createProxy(env.ADMIN_API_HOST, 5113));
+app.use("/api/team", createProxy(env.REPORTS_API_HOST, 5112));
+app.use("/api/reports", createProxy(env.REPORTS_API_HOST, 5112));
 
 // Diagnostics & Echo Config
 app.get("/api/echoconf", (req, res) => {

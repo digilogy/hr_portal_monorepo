@@ -32,6 +32,7 @@ __decorate([
     __metadata("design:type", User_1.User)
 ], Timesheet.prototype, "user", void 0);
 __decorate([
+    (0, typeorm_1.Index)(),
     (0, typeorm_1.Column)({ type: "date" }),
     __metadata("design:type", String)
 ], Timesheet.prototype, "date", void 0);

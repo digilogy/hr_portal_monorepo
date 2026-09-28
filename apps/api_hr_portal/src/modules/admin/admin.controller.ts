@@ -1,4 +1,7 @@
 import { Request, Response } from "express";
+import fs from "fs";
+import path from "path";
+import { isS3Configured, uploadBufferToS3, getS3FileStream } from "@hr-portal/storage";
 import { UploadQueueService } from "./uploadQueue.service";
 import { EmailQueueService } from "../../services/emailQueue.service";
 import { UploadLog, EmailStatus } from "@hr-portal/database";
@@ -22,6 +25,21 @@ function formatJobResponse(job: NonNullable<Awaited<ReturnType<typeof UploadQueu
   };
 }
 
+async function prepareFilePathForQueue(file: Express.Multer.File): Promise<string> {
+  if (isS3Configured()) {
+    const key = `uploads/${Date.now()}-${Math.round(Math.random() * 1e9)}-${path.basename(file.originalname)}`;
+    const fileBuffer = fs.readFileSync(file.path);
+    const s3Path = await uploadBufferToS3(key, fileBuffer, file.mimetype);
+    try {
+      fs.unlinkSync(file.path);
+    } catch (err) {
+      logger.warn("AdminController", "Failed to clean up local temp file after S3 upload", { path: file.path, error: err });
+    }
+    return s3Path;
+  }
+  return file.path;
+}
+
 export class AdminController {
   static async bulkUploadUsers(req: Request, res: Response): Promise<void> {
     try {
@@ -30,7 +48,8 @@ export class AdminController {
         return;
       }
 
-      const jobId = await UploadQueueService.enqueueUpload(req.file.path);
+      const targetPath = await prepareFilePathForQueue(req.file);
+      const jobId = await UploadQueueService.enqueueUpload(targetPath);
       res.status(202).json({
         message: "Upload has been queued. Check status with the job ID.",
         jobId,
@@ -48,7 +67,8 @@ export class AdminController {
         return;
       }
 
-      const jobId = await UploadQueueService.enqueueUpload(req.file.path, "shift");
+      const targetPath = await prepareFilePathForQueue(req.file);
+      const jobId = await UploadQueueService.enqueueUpload(targetPath, "shift");
       res.status(202).json({
         message: "Shift upload has been queued. Check status with the job ID.",
         jobId,
@@ -66,7 +86,8 @@ export class AdminController {
         return;
       }
 
-      const jobId = await UploadQueueService.enqueueUpload(req.file.path, "master");
+      const targetPath = await prepareFilePathForQueue(req.file);
+      const jobId = await UploadQueueService.enqueueUpload(targetPath, "master");
       res.status(202).json({
         message: "Master data upload has been queued. Check status with the job ID.",
         jobId,
@@ -123,18 +144,35 @@ export class AdminController {
         return;
       }
       
-      const fs = require('fs');
+      const downloadFileName = job.fileName || "downloaded-file.xlsx";
+
+      if (job.filePath.startsWith("s3://")) {
+        const s3Key = job.filePath.replace(/^s3:\/\//, "");
+        try {
+          const stream = await getS3FileStream(s3Key);
+          res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(downloadFileName)}"`);
+          res.setHeader("Content-Type", "application/octet-stream");
+          stream.pipe(res);
+          return;
+        } catch (s3Err) {
+          logger.error("AdminController", "Failed to stream file from S3 for download", { jobId, s3Key, error: s3Err });
+          res.status(404).json({ message: "The original file was deleted from S3 and is no longer available for download." });
+          return;
+        }
+      }
+
       if (!fs.existsSync(job.filePath)) {
         res.status(404).json({ message: "The original file was deleted from the server and is no longer available for download." });
         return;
       }
-      
-      res.download(job.filePath, job.fileName || "downloaded-file.xlsx");
+
+      res.download(job.filePath, downloadFileName);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ message });
     }
   }
+
 
   static async listEmailLogs(req: Request, res: Response): Promise<void> {
     try {

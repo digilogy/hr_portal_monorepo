@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { fmtHours } from "@/lib/formatHours";
 
 interface BarDataPoint {
   label: string;
@@ -57,11 +58,11 @@ export function HorizontalBarChart({
             onKeyDown={
               clickable
                 ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onBarClick?.(d.label);
-                    }
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onBarClick?.(d.label);
                   }
+                }
                 : undefined
             }
           >
@@ -87,19 +88,11 @@ export function HorizontalBarChart({
               </div>
             </div>
 
-            <div className="w-14 shrink-0 text-right">
+            <div className="shrink-0 text-right min-w-[70px]">
               <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                {(() => {
-                  if (unitSuffix === "h") {
-                    const h = Math.floor(d.value);
-                    const m = Math.round((d.value - h) * 60);
-                    if (h > 0 && m > 0) return `${h}hrs ${m}mins`;
-                    if (h > 0) return `${h}hrs`;
-                    if (m > 0) return `${m}mins`;
-                    return "0hrs";
-                  }
-                  return `${d.value.toFixed(1)}${unitSuffix}`;
-                })()}
+                {unitSuffix === "h" || unitSuffix === "hrs"
+                  ? fmtHours(d.value)
+                  : `${d.value.toFixed(1)}${unitSuffix}`}
               </span>
               {d.secondaryValue !== undefined && (
                 <div className="text-[10px] text-gray-400 truncate" title={String(d.secondaryValue)}>

@@ -21,10 +21,8 @@ var UserRole;
 })(UserRole || (exports.UserRole = UserRole = {}));
 let User = class User {
     id;
-    firstName;
-    lastName;
+    name;
     email;
-    phone;
     pin; // Hashed PIN
     role;
     timesheets;
@@ -37,21 +35,13 @@ __decorate([
     __metadata("design:type", Number)
 ], User.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: "first_name", nullable: true }),
+    (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
-], User.prototype, "firstName", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ name: "last_name", nullable: true }),
-    __metadata("design:type", String)
-], User.prototype, "lastName", void 0);
+], User.prototype, "name", void 0);
 __decorate([
     (0, typeorm_1.Column)({ unique: true }),
     __metadata("design:type", String)
 ], User.prototype, "email", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ nullable: true }),
-    __metadata("design:type", String)
-], User.prototype, "phone", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)

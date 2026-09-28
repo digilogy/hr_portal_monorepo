@@ -272,7 +272,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 className="text-lg"
               />
             )}
-            <div className="flex items-center">
+            {/* <div className="flex items-center"> */}
+            <div className="flex items-center gap-3">
+              {process.env.NODE_ENV === "development" && (
+                <div className="px-3 py-1 bg-rose-500 text-white text-xs font-bold tracking-wider rounded-full shadow-sm animate-pulse">
+                  LOCAL DEV
+                </div>
+              )}
               <Dropdown menu={{ items: profileMenuItems }} placement="bottomRight" trigger={["click"]}>
                 <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-800 px-2 py-1.5 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
                   <Avatar className="!bg-[#fbb33b] text-white font-bold shrink-0 !text-xs" size={32}>

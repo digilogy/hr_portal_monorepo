@@ -2,6 +2,8 @@ import { z } from "zod";
 declare const envSchema: z.ZodObject<{
     NODE_ENV: z.ZodDefault<z.ZodEnum<["development", "production", "test"]>>;
     PORT: z.ZodDefault<z.ZodNumber>;
+    REPORTS_API_HOST: z.ZodDefault<z.ZodString>;
+    ADMIN_API_HOST: z.ZodDefault<z.ZodString>;
     DB_HOST: z.ZodDefault<z.ZodString>;
     DB_PORT: z.ZodDefault<z.ZodNumber>;
     DB_USER: z.ZodDefault<z.ZodString>;
@@ -9,6 +11,7 @@ declare const envSchema: z.ZodObject<{
     DB_NAME: z.ZodDefault<z.ZodString>;
     DATABASE_URL: z.ZodOptional<z.ZodString>;
     DB_SSL: z.ZodOptional<z.ZodString>;
+    DB_POOL_MAX: z.ZodDefault<z.ZodNumber>;
     TYPEORM_SYNCHRONIZE: z.ZodOptional<z.ZodString>;
     JWT_SECRET: z.ZodString;
     ADMIN_USER: z.ZodDefault<z.ZodString>;
@@ -35,11 +38,14 @@ declare const envSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     NODE_ENV: "development" | "production" | "test";
     PORT: number;
+    REPORTS_API_HOST: string;
+    ADMIN_API_HOST: string;
     DB_HOST: string;
     DB_PORT: number;
     DB_USER: string;
     DB_PASSWORD: string;
     DB_NAME: string;
+    DB_POOL_MAX: number;
     JWT_SECRET: string;
     ADMIN_USER: string;
     ADMIN_PIN: string;
@@ -69,6 +75,8 @@ declare const envSchema: z.ZodObject<{
     JWT_SECRET: string;
     NODE_ENV?: "development" | "production" | "test" | undefined;
     PORT?: number | undefined;
+    REPORTS_API_HOST?: string | undefined;
+    ADMIN_API_HOST?: string | undefined;
     DB_HOST?: string | undefined;
     DB_PORT?: number | undefined;
     DB_USER?: string | undefined;
@@ -76,6 +84,7 @@ declare const envSchema: z.ZodObject<{
     DB_NAME?: string | undefined;
     DATABASE_URL?: string | undefined;
     DB_SSL?: string | undefined;
+    DB_POOL_MAX?: number | undefined;
     TYPEORM_SYNCHRONIZE?: string | undefined;
     ADMIN_USER?: string | undefined;
     ADMIN_PIN?: string | undefined;
@@ -103,11 +112,14 @@ export type Env = z.infer<typeof envSchema>;
 export declare const env: {
     NODE_ENV: "development" | "production" | "test";
     PORT: number;
+    REPORTS_API_HOST: string;
+    ADMIN_API_HOST: string;
     DB_HOST: string;
     DB_PORT: number;
     DB_USER: string;
     DB_PASSWORD: string;
     DB_NAME: string;
+    DB_POOL_MAX: number;
     JWT_SECRET: string;
     ADMIN_USER: string;
     ADMIN_PIN: string;
