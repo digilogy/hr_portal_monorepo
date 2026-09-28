@@ -211,6 +211,32 @@ export class TeamReportsRepository {
 
     return { dailyRows: dailyRowsResult, entries: entriesResult };
   }
+
+  async getEmployeeShiftAssignments(employeeIds: string[]): Promise<Map<string, { shiftTimings: string, workingDays: string, offDays: string, halfDay: string }>> {
+    const result = new Map<string, any>();
+    if (employeeIds.length === 0) return result;
+    
+    const assignmentOrm = AppDataSource.getRepository("EmployeeShiftAssignment");
+    const batchSize = 1000;
+    for (let index = 0; index < employeeIds.length; index += batchSize) {
+      const batch = employeeIds.slice(index, index + batchSize);
+      const assignments = await assignmentOrm
+        .createQueryBuilder("assignment")
+        .leftJoinAndSelect("assignment.shift", "shift")
+        .where("assignment.employeeId IN (:...batch)", { batch })
+        .getMany();
+        
+      for (const a of assignments as any[]) {
+        result.set(a.employeeId, {
+          shiftTimings: a.shift?.allowedTimings || null,
+          workingDays: a.shift?.workingDays || null,
+          offDays: a.shift?.offDays || null,
+          halfDay: a.shift?.halfDay || null,
+        });
+      }
+    }
+    return result;
+  }
 }
 
 export const teamReportsRepository = new TeamReportsRepository();

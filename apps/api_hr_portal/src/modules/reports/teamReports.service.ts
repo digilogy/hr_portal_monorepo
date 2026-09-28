@@ -348,6 +348,101 @@ function getWorkingDays(from: string, to: string): number {
   return Math.max(count, 1);
 }
 
+const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function isDayMatch(date: Date, conditionsStr: string): boolean {
+  if (!conditionsStr) return false;
+  
+  const dayPrefix = dayNames[date.getDay()].toLowerCase().substring(0, 3);
+  const conditions = conditionsStr.toLowerCase().split(",").map(c => c.trim());
+  const occurrence = Math.ceil(date.getDate() / 7);
+  
+  for (const condition of conditions) {
+    if (!condition.includes(dayPrefix)) continue;
+    
+    const has1st = condition.includes("1st");
+    const has2nd = condition.includes("2nd");
+    const has3rd = condition.includes("3rd");
+    const has4th = condition.includes("4th");
+    const has5th = condition.includes("5th");
+    
+    const hasOccurrenceRule = has1st || has2nd || has3rd || has4th || has5th;
+    
+    if (hasOccurrenceRule) {
+      if (has1st && occurrence === 1) return true;
+      if (has2nd && occurrence === 2) return true;
+      if (has3rd && occurrence === 3) return true;
+      if (has4th && occurrence === 4) return true;
+      if (has5th && occurrence === 5) return true;
+    } else {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+async function getExpectedHoursMap(
+  employees: EmployeeData[],
+  from: string,
+  to: string,
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (employees.length === 0) return result;
+
+  const employeeIds = employees.map(e => e.employeeId?.trim()).filter(Boolean) as string[];
+  const shiftsMap = await teamReportsRepository.getEmployeeShiftAssignments(employeeIds);
+
+  const defaultWorkingDays = getWorkingDays(from, to);
+
+  for (const emp of employees) {
+    const emailKey = (emp.officialEmailId || "").toLowerCase();
+    const shiftInfo = emp.employeeId ? shiftsMap.get(emp.employeeId.trim()) : null;
+
+    if (!shiftInfo || (!shiftInfo.shiftTimings && !shiftInfo.offDays && !shiftInfo.halfDay)) {
+      result.set(emailKey, defaultWorkingDays * 8.5);
+      continue;
+    }
+
+    let totalHours = 0;
+    let current = parseDate(from);
+    const end = parseDate(to);
+
+    let fullDayHours = 8.5;
+    if (shiftInfo.shiftTimings) {
+      const parsed = calculateSlotHours(shiftInfo.shiftTimings);
+      if (parsed) fullDayHours = parsed;
+    }
+
+    while (current <= end) {
+      const offDaysStr = shiftInfo.offDays || "Sunday";
+      const isOff = isDayMatch(current, offDaysStr);
+
+      if (!isOff) {
+        const halfDayStr = shiftInfo.halfDay || "";
+        const isHalf = isDayMatch(current, halfDayStr);
+
+        if (isHalf) {
+          let halfDayHours = fullDayHours / 2;
+          const match = halfDayStr.match(/\((.*?)\)/);
+          if (match && match[1]) {
+            const parsed = calculateSlotHours(match[1]);
+            if (parsed) halfDayHours = parsed;
+          }
+          totalHours += halfDayHours;
+        } else {
+          totalHours += fullDayHours;
+        }
+      }
+      current = addDays(current, 1);
+    }
+
+    result.set(emailKey, Math.max(totalHours, 0));
+  }
+
+  return result;
+}
+
 function formatPeriodLabel(from: Date, to: Date): string {
   const monthNames = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -379,11 +474,12 @@ function pickDisplayLabel(
 function buildUserRows(
   employees: EmployeeData[],
   hoursByEmail: Map<string, TimesheetHoursStats>,
-  expectedHours: number,
+  expectedHoursMap: Map<string, number>,
 ): UserReportRow[] {
   return employees.map((employee, index) => {
     const emailKey = (employee.officialEmailId || "").toLowerCase();
     const stats = hoursByEmail.get(emailKey) ?? { hours: 0, hasEntry: false };
+    const expectedHours = expectedHoursMap.get(emailKey) ?? 0;
     const utilization =
       expectedHours > 0
         ? parseFloat(((stats.hours / expectedHours) * 100).toFixed(4))
@@ -583,10 +679,11 @@ function dedupeEmployeesByEmployeeId(employees: EmployeeData[]): EmployeeData[] 
 function buildTeamMemberNode(
   employee: EmployeeData,
   hoursByEmail: Map<string, TimesheetHoursStats>,
-  expectedHours: number,
+  expectedHoursMap: Map<string, number>,
 ): TeamMemberNode {
   const email = (employee.officialEmailId || "").toLowerCase();
   const stats = hoursByEmail.get(email) ?? { hours: 0, hasEntry: false };
+  const expectedHours = expectedHoursMap.get(email) ?? 0;
 
   return {
     key: getEmployeeNodeKey(employee),
@@ -611,20 +708,15 @@ function buildTeamMemberNode(
 
 function summarizeFlatTeamMembers(
   members: TeamMemberNode[],
-  expectedHoursPerEmployee: number,
+  totalExpectedHours: number,
 ) {
   const submittedCount = members.filter(
     (member) => member.timesheetStatus === "Submitted",
   ).length;
   const totalHours = members.reduce((sum, member) => sum + member.hours, 0);
   const avgUtilization =
-    members.length > 0 && expectedHoursPerEmployee > 0
-      ? parseFloat(
-        (
-          (totalHours / (members.length * expectedHoursPerEmployee)) *
-          100
-        ).toFixed(1),
-      )
+    totalExpectedHours > 0
+      ? parseFloat(((totalHours / totalExpectedHours) * 100).toFixed(1))
       : 0;
 
   const activeCount = members.filter(
@@ -696,7 +788,7 @@ function buildTeamTree(
   employees: EmployeeData[],
   rootManagerId: string | null,
   hoursByEmail: Map<string, TimesheetHoursStats>,
-  expectedHours: number,
+  expectedHoursMap: Map<string, number>,
 ): TeamMemberNode[] {
   const placedKeys = new Set<string>();
   const childrenByManager = new Map<string, EmployeeData[]>();
@@ -721,6 +813,7 @@ function buildTeamTree(
 
       const email = (employee.officialEmailId || "").toLowerCase();
       const stats = hoursByEmail.get(email) ?? { hours: 0, hasEntry: false };
+      const expectedHours = expectedHoursMap.get(email) ?? 0;
       const node: TeamMemberNode = {
         key: nodeKey,
         employeeId: employee.employeeId || "—",
@@ -852,16 +945,16 @@ export class TeamReportsService {
       range.to,
     );
 
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHoursPerEmployee = workingDays * 8.5;
+    const expectedHoursMap = await getExpectedHoursMap(visibleEmployees, range.from, range.to);
+    const totalExpectedHours = Array.from(expectedHoursMap.values()).reduce((a, b) => a + b, 0);
 
     const flatMembers = visibleEmployees.map((employee) =>
-      buildTeamMemberNode(employee, hoursByEmail, expectedHoursPerEmployee),
+      buildTeamMemberNode(employee, hoursByEmail, expectedHoursMap),
     );
 
     const summary = summarizeFlatTeamMembers(
       flatMembers,
-      expectedHoursPerEmployee,
+      totalExpectedHours,
     );
 
     const filteredMembers = applyRosterCardFilter(flatMembers, rosterFilter);
@@ -879,7 +972,7 @@ export class TeamReportsService {
         ),
         rootManagerId,
         hoursByEmail,
-        expectedHoursPerEmployee,
+        expectedHoursMap,
       );
 
       return {
@@ -935,10 +1028,9 @@ export class TeamReportsService {
         range.from,
         range.to,
       );
-      const workingDays = getWorkingDays(range.from, range.to);
-      const expectedHours = workingDays * 8.5;
+      const expectedHoursMap = await getExpectedHoursMap(employees, range.from, range.to);
 
-      const rows = buildUserRows(employees, hoursByEmail, expectedHours);
+      const rows = buildUserRows(employees, hoursByEmail, expectedHoursMap);
 
       let finalRows = rows;
       if (filters?.status && filters.status !== "all") {
@@ -999,11 +1091,10 @@ export class TeamReportsService {
       range.from,
       range.to,
     );
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8.5;
+    const expectedHoursMap = await getExpectedHoursMap(pagedEmployees, range.from, range.to);
 
     return {
-      rows: buildUserRows(pagedEmployees, hoursByEmail, expectedHours),
+      rows: buildUserRows(pagedEmployees, hoursByEmail, expectedHoursMap),
       total,
       page: safePage,
       pageSize: safePageSize,
@@ -1207,8 +1298,8 @@ export class TeamReportsService {
         (sum, stats) => sum + stats.hours,
         0,
       );
-      const workingDays = getWorkingDays(from, to);
-      const expectedHours = headcount * workingDays * 8.5;
+      const expectedHoursMap = await getExpectedHoursMap(employees, from, to);
+      const expectedHours = Array.from(expectedHoursMap.values()).reduce((a, b) => a + b, 0);
 
       return {
         key: String(weekOffset + 1),
@@ -1296,8 +1387,8 @@ export class TeamReportsService {
       }
 
       const range = getDefaultDateRange(fromDate, toDate);
-      const expectedHoursPerUser = getWorkingDays(range.from, range.to) * 8.5;
-      const totalExpectedHours = filteredEmployees.length * expectedHoursPerUser;
+      const expectedHoursMap = await getExpectedHoursMap(filteredEmployees, range.from, range.to);
+      const totalExpectedHours = Array.from(expectedHoursMap.values()).reduce((a, b) => a + b, 0);
 
       const result = {
         totalEmployees: filteredEmployees.length,
@@ -1574,8 +1665,8 @@ export class TeamReportsService {
         hasEntry: false,
       }
       : { hours: 0, hasEntry: false };
-    const workingDays = getWorkingDays(range.from, range.to);
-    const expectedHours = workingDays * 8.5;
+    const expectedHoursMap = await getExpectedHoursMap([employee], range.from, range.to);
+    const expectedHours = expectedHoursMap.get(officialEmail?.toLowerCase() ?? "") ?? 0;
 
     const days: Array<{
       date: string;
