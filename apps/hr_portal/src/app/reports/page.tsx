@@ -793,6 +793,7 @@ export default function ReportsPage() {
                     value={dateRange}
                     onChange={handleDateRangeChange}
                     disabled={periodPreset !== "custom"}
+                    disabledDate={(current) => current && current > dayjs().endOf("day")}
                   />
                   {isAnyReportFilterActive && (
                     <Tooltip title="Clear Filters">
@@ -840,6 +841,7 @@ export default function ReportsPage() {
               value={dateRange}
               onChange={handleDateRangeChange}
               disabled={periodPreset !== "custom"}
+              disabledDate={(current) => current && current > dayjs().endOf("day")}
             />
             {isAnyReportFilterActive && (
               <Tooltip title="Clear Filter">

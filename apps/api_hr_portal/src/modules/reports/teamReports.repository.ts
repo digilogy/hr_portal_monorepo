@@ -227,7 +227,8 @@ export class TeamReportsRepository {
         .getMany();
         
       for (const a of assignments as any[]) {
-        result.set(a.employeeId, {
+        if (!a.employeeId) continue;
+        result.set(a.employeeId.trim(), {
           shiftTimings: a.shift?.allowedTimings || null,
           workingDays: a.shift?.workingDays || null,
           offDays: a.shift?.offDays || null,
