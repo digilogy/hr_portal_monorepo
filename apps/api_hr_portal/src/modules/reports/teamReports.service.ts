@@ -203,7 +203,7 @@ export interface WorkforcePulseResult {
 
 function calculateSlotHours(timeSlot: string): number | null {
   if (!timeSlot || timeSlot === "—") return null;
-  const parts = timeSlot.split(" - ");
+  const parts = timeSlot.split(/\s*-\s*/);
   if (parts.length !== 2) return null;
 
   const parseTime = (timeStr: string) => {
@@ -223,7 +223,7 @@ function calculateSlotHours(timeSlot: string): number | null {
 
 function parseTimeSlotBounds(timeSlot: string): { start: number; end: number } | null {
   if (!timeSlot || timeSlot === "—") return null;
-  const parts = timeSlot.split(" - ");
+  const parts = timeSlot.split(/\s*-\s*/);
   if (parts.length !== 2) return null;
 
   const parseTime = (timeStr: string) => {

@@ -274,7 +274,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             )}
             {/* <div className="flex items-center"> */}
             <div className="flex items-center gap-3">
-              {process.env.NODE_ENV === "development" && (
+              {(process.env.NODE_ENV === "development" || (typeof window !== "undefined" && window.location.hostname === "localhost")) && (
                 <div className="px-3 py-1 bg-rose-500 text-white text-xs font-bold tracking-wider rounded-full shadow-sm animate-pulse">
                   LOCAL DEV
                 </div>
