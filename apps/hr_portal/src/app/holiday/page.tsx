@@ -188,12 +188,12 @@ export default function HolidaysAdminPage() {
     const dStart = dayjs(start);
     const dEnd = dayjs(end);
     if (dStart.isSame(dEnd, 'day')) {
-      return dStart.format("MMM D, dddd");
+      return dStart.format("MMM D - dddd");
     }
     const dates = [];
     let current = dStart;
     while (current.isBefore(dEnd) || current.isSame(dEnd, 'day')) {
-      dates.push(current.format("MMM D, dddd"));
+      dates.push(current.format("MMM D - dddd"));
       current = current.add(1, 'day');
     }
     return dates.join(", ");
