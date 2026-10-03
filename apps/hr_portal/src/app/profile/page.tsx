@@ -6,6 +6,7 @@ import { Typography, Divider, Spin, Select } from "antd";
 import { MailOutlined, PhoneOutlined, PushpinOutlined } from "@ant-design/icons";
 import { apiFetch } from "@/lib/api";
 import { getProfileDisplayTitle, type UserRole } from "@/lib/auth";
+import dayjs from "dayjs";
 
 const { Text } = Typography;
 
@@ -270,11 +271,21 @@ export default function ProfilePage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
                   {profile.upcomingHolidays.map((holiday, idx) => {
-                    const start = new Date(holiday.startDate);
-                    const end = new Date(holiday.endDate);
-                    const dateStr = start.getTime() === end.getTime() 
-                      ? start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })
-                      : `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' })}`;
+                    const dStart = dayjs(holiday.startDate);
+                    const dEnd = dayjs(holiday.endDate);
+                    
+                    let dateStr = "";
+                    if (dStart.isSame(dEnd, 'day')) {
+                      dateStr = dStart.format("MMM D - dddd");
+                    } else {
+                      const dates = [];
+                      let current = dStart;
+                      while (current.isBefore(dEnd) || current.isSame(dEnd, 'day')) {
+                        dates.push(current.format("MMM D - dddd"));
+                        current = current.add(1, 'day');
+                      }
+                      dateStr = dates.join(", ");
+                    }
                     
                     return (
                       <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-zinc-900/30 transition-colors">
