@@ -121,6 +121,18 @@ model Holiday {
   @@map("holiday")
 }
 
+model SystemNotice {
+  id        Int      @id @default(autoincrement())
+  message   String   @default("")
+  type      String   @default("warning") // info | warning | error
+  isActive  Boolean  @default(false) @map("isActive")
+  updatedBy String?  @map("updatedBy")
+  createdAt DateTime @default(now()) @map("createdAt")
+  updatedAt DateTime @default(now()) @updatedAt @map("updatedAt")
+
+  @@map("system_notice")
+}
+
 model EmailLog {
   id           String      @id @default(dbgenerated("gen_random_uuid()"))
   toEmail      String      @map("toEmail")

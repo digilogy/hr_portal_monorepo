@@ -9,6 +9,7 @@ import { EmailLog } from "./entities/EmailLog";
 import { Shift } from "./entities/Shift";
 import { EmployeeShiftAssignment } from "./entities/EmployeeShiftAssignment";
 import { Holiday } from "./entities/Holiday";
+import { SystemNotice } from "./entities/SystemNotice";
 import { env } from "@hr-portal/config";
 
 const dbUrl = env.DATABASE_URL || process.env.DATABASE_URL;
@@ -35,7 +36,7 @@ export const AppDataSource = new DataSource({
   // Disable automatic DDL synchronization in production to prevent "DROP INDEX check that it exists" errors
   synchronize: env.NODE_ENV !== "production" && env.TYPEORM_SYNCHRONIZE === "true",
   logging: false,
-  entities: [User, Timesheet, EmployeeData, UploadJob, UploadLog, EmailLog, Shift, EmployeeShiftAssignment, Holiday],
+  entities: [User, Timesheet, EmployeeData, UploadJob, UploadLog, EmailLog, Shift, EmployeeShiftAssignment, Holiday, SystemNotice],
   migrations: [],
   subscribers: [],
 });
@@ -102,6 +103,16 @@ export async function initializeDatabase(): Promise<DataSource> {
       );
 
       CREATE INDEX IF NOT EXISTS "idx_holiday_start_end" ON "holiday" ("startDate", "endDate");
+
+      CREATE TABLE IF NOT EXISTS "system_notice" (
+        "id" SERIAL PRIMARY KEY,
+        "message" TEXT NOT NULL DEFAULT '',
+        "type" VARCHAR NOT NULL DEFAULT 'warning',
+        "isActive" BOOLEAN NOT NULL DEFAULT false,
+        "updatedBy" VARCHAR,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+      );
     `);
   } catch (err) {
     console.warn("Notice: Failed to run automatic upload_log schema patch", err);

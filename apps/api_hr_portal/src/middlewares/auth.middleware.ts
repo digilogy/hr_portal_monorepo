@@ -26,6 +26,16 @@ export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunct
   }
 };
 
+export const SUPERADMIN_EMAIL = "superadmin@casagrand.co.in";
+
+export const authorizeSuperAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (req.user?.email?.toLowerCase() !== SUPERADMIN_EMAIL) {
+    res.status(403).json({ message: "Access forbidden. Superadmin only." });
+    return;
+  }
+  next();
+};
+
 export const authorizeRole = (roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user || !req.user.role || !roles.includes(req.user.role)) {

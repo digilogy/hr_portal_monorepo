@@ -13,12 +13,14 @@ import {
   CaretDownOutlined,
   PieChartOutlined,
   SettingOutlined,
+  ToolOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, canAccessShiftManagement, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenRole, isAuthenticated, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
+import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, canAccessReports, canAccessTeam, canAccessTimesheet, canAccessHolidays, canAccessShiftManagement, getFirstName, getNameInitials, getProfileDisplayTitle, getTokenEmail, getTokenRole, isAuthenticated, isSuperAdmin, logoutAndRedirectToLogin, UserRole } from "@/lib/auth";
 import { isAdminPortalHost } from "@/lib/host";
 import { apiFetch } from "@/lib/api";
+import { MaintenanceScreen, SystemNoticeBanner, useSystemNotice } from "./SystemNotice";
 
 import { Grid } from "antd";
 const { useBreakpoint } = Grid;
@@ -30,6 +32,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [avatarInitials, setAvatarInitials] = useState("U");
   const [firstName, setFirstName] = useState("User");
   const [jobTitle, setJobTitle] = useState("");
@@ -40,6 +43,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   // trailingSlash: true (static export) means usePathname() always returns e.g. "/login/",
   // so normalize before comparing against route strings like "/login".
   const pathname = (rawPathname && rawPathname.length > 1) ? rawPathname.replace(/\/+$/, "") : (rawPathname || "");
+  const { notice, loaded: noticeLoaded } = useSystemNotice();
   const screens = useBreakpoint();
   const isMobile = screens.md === false;
 
@@ -50,6 +54,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     setMounted(true);
     setRole(getTokenRole());
+    setEmail(getTokenEmail());
     setIsAdminDomain(isAdminPortalHost());
   }, [pathname]);
 
@@ -102,8 +107,12 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
     return <>{children}</>;
   }
 
-  if (!isAuthenticated()) {
+  if (!isAuthenticated() || !noticeLoaded) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+  }
+
+  if (notice && !isSuperAdmin(email)) {
+    return <MaintenanceScreen notice={notice} />;
   }
 
   const menuItems = [
@@ -161,6 +170,13 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         key: "/shift-management",
         icon: <SettingOutlined />,
         label: <Link href="/shift-management" onClick={() => setMobileMenuOpen(false)}>Shift Management</Link>,
+      }]
+      : []),
+    ...(isSuperAdmin(email)
+      ? [{
+        key: "/maintenance",
+        icon: <ToolOutlined />,
+        label: <Link href="/maintenance" onClick={() => setMobileMenuOpen(false)}>Maintenance</Link>,
       }]
       : []),
   ];
@@ -298,6 +314,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
           </Header>
           <Content className="m-0 min-w-0">
+            {notice && <SystemNoticeBanner notice={notice} />}
             <div
               style={{
                 background: colorBgContainer,
