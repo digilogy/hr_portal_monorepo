@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Button, Table, Typography, Upload, Tag, message, Tabs, Modal, Spin } from "antd";
+import { Button, Table, Typography, Upload, Tag, message, Tabs, Modal, Spin, Popconfirm } from "antd";
 import { UploadOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, API_BASE, getAuthHeaders } from "@/lib/api";
@@ -162,6 +162,16 @@ export default function ShiftManagementPage() {
     setUploading(false);
   };
 
+  const handleCancelUpload = async (jobId: string) => {
+    try {
+      await apiFetch(`/api/admin/bulk-upload/${jobId}/cancel`, { method: "POST" });
+      messageApi.success("Upload cancelled.");
+    } catch (error: unknown) {
+      messageApi.error(error instanceof Error ? error.message : "Failed to cancel upload.");
+    }
+    void fetchHistory();
+  };
+
   const handleViewErrors = async (jobId: string) => {
     setErrorModalVisible(true);
     setLoadingErrors(true);
@@ -237,10 +247,26 @@ export default function ShiftManagementPage() {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (s: string) => (
-        <Tag color={s === "completed" ? "success" : s === "failed" ? "error" : "processing"}>
-          {s?.toUpperCase()}
-        </Tag>
+      render: (s: string, row: any) => (
+        <div className="flex flex-col items-start gap-1">
+          <Tag color={s === "completed" ? "success" : s === "failed" ? "error" : "processing"}>
+            {s?.toUpperCase()}
+          </Tag>
+          {(s === "queued" || s === "processing") && (
+            <Popconfirm
+              title="Cancel this upload?"
+              description="Rows already imported are kept. You can upload the file again afterwards."
+              okText="Cancel upload"
+              okButtonProps={{ danger: true }}
+              cancelText="Keep running"
+              onConfirm={() => handleCancelUpload(row.id)}
+            >
+              <Button type="link" danger size="small" className="!p-0">
+                Cancel
+              </Button>
+            </Popconfirm>
+          )}
+        </div>
       ),
     },
     { title: "Total Rows", dataIndex: "totalRows", key: "totalRows" },

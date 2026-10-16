@@ -7,6 +7,7 @@ import { EmailQueueService } from "../../services/emailQueue.service";
 import { UploadLog, EmailStatus } from "@hr-portal/database";
 import { logger } from "@hr-portal/logger";
 import { shiftRepository } from "./shift.repository";
+import { AuthRequest } from "../../middlewares/auth.middleware";
 
 function formatJobResponse(job: NonNullable<Awaited<ReturnType<typeof UploadQueueService.getJobStatus>>>) {
   const failedLogs = (job.logs ?? []).filter(
@@ -110,6 +111,17 @@ export class AdminController {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ message });
+    }
+  }
+
+  static async cancelUpload(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const job = await UploadQueueService.cancel(req.params.jobId, req.user?.email);
+      res.status(200).json({ job });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      const status = message === "Upload job not found" ? 404 : message.includes("already finished") ? 400 : 500;
+      res.status(status).json({ message });
     }
   }
 

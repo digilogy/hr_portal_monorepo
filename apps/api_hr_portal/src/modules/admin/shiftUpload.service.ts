@@ -6,6 +6,7 @@ import { UploadJob, Shift } from "@hr-portal/database";
 import { logger } from "@hr-portal/logger";
 import { employeeDataRepository } from "./employeeData.repository";
 import { shiftRepository } from "./shift.repository";
+import { throwIfUploadCancelled } from "./uploadCancellation";
 
 const LOG_CONTEXT = "ShiftUpload";
 const PROGRESS_LOG_INTERVAL = 500;
@@ -114,6 +115,7 @@ export class ShiftUploadService {
     let skippedEmptyRows = 0;
 
     for (const [index, row] of rows.entries()) {
+      throwIfUploadCancelled(job.id);
       const mappedValues = mapRow(row);
       const name = mappedValues.name;
 

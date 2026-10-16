@@ -9,6 +9,12 @@ import { ShiftUploadService } from "./shiftUpload.service";
 import { logger } from "@hr-portal/logger";
 import { uploadQueueRepository } from "./uploadQueue.repository";
 import { TimesheetRealignService } from "../../services/timesheetRealign.service";
+import {
+  clearUploadCancelled,
+  isUploadCancelled,
+  markUploadCancelled,
+  UploadCancelledError,
+} from "./uploadCancellation";
 
 const jobQueue: string[] = [];
 let isProcessing = false;
@@ -33,7 +39,10 @@ async function processNextJob(): Promise<void> {
       const jobId = jobQueue.shift();
       if (!jobId) continue;
       const job = await uploadQueueRepository.findById(jobId);
-      if (!job) continue;
+      if (!job || isUploadCancelled(job.id)) {
+        clearUploadCancelled(jobId);
+        continue;
+      }
 
       logger.info(LOG_CONTEXT, "Processing upload job", {
         jobId: job.id,
@@ -70,6 +79,9 @@ async function processNextJob(): Promise<void> {
           result = await EmployeeDataService.processBulkUpload(workingFilePath, job, { deleteFile: false });
         }
 
+        // Cancelled right after the last row: keep the cancelled status the admin saw.
+        if (isUploadCancelled(job.id)) throw new UploadCancelledError(job.id);
+
         job.totalRows = result.totalRows;
         job.successCount = result.successCount;
         job.failureCount = result.failureCount;
@@ -89,6 +101,11 @@ async function processNextJob(): Promise<void> {
         // Shift timings or assignments may have changed: move saved entries onto the new slots.
         TimesheetRealignService.realignAllInBackground(`${job.type} upload ${job.id}`);
       } catch (error: unknown) {
+        if (error instanceof UploadCancelledError) {
+          // cancel() already saved the job as failed with who cancelled it.
+          logger.info(LOG_CONTEXT, "Upload job stopped after cancel", { jobId: job.id });
+          continue;
+        }
         const message =
           error instanceof Error ? error.message : "Unknown error";
         job.status = UploadJobStatus.FAILED;
@@ -101,6 +118,7 @@ async function processNextJob(): Promise<void> {
           error: message,
         });
       } finally {
+        clearUploadCancelled(job.id);
         if (isTempS3File && workingFilePath && fs.existsSync(workingFilePath)) {
           try {
             fs.unlinkSync(workingFilePath);
@@ -143,6 +161,29 @@ export class UploadQueueService {
     void processNextJob();
 
     return savedJob.id;
+  }
+
+  /**
+   * Stops a queued or running upload and marks it failed. Also clears a job left "processing"
+   * after a restart, which nothing is running any more. Rows already imported stay imported.
+   */
+  static async cancel(jobId: string, cancelledBy?: string): Promise<UploadJob> {
+    const job = await uploadQueueRepository.findById(jobId);
+    if (!job) throw new Error("Upload job not found");
+    if (job.status !== UploadJobStatus.QUEUED && job.status !== UploadJobStatus.PROCESSING) {
+      throw new Error("This upload has already finished");
+    }
+
+    const queuedIndex = jobQueue.indexOf(jobId);
+    if (queuedIndex !== -1) jobQueue.splice(queuedIndex, 1);
+    else if (isProcessing) markUploadCancelled(jobId); // running here: stop at the next row
+
+    job.status = UploadJobStatus.FAILED;
+    job.errorMessage = `Cancelled${cancelledBy ? ` by ${cancelledBy}` : ""}. Rows imported before cancelling are kept; re-upload to finish.`;
+    const saved = await uploadQueueRepository.save(job);
+
+    logger.info(LOG_CONTEXT, "Upload job cancelled", { jobId, cancelledBy });
+    return saved;
   }
 
   static async getJobStatus(jobId: string): Promise<UploadJob | null> {
