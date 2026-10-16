@@ -18,14 +18,19 @@ check_target_group() {
   local tg_name="$1"
   local tg_arn
   tg_arn=$(aws elbv2 describe-target-groups --names "${tg_name}" \
-    --region "${AWS_REGION}" --query 'TargetGroups[0].TargetGroupArn' --output text)
+    --region "${AWS_REGION}" --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null || echo "")
+
+  if [ -z "${tg_arn}" ] || [ "${tg_arn}" = "None" ]; then
+    echo "    Target group ${tg_name} not found (running directly on EC2 reverse proxy). Skipping ALB check."
+    return 0
+  fi
 
   local total healthy
   total=$(aws elbv2 describe-target-health --target-group-arn "${tg_arn}" \
-    --region "${AWS_REGION}" --query 'length(TargetHealthDescriptions)' --output text)
+    --region "${AWS_REGION}" --query 'length(TargetHealthDescriptions)' --output text 2>/dev/null || echo "0")
   healthy=$(aws elbv2 describe-target-health --target-group-arn "${tg_arn}" \
     --region "${AWS_REGION}" \
-    --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' --output text)
+    --query 'length(TargetHealthDescriptions[?TargetHealth.State==`healthy`])' --output text 2>/dev/null || echo "0")
 
   echo "    ${tg_name}: ${healthy}/${total} healthy"
   [ "${total}" -gt 0 ] && [ "${healthy}" = "${total}" ]
