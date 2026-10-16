@@ -8,3 +8,4 @@ export * from "./entities/EmailLog";
 export * from "./entities/Shift";
 export * from "./entities/EmployeeShiftAssignment";
 export * from "./entities/Holiday";
+export * from "./entities/SystemNotice";

@@ -148,6 +148,12 @@ export function canAccessHolidays(role: UserRole | null): boolean {
   return role === "admin";
 }
 
+export const SUPERADMIN_EMAIL = "superadmin@casagrand.co.in";
+
+export function isSuperAdmin(email: string | null): boolean {
+  return email?.toLowerCase() === SUPERADMIN_EMAIL;
+}
+
 export function canAccessPersonalDashboard(role: UserRole | null): boolean {
   return role === "employee" || role === "manager" || role === "hrbp";
 }

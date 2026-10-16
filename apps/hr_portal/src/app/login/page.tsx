@@ -3,9 +3,10 @@
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import type { InputRef } from "antd";
 import { Form, Input, Button, Typography, message, Select, Checkbox } from "antd";
-import { CheckCircleOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined, LockOutlined } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE } from "@/lib/api";
+import { MaintenanceScreen, useSystemNotice } from "@/components/layout/SystemNotice";
 import {
   clearRememberedLogin,
   getDefaultDashboardPath,
@@ -621,15 +622,52 @@ function LoginPageContent() {
 }
 
 export default function LoginPage() {
+  const { notice, loaded } = useSystemNotice();
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+
+  // Logged-in users reach here via the maintenance screen's admin link (?admin=1).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("admin") === "1") {
+      setShowAdminLogin(true);
+    }
+  }, []);
+
+  const loadingScreen = (
+    <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9]">
+      <p className="text-gray-500">Loading...</p>
+    </div>
+  );
+
+  if (!loaded) return loadingScreen;
+
+  // During maintenance only the superadmin signs in, via the discreet link.
+  if (notice && !showAdminLogin) {
+    return <MaintenanceScreen notice={notice} onAdminSignIn={() => setShowAdminLogin(true)} />;
+  }
+
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9]">
-          <p className="text-gray-500">Loading...</p>
+    <>
+      {notice && (
+        <div className="fixed inset-x-0 top-0 z-50 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[#0b1e36] px-4 py-2.5 text-center text-sm text-white">
+          <span>
+            <LockOutlined className="mr-1.5 text-[#F5A623]" />
+            Maintenance mode is on. Only the administrator can sign in.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setShowAdminLogin(false);
+              window.history.replaceState({}, "", "/login/");
+            }}
+            className="cursor-pointer border-0 bg-transparent text-sm text-[#F5A623] underline-offset-2 hover:underline"
+          >
+            Back
+          </button>
         </div>
-      }
-    >
-      <LoginPageContent />
-    </Suspense>
+      )}
+      <Suspense fallback={loadingScreen}>
+        <LoginPageContent />
+      </Suspense>
+    </>
   );
 }

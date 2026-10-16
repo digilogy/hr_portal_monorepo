@@ -34,7 +34,7 @@ function parseMinutes(timeStr: string): number | null {
   return normalizedHour * 60 + minute;
 }
 
-function parseTimeSlotRange(timeSlot: string): ParsedTimeRange | null {
+export function parseTimeSlotRange(timeSlot: string): ParsedTimeRange | null {
   const parts = timeSlot.split(" - ");
   if (parts.length !== 2) return null;
 

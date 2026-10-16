@@ -130,3 +130,77 @@ export function minutesTo24h(minutes: number): string {
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+
+export interface AlignableSlot {
+  timeSlot: string;
+  task?: string;
+  title?: string;
+}
+
+/**
+ * Picks the grid slot an entry belongs to: largest overlap; on a tie, the slot containing the
+ * entry's start; with no overlap at all, the nearest slot. Returns -1 if nothing is parseable.
+ */
+function pickGridIndex(entry: ParsedTimeRange, grid: Array<ParsedTimeRange | null>): number {
+  let best = -1;
+  let bestOverlap = 0;
+  let bestHasStart = false;
+
+  grid.forEach((slot, index) => {
+    if (!slot) return;
+    const overlap = Math.min(entry.end, slot.end) - Math.max(entry.start, slot.start);
+    if (overlap <= 0) return;
+    const hasStart = slot.start <= entry.start && entry.start < slot.end;
+    if (overlap > bestOverlap || (overlap === bestOverlap && hasStart && !bestHasStart)) {
+      best = index;
+      bestOverlap = overlap;
+      bestHasStart = hasStart;
+    }
+  });
+  if (best !== -1) return best;
+
+  let bestGap = Infinity;
+  grid.forEach((slot, index) => {
+    if (!slot) return;
+    const gap = entry.start >= slot.end ? entry.start - slot.end : slot.start - entry.end;
+    if (gap < bestGap) {
+      best = index;
+      bestGap = gap;
+    }
+  });
+  return best;
+}
+
+/**
+ * Maps saved entries onto the current shift's slot grid (e.g. after a shift change), joining
+ * entries that land in the same slot with " | ". Entries whose time can't be parsed keep their
+ * own timeSlot. Mirrors apps/api_hr_portal/src/modules/timesheet/slotAlignment.ts, which
+ * rewrites the saved data the same way — keep them in sync.
+ */
+export function alignSlotsToGrid(
+  entries: AlignableSlot[],
+  grid: string[],
+): Array<{ timeSlot: string; task: string }> {
+  const gridRanges = grid.map((g) => parseTimeSlotRange(g));
+  const buckets = new Map<string, Array<{ start: number; task: string }>>();
+
+  for (const entry of entries) {
+    const task = entry.task?.trim();
+    if (!task) continue;
+
+    const timeSlot = entry.timeSlot.trim();
+    const range = parseTimeSlotRange(timeSlot);
+    const exact = grid.indexOf(timeSlot);
+    const index = exact !== -1 ? exact : range ? pickGridIndex(range, gridRanges) : -1;
+    const target = index === -1 ? timeSlot : grid[index];
+
+    const bucket = buckets.get(target) ?? [];
+    bucket.push({ start: range?.start ?? 0, task });
+    buckets.set(target, bucket);
+  }
+
+  return [...buckets.entries()].map(([timeSlot, bucket]) => ({
+    timeSlot,
+    task: bucket.sort((a, b) => a.start - b.start).map((b) => b.task).join(" | "),
+  }));
+}

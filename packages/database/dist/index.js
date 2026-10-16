@@ -24,4 +24,5 @@ __exportStar(require("./entities/EmailLog"), exports);
 __exportStar(require("./entities/Shift"), exports);
 __exportStar(require("./entities/EmployeeShiftAssignment"), exports);
 __exportStar(require("./entities/Holiday"), exports);
+__exportStar(require("./entities/SystemNotice"), exports);
 //# sourceMappingURL=index.js.map

@@ -44,7 +44,7 @@ function calculateSlotHours(timeSlot: string): number {
   return (end - start) / 60;
 }
 
-function calculateTotalHours(slots: TimesheetSlot[]): number {
+export function calculateTotalHours(slots: TimesheetSlot[]): number {
   const total = slots
     .filter((slot) => {
       if (!slot.timeSlot || !slot.timeSlot.trim()) return false;

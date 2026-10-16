@@ -6,6 +6,7 @@ import { isRedisConnected } from "@hr-portal/queue";
 import authRoutes from "./modules/auth/auth.routes";
 import timesheetRoutes from "./modules/timesheet/timesheet.routes";
 import profileRoutes from "./modules/profile/profile.routes";
+import systemRoutes from "./modules/system/system.routes";
 
 const app = express();
 
@@ -231,6 +232,7 @@ function createProxy(targetHost: string, targetPort: number) {
 app.use("/api/auth", authRoutes);
 app.use("/api/timesheets", timesheetRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/system", systemRoutes);
 app.use("/api/admin", createProxy(env.ADMIN_API_HOST, 5113));
 app.use("/api/team", createProxy(env.REPORTS_API_HOST, 5112));
 app.use("/api/reports", createProxy(env.REPORTS_API_HOST, 5112));

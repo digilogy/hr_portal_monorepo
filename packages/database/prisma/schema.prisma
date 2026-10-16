@@ -58,6 +58,7 @@ model Timesheet {
   userId     Int      @map("userId")
   date       String   @db.VarChar(10) // ISO Date string YYYY-MM-DD
   slots      Json     // Array of TimesheetSlots
+  originalSlots Json? @map("originalSlots") // Slots as first saved, kept when a shift change re-aligns them
   totalHours Float    @default(0) @map("totalHours")
   status     String   @default("saved") @db.VarChar(50)
   createdAt  DateTime @default(now()) @map("createdAt")
@@ -119,6 +120,18 @@ model Holiday {
 
   @@index([startDate, endDate])
   @@map("holiday")
+}
+
+model SystemNotice {
+  id        Int      @id @default(autoincrement())
+  message   String   @default("")
+  type      String   @default("warning") // info | warning | error
+  isActive  Boolean  @default(false) @map("isActive")
+  updatedBy String?  @map("updatedBy")
+  createdAt DateTime @default(now()) @map("createdAt")
+  updatedAt DateTime @default(now()) @updatedAt @map("updatedAt")
+
+  @@map("system_notice")
 }
 
 model EmailLog {

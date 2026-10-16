@@ -13,6 +13,7 @@ const EmailLog_1 = require("./entities/EmailLog");
 const Shift_1 = require("./entities/Shift");
 const EmployeeShiftAssignment_1 = require("./entities/EmployeeShiftAssignment");
 const Holiday_1 = require("./entities/Holiday");
+const SystemNotice_1 = require("./entities/SystemNotice");
 const config_1 = require("@hr-portal/config");
 const dbUrl = config_1.env.DATABASE_URL || process.env.DATABASE_URL;
 const isProduction = config_1.env.NODE_ENV === "production";
@@ -37,7 +38,7 @@ exports.AppDataSource = new typeorm_1.DataSource({
     // Disable automatic DDL synchronization in production to prevent "DROP INDEX check that it exists" errors
     synchronize: config_1.env.NODE_ENV !== "production" && config_1.env.TYPEORM_SYNCHRONIZE === "true",
     logging: false,
-    entities: [User_1.User, Timesheet_1.Timesheet, EmployeeData_1.EmployeeData, UploadJob_1.UploadJob, UploadLog_1.UploadLog, EmailLog_1.EmailLog, Shift_1.Shift, EmployeeShiftAssignment_1.EmployeeShiftAssignment, Holiday_1.Holiday],
+    entities: [User_1.User, Timesheet_1.Timesheet, EmployeeData_1.EmployeeData, UploadJob_1.UploadJob, UploadLog_1.UploadLog, EmailLog_1.EmailLog, Shift_1.Shift, EmployeeShiftAssignment_1.EmployeeShiftAssignment, Holiday_1.Holiday, SystemNotice_1.SystemNotice],
     migrations: [],
     subscribers: [],
 });
@@ -103,6 +104,18 @@ async function initializeDatabase() {
       );
 
       CREATE INDEX IF NOT EXISTS "idx_holiday_start_end" ON "holiday" ("startDate", "endDate");
+
+      ALTER TABLE "timesheet" ADD COLUMN IF NOT EXISTS "originalSlots" JSONB;
+
+      CREATE TABLE IF NOT EXISTS "system_notice" (
+        "id" SERIAL PRIMARY KEY,
+        "message" TEXT NOT NULL DEFAULT '',
+        "type" VARCHAR NOT NULL DEFAULT 'warning',
+        "isActive" BOOLEAN NOT NULL DEFAULT false,
+        "updatedBy" VARCHAR,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+      );
     `);
     }
     catch (err) {

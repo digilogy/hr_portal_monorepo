@@ -35,6 +35,10 @@ export class Timesheet {
   @Column({ type: "json" })
   slots!: TimesheetSlot[];
 
+  /** Slots as they were before a shift change re-aligned them; null if never re-aligned. */
+  @Column({ type: "jsonb", nullable: true })
+  originalSlots?: TimesheetSlot[] | null;
+
   @Column({ type: "float", default: 0 })
   totalHours!: number;
 
