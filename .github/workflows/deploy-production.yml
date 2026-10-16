@@ -66,25 +66,12 @@ jobs:
         run: chmod +x scripts/deploy/*.sh
 
       # =========================================================================
-      # Backend Deployment (ECR + Migrations + ECS Services)
+      # Backend Deployment (EC2 Containerized Microservices Stack)
       # =========================================================================
-      - name: Build and Push Docker Images
+      - name: Deploy Backend on EC2
         if: ${{ github.event_name == 'push' || inputs.deploy_images }}
         run: |
-          ./scripts/deploy/build-and-push.sh "${IMAGE_TAG}"
-
-      - name: Run Database Migrations
-        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
-        run: |
-          ./scripts/deploy/run-migrations.sh "${IMAGE_TAG}"
-
-      - name: Deploy ECS Services (Mail Worker, API, Reports & Admin Microservices)
-        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
-        run: |
-          ./scripts/deploy/deploy-service.sh mail-worker "${IMAGE_TAG}"
-          ./scripts/deploy/deploy-service.sh reports "${IMAGE_TAG}"
-          ./scripts/deploy/deploy-service.sh admin "${IMAGE_TAG}"
-          ./scripts/deploy/deploy-service.sh api "${IMAGE_TAG}"
+          ./scripts/deploy/deploy-ec2.sh "${IMAGE_TAG}"
 
       - name: Verify Backend API Health
         if: ${{ github.event_name == 'push' || inputs.deploy_images }}
