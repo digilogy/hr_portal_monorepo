@@ -2,13 +2,13 @@
 # =============================================================================
 # Deploy backend microservices to EC2 instance via AWS Systems Manager (SSM)
 # Features:
-#   - Pre-deployment rollback backup tagging
+#   - Runs the exact backend image built by CI for this deploy (BACKEND_IMAGE)
 #   - Synchronization of docker-compose.production.yml
 #   - Docker Compose --wait healthcheck gating (service_healthy dependencies)
 #   - Post-switch smoke-test verification on all internal ports (5111, 5112, 5113)
 #   - Automated zero-downtime rollback if health checks fail
 #
-# Usage: ./scripts/deploy/deploy-ec2.sh [image-tag]
+# Usage: BACKEND_IMAGE=<registry>/timesheet/api:<tag> ./scripts/deploy/deploy-ec2.sh [image-tag]
 # =============================================================================
 set -euo pipefail
 
@@ -17,6 +17,8 @@ INSTANCE_ID="${INSTANCE_ID:-i-0deef73787347a8ef}"
 IMAGE_TAG="${1:-latest}"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/infrastructure/docker/docker-compose.production.yml"
+BACKEND_IMAGE="${BACKEND_IMAGE:?BACKEND_IMAGE must be set to the image built for this deploy}"
+REGISTRY="${BACKEND_IMAGE%%/*}"
 
 echo "==> Preparing production docker-compose configuration..."
 if [[ ! -f "${COMPOSE_FILE}" ]]; then
@@ -24,7 +26,11 @@ if [[ ! -f "${COMPOSE_FILE}" ]]; then
   exit 1
 fi
 
-COMPOSE_B64=$(base64 -w 0 "${COMPOSE_FILE}" 2>/dev/null || base64 "${COMPOSE_FILE}" | tr -d '\r\n')
+# Bake the image into the file so docker-compose.yml.bak on the server always names the
+# previous image, which is what the rollback below restores.
+RENDERED_COMPOSE=$(sed "s#__BACKEND_IMAGE__#${BACKEND_IMAGE}#g" "${COMPOSE_FILE}")
+COMPOSE_B64=$(printf '%s\n' "${RENDERED_COMPOSE}" | base64 -w 0 2>/dev/null || printf '%s\n' "${RENDERED_COMPOSE}" | base64 | tr -d '\r\n')
+echo "==> Backend image: ${BACKEND_IMAGE}"
 
 echo "==> Deploying backend on EC2 (${INSTANCE_ID}) via AWS Systems Manager..."
 
@@ -33,24 +39,20 @@ DEPLOY_PAYLOAD=$(cat <<EOF
   "commands": [
     "set -e",
     "cd /opt/timesheet",
-    "echo '==> [Step 1/6] Taking rollback snapshot of currently running images...'",
-    "docker tag timesheet-api:arm64 timesheet-api:rollback-backup 2>/dev/null || true",
-    "docker tag timesheet-reports:arm64 timesheet-reports:rollback-backup 2>/dev/null || true",
-    "docker tag timesheet-admin:arm64 timesheet-admin:rollback-backup 2>/dev/null || true",
-    "docker tag timesheet-mail-worker:arm64 timesheet-mail-worker:rollback-backup 2>/dev/null || true",
+    "echo '==> [Step 1/6] Saving current compose file for rollback...'",
     "cp docker-compose.yml docker-compose.yml.bak 2>/dev/null || true",
     "echo '==> [Step 2/6] Applying updated docker-compose configuration...'",
     "echo '${COMPOSE_B64}' | base64 -d > docker-compose.yml",
     "echo '==> [Step 3/6] Authenticating with ECR...'",
-    "aws ecr get-login-password --region ap-south-2 | docker login --username AWS --password-stdin 119750096195.dkr.ecr.ap-south-2.amazonaws.com || true",
-    "docker compose pull || true",
+    "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${REGISTRY}",
+    "if ! docker compose pull; then",
+    "    echo '::error::Could not pull ${BACKEND_IMAGE}. Keeping the running containers.'",
+    "    cp docker-compose.yml.bak docker-compose.yml 2>/dev/null || true",
+    "    exit 1",
+    "fi",
     "echo '==> [Step 4/6] Switching containers with health check gating (--wait)...'",
     "if ! docker compose up -d --wait --wait-timeout 90; then",
     "    echo '::error::Deployment failed container health check gating! Rolling back to previous healthy state...'",
-    "    docker tag timesheet-api:rollback-backup timesheet-api:arm64 2>/dev/null || true",
-    "    docker tag timesheet-reports:rollback-backup timesheet-reports:arm64 2>/dev/null || true",
-    "    docker tag timesheet-admin:rollback-backup timesheet-admin:arm64 2>/dev/null || true",
-    "    docker tag timesheet-mail-worker:rollback-backup timesheet-mail-worker:arm64 2>/dev/null || true",
     "    cp docker-compose.yml.bak docker-compose.yml 2>/dev/null || true",
     "    docker compose up -d --wait --wait-timeout 60",
     "    echo '::error::Rollback complete: previous healthy containers restored.'",
@@ -60,17 +62,12 @@ DEPLOY_PAYLOAD=$(cat <<EOF
     "for port in 5111 5112 5113; do",
     "    if ! curl -fsS \"http://127.0.0.1:\${port}/api/health\" > /dev/null; then",
     "        echo \"::error::Internal port \${port} failed health verification! Rolling back...\"",
-    "        docker tag timesheet-api:rollback-backup timesheet-api:arm64 2>/dev/null || true",
-    "        docker tag timesheet-reports:rollback-backup timesheet-reports:arm64 2>/dev/null || true",
-    "        docker tag timesheet-admin:rollback-backup timesheet-admin:arm64 2>/dev/null || true",
-    "        docker tag timesheet-mail-worker:rollback-backup timesheet-mail-worker:arm64 2>/dev/null || true",
     "        cp docker-compose.yml.bak docker-compose.yml 2>/dev/null || true",
     "        docker compose up -d --wait --wait-timeout 60",
     "        exit 1",
     "    fi",
     "done",
     "echo '==> [Step 6/6] All microservices healthy! Pruning dangling images...'",
-    "docker rmi timesheet-api:rollback-backup timesheet-reports:rollback-backup timesheet-admin:rollback-backup timesheet-mail-worker:rollback-backup 2>/dev/null || true",
     "docker image prune -f",
     "echo '==> Deployment finished successfully!'",
     "docker compose ps"
@@ -102,7 +99,8 @@ rm -f "${PARAM_FILE}"
 echo "==> Sent SSM command ${COMMAND_ID}. Waiting for health checks and container switching..."
 
 # Wait for SSM command to finish
-for i in {1..40}; do
+# Up to 5 minutes: the first deploy on a host pulls the full image.
+for i in {1..75}; do
   STATUS=$(aws ssm get-command-invocation \
     --command-id "${COMMAND_ID}" \
     --instance-id "${INSTANCE_ID}" \

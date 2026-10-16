@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_images:
-        description: "Build and deploy ECS backend images"
+        description: "Build the backend image and deploy it to EC2"
         type: boolean
         default: true
       deploy_frontend:
@@ -32,7 +32,8 @@ jobs:
     name: Build & Deploy to AWS Production
     runs-on: ubuntu-latest
     environment: production
-    timeout-minutes: 45
+    # arm64 builds run under emulation; the first one (empty cache) is the slowest.
+    timeout-minutes: 75
 
     steps:
       - name: Checkout Code
@@ -68,6 +69,37 @@ jobs:
       # =========================================================================
       # Backend Deployment (EC2 Containerized Microservices Stack)
       # =========================================================================
+      # One image serves all four backend services (api, reports, admin, mail-worker); the
+      # compose file gives each its start command. The EC2 host is arm64, so build for arm64.
+      - name: Ensure ECR repository exists
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        run: |
+          aws ecr describe-repositories --repository-names "${NAME_PREFIX}/api" >/dev/null 2>&1 \
+            || aws ecr create-repository --repository-name "${NAME_PREFIX}/api" >/dev/null
+          echo "BACKEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/${NAME_PREFIX}/api:${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: Set up QEMU (arm64 emulation)
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Backend Image (arm64)
+        if: ${{ github.event_name == 'push' || inputs.deploy_images }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/api.Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.BACKEND_IMAGE }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
       - name: Deploy Backend on EC2
         if: ${{ github.event_name == 'push' || inputs.deploy_images }}
         run: |
