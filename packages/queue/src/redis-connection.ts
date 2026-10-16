@@ -20,11 +20,15 @@ export const redisClient = new Redis({
   enableReadyCheck: false,
   lazyConnect: true,
   retryStrategy(times) {
-    const delay = Math.min(times * 100, 3000);
-    logger.warn(LOG_CONTEXT, `Retrying Redis connection (Attempt ${times}, delay ${delay}ms)`);
+    const delay = times > 20 ? 10000 : Math.min(times * 200, 5000);
+    if (times <= 5 || times % 50 === 0) {
+      logger.warn(LOG_CONTEXT, `Retrying Redis connection (Attempt ${times}, next delay ${delay}ms)`);
+    }
     return delay;
   },
 });
+
+let lastErrorLogTime = 0;
 
 redisClient.on("connect", () => {
   isRedisConnected = true;
@@ -37,12 +41,18 @@ redisClient.on("ready", () => {
 
 redisClient.on("error", (err) => {
   isRedisConnected = false;
-  logger.error(LOG_CONTEXT, "Redis Connection Error", { error: err.message });
+  const now = Date.now();
+  if (now - lastErrorLogTime > 15000) {
+    lastErrorLogTime = now;
+    logger.error(LOG_CONTEXT, "Redis Connection Error", { error: err.message, host: REDIS_HOST, port: REDIS_PORT });
+  }
 });
 
 redisClient.on("close", () => {
-  isRedisConnected = false;
-  logger.warn(LOG_CONTEXT, "Redis connection closed");
+  if (isRedisConnected) {
+    isRedisConnected = false;
+    logger.warn(LOG_CONTEXT, "Redis connection closed");
+  }
 });
 
 // Attempt background connection without blocking startup

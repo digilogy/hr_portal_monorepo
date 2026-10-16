@@ -8,4 +8,5 @@ export declare function verifyAuthToken(token: string): AuthTokenPayload;
 export declare function verifyLegacySetupToken(token: string): {
     email: string;
 };
+export declare function signLegacySetupToken(email: string): string;
 //# sourceMappingURL=jwt.d.ts.map

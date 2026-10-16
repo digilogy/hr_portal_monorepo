@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.signAuthToken = signAuthToken;
 exports.verifyAuthToken = verifyAuthToken;
 exports.verifyLegacySetupToken = verifyLegacySetupToken;
+exports.signLegacySetupToken = signLegacySetupToken;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const config_1 = require("@hr-portal/config");
 const JWT_SECRET = config_1.env.JWT_SECRET;
@@ -18,5 +19,8 @@ function verifyAuthToken(token) {
 }
 function verifyLegacySetupToken(token) {
     return jsonwebtoken_1.default.verify(token, SETUP_SECRET);
+}
+function signLegacySetupToken(email) {
+    return jsonwebtoken_1.default.sign({ email }, SETUP_SECRET, { expiresIn: "1h" });
 }
 //# sourceMappingURL=jwt.js.map

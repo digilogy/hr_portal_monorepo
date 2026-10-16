@@ -1,5 +1,6 @@
 import { UserRole, EmailType } from "@hr-portal/database";
-import { RedisService, SecurityService, signAuthToken, verifyLegacySetupToken } from "@hr-portal/auth";
+import { RedisService, SecurityService, signAuthToken, verifyLegacySetupToken, signLegacySetupToken } from "@hr-portal/auth";
+import { isRedisConnected } from "@hr-portal/queue";
 import { isDomainAllowed } from "@hr-portal/common";
 import { AccessService } from "../access/access.service";
 import { EmailQueueService } from "../../services/emailQueue.service";
@@ -77,10 +78,17 @@ export class AuthService {
       };
     }
 
-    // 2. New User Workflow: Generate Secure Token & Store in Redis (1 Hour TTL)
-    const setupToken = SecurityService.generateSecureToken();
-    const tokenKey = `auth:setup:${setupToken}`;
-    await RedisService.setWithTTL(tokenKey, JSON.stringify({ email, isReset: false }), 3600);
+    // 2. New User Workflow: Generate Secure Token (Redis with signed fallback)
+    let setupToken: string;
+    let tokenKey = "jwt-fallback";
+    if (isRedisConnected) {
+      setupToken = SecurityService.generateSecureToken();
+      tokenKey = `auth:setup:${setupToken}`;
+      await RedisService.setWithTTL(tokenKey, JSON.stringify({ email, isReset: false }), 3600);
+    } else {
+      logger.warn(LOG_CONTEXT, "Redis offline: generating signed fallback setup token", { email });
+      setupToken = signLegacySetupToken(email);
+    }
 
     const setupLink = buildSetupLink(setupToken);
 
@@ -119,10 +127,17 @@ export class AuthService {
       throw new Error("User not found.");
     }
 
-    // Generate Secure Token & Store in Redis (1 Hour TTL)
-    const setupToken = SecurityService.generateSecureToken();
-    const tokenKey = `auth:reset:${setupToken}`;
-    await RedisService.setWithTTL(tokenKey, JSON.stringify({ email, isReset: true }), 3600);
+    // Generate Secure Token (Redis with signed fallback)
+    let setupToken: string;
+    let tokenKey = "jwt-fallback";
+    if (isRedisConnected) {
+      setupToken = SecurityService.generateSecureToken();
+      tokenKey = `auth:reset:${setupToken}`;
+      await RedisService.setWithTTL(tokenKey, JSON.stringify({ email, isReset: true }), 3600);
+    } else {
+      logger.warn(LOG_CONTEXT, "Redis offline: generating signed fallback reset token", { email });
+      setupToken = signLegacySetupToken(email);
+    }
 
     const setupLink = buildSetupLink(setupToken);
 

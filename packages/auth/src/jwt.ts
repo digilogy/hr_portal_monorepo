@@ -21,3 +21,7 @@ export function verifyAuthToken(token: string): AuthTokenPayload {
 export function verifyLegacySetupToken(token: string): { email: string } {
   return jwt.verify(token, SETUP_SECRET) as { email: string };
 }
+
+export function signLegacySetupToken(email: string): string {
+  return jwt.sign({ email }, SETUP_SECRET, { expiresIn: "1h" });
+}

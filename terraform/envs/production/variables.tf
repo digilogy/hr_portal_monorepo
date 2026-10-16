@@ -132,7 +132,7 @@ variable "nat_gateway_count" {
 variable "create_redis" {
   description = "Whether to create a new ElastiCache Serverless Redis or reuse an existing one"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "existing_redis_host" {

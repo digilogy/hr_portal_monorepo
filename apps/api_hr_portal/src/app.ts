@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { env } from "@hr-portal/config";
 import { logger } from "@hr-portal/logger";
+import { isRedisConnected } from "@hr-portal/queue";
 import authRoutes from "./modules/auth/auth.routes";
 import timesheetRoutes from "./modules/timesheet/timesheet.routes";
 import profileRoutes from "./modules/profile/profile.routes";
@@ -245,7 +246,11 @@ app.get("/api/echoconf", (req, res) => {
 
 // Health check
 app.get("/api/health", (req, res) => {
-  res.status(200).json({ status: "OK", message: "Server is running" });
+  res.status(200).json({
+    status: "OK",
+    message: "Server is running",
+    redis: isRedisConnected ? "connected" : "disconnected",
+  });
 });
 
 // Safety-net error handler. Every controller already catches its own errors and
