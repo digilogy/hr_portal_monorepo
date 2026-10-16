@@ -308,6 +308,11 @@ export class EmployeeDataService {
     }
 
     const successCount = addedCount + updatedCount;
+    if (successCount > 0) {
+      await RedisService.deletePattern("cache:employees:*");
+      await RedisService.deletePattern("report*");
+    }
+
     logger.info(LOG_CONTEXT, "Bulk upload completed", {
       jobId: job.id,
       totalRows,

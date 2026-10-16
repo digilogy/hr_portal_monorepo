@@ -3,6 +3,7 @@ import { AccessService } from "../access/access.service";
 import {
   ReportFilters,
   buildReportFilterOptions,
+  buildDepartmentFilterOptions,
   filterEmployeesByReportFilters,
   DEFAULT_REPORT_FILTERS,
 } from "./reportFilters";
@@ -885,14 +886,24 @@ export class TeamReportsService {
   }
 
   static async getReportFilterOptions(email: string, role: UserRole) {
+    const cacheKey = `report_filter_options:${email.toLowerCase()}:${role}`;
+    const cached = await RedisService.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {}
+    }
+
     const employees = await AccessService.getReportScopeEmployees(email, role);
     const options = buildReportFilterOptions(employees);
-    return {
+    const result = {
       departments: options.departments,
       subDepartments: options.subDepartments,
       managers: options.managers,
       employees: options.employees,
     };
+    await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 600);
+    return result;
   }
 
   static async getScopedReportFilterOptions(
@@ -900,14 +911,24 @@ export class TeamReportsService {
     role: UserRole,
     filters: ReportFilters,
   ) {
+    const cacheKey = `report_filter_scoped:${email.toLowerCase()}:${role}:${JSON.stringify(filters)}`;
+    const cached = await RedisService.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {}
+    }
+
     const employees = await AccessService.getReportScopeEmployees(email, role);
     const scoped = filterEmployeesByReportFilters(employees, filters);
     const options = buildReportFilterOptions(scoped);
-    return {
+    const result = {
       subDepartments: options.subDepartments,
       managers: options.managers,
       employees: options.employees,
     };
+    await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 600);
+    return result;
   }
 
   static async getTeamRoster(
@@ -1017,6 +1038,13 @@ export class TeamReportsService {
   ): Promise<UserReportRow[]> {
     const cacheKey = `report_userwise_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
 
+    const cached = await RedisService.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {}
+    }
+
     if (this.userWisePromiseCache.has(cacheKey)) {
       return this.userWisePromiseCache.get(cacheKey)!;
     }
@@ -1045,6 +1073,7 @@ export class TeamReportsService {
         finalRows = rows.filter((r) => r.status === filters.status);
       }
 
+      await RedisService.setWithTTL(cacheKey, JSON.stringify(finalRows), 180);
       return finalRows;
     })();
 
@@ -1240,8 +1269,15 @@ export class TeamReportsService {
       }
     >();
 
+    const employeeById = new Map<string, EmployeeData>();
+    for (const emp of employees) {
+      if (emp.employeeId) {
+        employeeById.set(emp.employeeId, emp);
+      }
+    }
+
     for (const row of userRows) {
-      const employee = employees.find((item) => item.employeeId === row.empId);
+      const employee = employeeById.get(row.empId);
       const rawDepartment =
         row.department && row.department !== "—" ? row.department : "Unassigned";
       const departmentKey = normalizeGroupKey(rawDepartment);
@@ -1334,6 +1370,13 @@ export class TeamReportsService {
   ): Promise<DashboardSummary> {
     const cacheKey = `report_dash_v2:${email.toLowerCase()}:${role}:${fromDate || ""}:${toDate || ""}:${JSON.stringify(filters || {})}`;
 
+    const cached = await RedisService.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {}
+    }
+
     if (this.dashboardPromiseCache.has(cacheKey)) {
       return this.dashboardPromiseCache.get(cacheKey)!;
     }
@@ -1406,11 +1449,12 @@ export class TeamReportsService {
         timesheetsSubmitted,
         departments: filteredDepartments,
         filterOptions: {
-          departments: buildReportFilterOptions(reportScopeEmployees).departments,
+          departments: buildDepartmentFilterOptions(reportScopeEmployees),
         },
         totalSignUpUsers,
       };
 
+      await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 180);
       return result;
     })();
 
@@ -1439,8 +1483,14 @@ export class TeamReportsService {
 
     if (emails.length > 0) {
       const users = await teamReportsRepository.findSignedUpUsersForEmails(emails);
+      const empByEmail = new Map<string, EmployeeData>();
+      for (const emp of filteredEmployees) {
+        if (emp.officialEmailId) {
+          empByEmail.set(emp.officialEmailId.trim().toLowerCase(), emp);
+        }
+      }
       return users.map(user => {
-        const emp = filteredEmployees.find(e => e.officialEmailId?.trim().toLowerCase() === user.email.toLowerCase());
+        const emp = empByEmail.get(user.email.toLowerCase());
         return {
           ...user,
           employeeId: emp?.employeeId || "-",
@@ -1739,6 +1789,14 @@ export class TeamReportsService {
     filters?: ReportFilters,
   ): Promise<WorkforcePulseResult> {
     const range = getDefaultDateRange(fromDate, toDate);
+    const cacheKey = `report_pulse_v2:${email.toLowerCase()}:${role}:${range.from}:${range.to}:${JSON.stringify(filters || {})}`;
+    const cached = await RedisService.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {}
+    }
+
     const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     const emptyResult = (employeesInScope = 0): WorkforcePulseResult => ({
@@ -1946,7 +2004,7 @@ export class TeamReportsService {
       laggingPct: totalManagers > 0 ? Math.round((laggingCount / totalManagers) * 100) : 0,
     };
 
-    return {
+    const result: WorkforcePulseResult = {
       employeesInScope,
       fromDate: range.from,
       toDate: range.to,
@@ -1974,6 +2032,9 @@ export class TeamReportsService {
       managerCompliance,
       managerComplianceSummary,
     };
+
+    await RedisService.setWithTTL(cacheKey, JSON.stringify(result), 180);
+    return result;
   }
 }
 
