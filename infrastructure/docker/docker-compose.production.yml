@@ -1,3 +1,6 @@
+# All four backend services run the same image (built from api.Dockerfile in CI and pushed
+# to ECR); only the start command differs. __BACKEND_IMAGE__ is filled in by
+# scripts/deploy/deploy-ec2.sh with the exact image built for that deploy.
 services:
   redis:
     image: redis:7-alpine
@@ -17,7 +20,8 @@ services:
       start_period: 5s
 
   timesheet-reports:
-    image: timesheet-reports:arm64
+    image: __BACKEND_IMAGE__
+    command: ["node", "apps/api_hr_portal/dist/reports.index.js"]
     container_name: timesheet-reports
     restart: always
     environment:
@@ -39,7 +43,8 @@ services:
       start_period: 10s
 
   timesheet-admin:
-    image: timesheet-admin:arm64
+    image: __BACKEND_IMAGE__
+    command: ["node", "apps/api_hr_portal/dist/admin.index.js"]
     container_name: timesheet-admin
     restart: always
     environment:
@@ -61,7 +66,8 @@ services:
       start_period: 10s
 
   timesheet-mail-worker:
-    image: timesheet-mail-worker:arm64
+    image: __BACKEND_IMAGE__
+    command: ["node", "apps/api_hr_portal/dist/workers/mail.worker.js"]
     container_name: timesheet-mail-worker
     restart: always
     env_file:
@@ -79,7 +85,7 @@ services:
       start_period: 5s
 
   timesheet-api:
-    image: timesheet-api:arm64
+    image: __BACKEND_IMAGE__
     container_name: timesheet-api
     restart: always
     environment:
