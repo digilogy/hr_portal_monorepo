@@ -3,6 +3,8 @@ import { AccessService } from "../access/access.service";
 import { profileRepository } from "./profile.repository";
 import { holidayRepository } from "../admin/holiday.repository";
 import { RedisService } from "@hr-portal/auth";
+import { logger } from "@hr-portal/logger";
+import { TimesheetRealignService } from "../../services/timesheetRealign.service";
 
 export interface EmployeeProfile {
   name: string;
@@ -203,6 +205,16 @@ export class ProfileService {
 
     assignment.preferredTiming = preferredTiming;
     await AppDataSource.getRepository(EmployeeShiftAssignment).save(assignment);
+
+    // Move this user's saved entries onto the new timing's slots before the page reloads them.
+    try {
+      await TimesheetRealignService.realign({ employeeIds: [employee.employeeId] });
+    } catch (error: unknown) {
+      logger.error("ProfileService", "Timesheet realign after timing change failed", {
+        employeeId: employee.employeeId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
 
     // Invalidate profile cache so the UI gets the updated timing

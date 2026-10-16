@@ -15,7 +15,7 @@ import { message, DatePicker, Button, Spin, Select, Modal } from "antd";
 import { apiFetch } from "@/lib/api";
 import { getTokenRole } from "@/lib/auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getSlotDurationHours, parseTimeSlotRange } from "@/lib/timesheetSlots";
+import { alignSlotsToGrid, getSlotDurationHours, parseTimeSlotRange } from "@/lib/timesheetSlots";
 
 import { getHolidayZoneForCity } from "@/lib/holidayMapping";
 
@@ -54,16 +54,6 @@ const DEFAULT_TIME_SLOTS: Array<{ key: string; timeSlot: string; title: string; 
   { key: "slot-15-00-16-00", timeSlot: "15:00 - 16:00", title: "", task: "" },
   { key: "slot-16-00-17-00", timeSlot: "16:00 - 17:00", title: "", task: "" },
 ];
-
-function mapLegacySlot(timeSlot: string): string {
-  const norm = timeSlot.trim();
-  if (norm === "12:30 - 13:30" || norm === "12:30-13:30") return "12:30 - 13:15";
-  if (norm === "13:30 - 14:30" || norm === "13:30-14:30") return "13:15 - 14:00";
-  if (norm === "14:30 - 15:30" || norm === "14:30-15:30") return "14:00 - 15:00";
-  if (norm === "15:30 - 16:30" || norm === "15:30-16:30") return "15:00 - 16:00";
-  if (norm === "16:30 - 17:00" || norm === "16:30-17:00") return "16:00 - 17:00";
-  return norm;
-}
 
 function generateSlotKey(timeSlot: string): string {
   return "slot-" + timeSlot.replace(/[^0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
@@ -217,34 +207,36 @@ function getEffectiveTiming(date: Dayjs, profile: any, defaultTiming: string): s
 
 function normalizeDaySlots(
   rawSlots: Array<{ timeSlot: string; task?: string; title?: string }> | undefined,
-  dynamicDefaultSlots: Array<{ key: string; timeSlot: string; title: string; task: string }>
+  dynamicDefaultSlots: Array<{ key: string; timeSlot: string; title: string; task: string }>,
+  alignToGrid = true,
 ): TimeSlotData[] {
   const safeSlots = dynamicDefaultSlots || DEFAULT_TIME_SLOTS || [];
   const defaultSlots = safeSlots.map((s) => ({ ...s, key: generateSlotKey(s.timeSlot) }));
   if (!rawSlots || rawSlots.length === 0) return defaultSlots;
 
-  const defaultSlotSet = new Set(defaultSlots.map(s => s.timeSlot));
+  if (!alignToGrid) {
+    // Locked days show entries exactly as logged (possibly under an earlier shift);
+    // empty slots of the current shift only fill the gaps between them.
+    const saved = rawSlots
+      .filter((s) => s.task?.trim())
+      .map((s) => ({
+        key: generateSlotKey(s.timeSlot) + "-saved",
+        timeSlot: s.timeSlot.trim(),
+        title: s.title || "",
+        task: s.task!.trim(),
+      }));
+    const savedRanges = saved.map((s) => parseTimeSlotRange(s.timeSlot)).filter((r) => r !== null);
+    const gaps = defaultSlots.filter((ds) => {
+      const range = parseTimeSlotRange(ds.timeSlot);
+      return !range || !savedRanges.some((r) => r.start < range.end && range.start < r.end);
+    });
+    return sortSlotsByStart([...saved, ...gaps]);
+  }
 
+  // Entries saved under an earlier shift (or older slot layout) move into the current grid.
   const taskMap = new Map<string, string>();
-  for (const s of rawSlots) {
-    if (!s.task?.trim()) continue; // Discards obsolete empty rows
-
-    let targetSlot = s.timeSlot.trim();
-    // Only map legacy slots if the exact original slot doesn't exist in our default list
-    if (!defaultSlotSet.has(targetSlot)) {
-      const mapped = mapLegacySlot(targetSlot);
-      if (defaultSlotSet.has(mapped)) {
-        targetSlot = mapped;
-      }
-    }
-
-    // If multiple legacy slots map to the same target slot, append them
-    const existing = taskMap.get(targetSlot);
-    if (existing) {
-      taskMap.set(targetSlot, existing + " | " + s.task.trim());
-    } else {
-      taskMap.set(targetSlot, s.task.trim());
-    }
+  for (const s of alignSlotsToGrid(rawSlots, defaultSlots.map((ds) => ds.timeSlot))) {
+    taskMap.set(s.timeSlot, s.task);
   }
 
   const mergedSlots = defaultSlots.map((ds) => {
@@ -268,8 +260,12 @@ function normalizeDaySlots(
     });
   }
 
-  // Sort slots chronologically to ensure extra slots appear in correct order
-  mergedSlots.sort((a, b) => {
+  return sortSlotsByStart(mergedSlots);
+}
+
+/** Sort slots chronologically so extra slots appear in the correct order. */
+function sortSlotsByStart<T extends { timeSlot: string }>(slots: T[]): T[] {
+  return slots.sort((a, b) => {
     const timeA = a.timeSlot.split('-')[0].trim();
     const timeB = b.timeSlot.split('-')[0].trim();
     const [hA, mA] = timeA.split(':').map(Number);
@@ -277,8 +273,6 @@ function normalizeDaySlots(
     if (hA !== hB) return (hA || 0) - (hB || 0);
     return (mA || 0) - (mB || 0);
   });
-
-  return mergedSlots;
 }
 
 function generateDynamicSlots(timing: string): Array<{ key: string; timeSlot: string; title: string; task: string }> {
@@ -453,7 +447,8 @@ export default function TimesheetPage() {
 
       const effectiveTiming = getEffectiveTiming(selectedDate, profile, selectedTiming);
       const defaultSlots = generateDynamicSlots(effectiveTiming);
-      const normalized = normalizeDaySlots(record?.slots, defaultSlots);
+      // Only editable days move onto the current shift's slots; locked days stay as logged.
+      const normalized = normalizeDaySlots(record?.slots, defaultSlots, !isReadOnly);
 
       // If it's a holiday (and not optional) and no slots are filled, pre-fill with holiday message
       if (currentHoliday && !currentHoliday.isOptional && (!record || record.slots.length === 0)) {
@@ -486,7 +481,7 @@ export default function TimesheetPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateKey, messageApi, profileLoaded, selectedTiming, currentHoliday, profile, selectedDate]);
+  }, [dateKey, messageApi, profileLoaded, selectedTiming, currentHoliday, profile, selectedDate, isReadOnly]);
 
   useEffect(() => {
     void fetchTimesheet();

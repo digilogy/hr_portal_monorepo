@@ -8,6 +8,7 @@ import { EmployeeDataService } from "./employeeData.service";
 import { ShiftUploadService } from "./shiftUpload.service";
 import { logger } from "@hr-portal/logger";
 import { uploadQueueRepository } from "./uploadQueue.repository";
+import { TimesheetRealignService } from "../../services/timesheetRealign.service";
 
 const jobQueue: string[] = [];
 let isProcessing = false;
@@ -84,6 +85,9 @@ async function processNextJob(): Promise<void> {
           updatedCount: result.updatedCount,
           failureCount: result.failureCount,
         });
+
+        // Shift timings or assignments may have changed: move saved entries onto the new slots.
+        TimesheetRealignService.realignAllInBackground(`${job.type} upload ${job.id}`);
       } catch (error: unknown) {
         const message =
           error instanceof Error ? error.message : "Unknown error";

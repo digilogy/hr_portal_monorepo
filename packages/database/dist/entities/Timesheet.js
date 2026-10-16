@@ -17,6 +17,8 @@ let Timesheet = class Timesheet {
     user;
     date;
     slots;
+    /** Slots as they were before a shift change re-aligned them; null if never re-aligned. */
+    originalSlots;
     totalHours;
     status;
     createdAt;
@@ -40,6 +42,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: "json" }),
     __metadata("design:type", Array)
 ], Timesheet.prototype, "slots", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "jsonb", nullable: true }),
+    __metadata("design:type", Object)
+], Timesheet.prototype, "originalSlots", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "float", default: 0 }),
     __metadata("design:type", Number)

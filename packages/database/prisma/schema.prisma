@@ -58,6 +58,7 @@ model Timesheet {
   userId     Int      @map("userId")
   date       String   @db.VarChar(10) // ISO Date string YYYY-MM-DD
   slots      Json     // Array of TimesheetSlots
+  originalSlots Json? @map("originalSlots") // Slots as first saved, kept when a shift change re-aligns them
   totalHours Float    @default(0) @map("totalHours")
   status     String   @default("saved") @db.VarChar(50)
   createdAt  DateTime @default(now()) @map("createdAt")

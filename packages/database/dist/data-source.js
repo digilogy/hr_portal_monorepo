@@ -105,6 +105,8 @@ async function initializeDatabase() {
 
       CREATE INDEX IF NOT EXISTS "idx_holiday_start_end" ON "holiday" ("startDate", "endDate");
 
+      ALTER TABLE "timesheet" ADD COLUMN IF NOT EXISTS "originalSlots" JSONB;
+
       CREATE TABLE IF NOT EXISTS "system_notice" (
         "id" SERIAL PRIMARY KEY,
         "message" TEXT NOT NULL DEFAULT '',
