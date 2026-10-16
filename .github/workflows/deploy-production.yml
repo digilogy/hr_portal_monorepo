@@ -71,11 +71,11 @@ jobs:
       # =========================================================================
       # One image serves all four backend services (api, reports, admin, mail-worker); the
       # compose file gives each its start command. The EC2 host is arm64, so build for arm64.
-      - name: Ensure ECR repository exists
+      # The timesheet/api repository is created by Terraform (terraform/envs/production, module
+      # "ecr"); the CI user may push to it but not describe or create repositories.
+      - name: Set Backend Image
         if: ${{ github.event_name == 'push' || inputs.deploy_images }}
         run: |
-          aws ecr describe-repositories --repository-names "${NAME_PREFIX}/api" >/dev/null 2>&1 \
-            || aws ecr create-repository --repository-name "${NAME_PREFIX}/api" >/dev/null
           echo "BACKEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/${NAME_PREFIX}/api:${IMAGE_TAG}" >> $GITHUB_ENV
 
       - name: Set up QEMU (arm64 emulation)
