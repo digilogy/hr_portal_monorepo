@@ -19,7 +19,14 @@ export interface ManagedSystemNotice {
 /** Public endpoint (no auth) so it also works on the login page. */
 export async function fetchActiveSystemNotice(): Promise<ActiveSystemNotice | null> {
   try {
-    const response = await fetch(`${API_BASE}/api/system/notice`, { cache: "no-store" });
+    const signal =
+      typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(2000)
+        : undefined;
+    const response = await fetch(`${API_BASE}/api/system/notice`, {
+      cache: "no-store",
+      signal,
+    });
     if (!response.ok) return null;
     const data = (await response.json()) as { notice: ActiveSystemNotice | null };
     return data.notice;

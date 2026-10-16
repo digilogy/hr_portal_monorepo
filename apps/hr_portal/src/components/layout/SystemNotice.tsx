@@ -43,17 +43,30 @@ export function useSystemNotice(): { notice: ActiveSystemNotice | null; loaded: 
 
   useEffect(() => {
     let cancelled = false;
+
+    // Safety fallback: guarantee that UI unblocks within 1 second even under high latency
+    const fallbackTimer = setTimeout(() => {
+      if (!cancelled) setLoaded(true);
+    }, 1000);
+
     const load = async () => {
-      const next = await fetchActiveSystemNotice();
-      if (cancelled) return;
-      setNotice(next);
-      setLoaded(true);
+      try {
+        const next = await fetchActiveSystemNotice();
+        if (cancelled) return;
+        setNotice(next);
+      } finally {
+        if (!cancelled) {
+          clearTimeout(fallbackTimer);
+          setLoaded(true);
+        }
+      }
     };
 
     void load();
     const interval = setInterval(load, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
+      clearTimeout(fallbackTimer);
       clearInterval(interval);
     };
   }, []);

@@ -1,20 +1,27 @@
 import { AppDataSource, SystemNotice } from "@hr-portal/database";
 
-const noticeOrm = AppDataSource.getRepository(SystemNotice);
-
 export class SystemNoticeRepository {
+  private get repo() {
+    return AppDataSource.getRepository(SystemNotice);
+  }
+
   /** The table is treated as a single row; the oldest row wins if more ever exist. */
   async get(): Promise<SystemNotice | null> {
-    return noticeOrm.findOne({ where: {}, order: { id: "ASC" } });
+    try {
+      if (!AppDataSource.isInitialized) return null;
+      return await this.repo.findOne({ where: {}, order: { id: "ASC" } });
+    } catch {
+      return null;
+    }
   }
 
   async upsert(data: Partial<SystemNotice>): Promise<SystemNotice> {
     const existing = await this.get();
     if (existing) {
-      noticeOrm.merge(existing, data);
-      return noticeOrm.save(existing);
+      this.repo.merge(existing, data);
+      return this.repo.save(existing);
     }
-    return noticeOrm.save(noticeOrm.create(data));
+    return this.repo.save(this.repo.create(data));
   }
 }
 

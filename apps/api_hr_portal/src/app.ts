@@ -92,6 +92,18 @@ function apiCacheMiddleware(req: express.Request, res: express.Response, next: e
 
   apiInflight.set(cacheKey, []);
 
+  res.on("close", () => {
+    if (apiInflight.has(cacheKey)) {
+      const waiting = apiInflight.get(cacheKey) || [];
+      apiInflight.delete(cacheKey);
+      for (const waitingRes of waiting) {
+        if (!waitingRes.headersSent) {
+          waitingRes.status(res.statusCode || 500).end();
+        }
+      }
+    }
+  });
+
   // Intercept response to cache it and notify waiting requests
   const originalSend = res.send.bind(res);
 
