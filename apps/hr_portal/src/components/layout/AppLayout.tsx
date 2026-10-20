@@ -14,6 +14,7 @@ import {
   PieChartOutlined,
   SettingOutlined,
   ToolOutlined,
+  QuestionCircleOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -21,6 +22,7 @@ import { canAccessAnalytics, canAccessDashboard, canAccessPersonalDashboard, can
 import { isAdminPortalHost } from "@/lib/host";
 import { apiFetch } from "@/lib/api";
 import { MaintenanceScreen, SystemNoticeBanner, useSystemNotice } from "./SystemNotice";
+import { SupportWidget } from "./SupportWidget";
 
 import { Grid } from "antd";
 const { useBreakpoint } = Grid;
@@ -179,6 +181,11 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         label: <Link href="/maintenance" onClick={() => setMobileMenuOpen(false)}>Maintenance</Link>,
       }]
       : []),
+    {
+      key: "/support",
+      icon: <QuestionCircleOutlined />,
+      label: <Link href="/support" onClick={() => setMobileMenuOpen(false)}>Help & Support</Link>,
+    },
   ];
 
   const profileMenuItems = [
@@ -325,6 +332,7 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
             >
               {children}
             </div>
+            {pathname !== "/support" && <SupportWidget pathname={pathname} />}
           </Content>
           {/* <Footer style={{ textAlign: "center", color: "gray" }}>
             Casagrand HR Portal ©2026
