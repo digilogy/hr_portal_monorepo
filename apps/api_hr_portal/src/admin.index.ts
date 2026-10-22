@@ -3,9 +3,11 @@ import { config } from "dotenv";
 import { env } from "@hr-portal/config";
 import { logger } from "@hr-portal/logger";
 import { initializeDatabase } from "@hr-portal/database";
+import { registerProcessErrorHandlers } from "./utils/errorCapture";
 import app from "./admin.app";
 
 config();
+registerProcessErrorHandlers("AdminApp");
 
 const rawPort = process.env.PORT ? Number(process.env.PORT) : env.PORT;
 const PORT = rawPort === 5111 ? 5113 : (rawPort || 5113);

@@ -167,8 +167,11 @@ This section provides a comprehensive list of all API endpoints exposed by the H
 |---|---|---|
 | `GET` | `/api/health` | Basic heartbeat health check endpoint. |
 | `GET` | `/api/echoconf` | View active sanitized configuration and environment parameters. |
-| `GET` | `/logxz` (or `/api/logxz`) | Stream live raw server logs via Server-Sent Events (SSE). |
+| `GET` | `/logxz` (or `/api/logxz`) | Live log viewer for all services (api, admin, reports, worker) plus browser errors (`web`). Filter with `?service=`, `?level=`, `?search=`; `?format=json` / `?format=text` for raw output. |
 | `POST` | `/logxz/clear` (or `/api/logxz/clear`) | Clear the live raw server logs from memory. |
+| `POST` | `/api/client-errors` | Used by the frontend to report browser errors (render crashes, uncaught JS errors, failed API calls). Rate limited to 30/min per IP. |
+
+The log viewer uses basic auth from `LOG_VIEWER_USER` (default `log`) and `LOG_VIEWER_PASSWORD`. It returns 503 until `LOG_VIEWER_PASSWORD` is set.
 
 
 

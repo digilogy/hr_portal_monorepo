@@ -6,6 +6,8 @@ import { redisClient, MAIL_QUEUE_NAME, QUEUE_PREFIX, MailJobPayload } from "@hr-
 import { EmailService } from "@hr-portal/mail";
 import { logger } from "@hr-portal/logger";
 import { initializeDatabase, AppDataSource, EmailLog, EmailStatus } from "@hr-portal/database";
+import { LiveLogService } from "../services/liveLog.service";
+import { registerProcessErrorHandlers } from "../utils/errorCapture";
 
 const LOG_CONTEXT = "MailWorker";
 
@@ -83,6 +85,8 @@ export function startMailWorker(): Worker<MailJobPayload> {
 
 // Auto-run if executed via `npm run worker`
 if (require.main === module) {
+  LiveLogService.getInstance().init({ service: "worker", minLevel: "WARN" });
+  registerProcessErrorHandlers(LOG_CONTEXT);
   logger.info(LOG_CONTEXT, "Starting standalone Mail Worker instance...");
   
   // Ensure the Node event loop never empties out and exits with code 0, 

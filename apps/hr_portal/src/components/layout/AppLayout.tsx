@@ -15,6 +15,7 @@ import {
   SettingOutlined,
   ToolOutlined,
   QuestionCircleOutlined,
+  FileSearchOutlined,
 } from "@ant-design/icons";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
@@ -179,6 +180,10 @@ export const AppLayout = ({ children }: { children: React.ReactNode }) => {
         key: "/maintenance",
         icon: <ToolOutlined />,
         label: <Link href="/maintenance" onClick={() => setMobileMenuOpen(false)}>Maintenance</Link>,
+      }, {
+        key: "/logs",
+        icon: <FileSearchOutlined />,
+        label: <Link href="/logs" onClick={() => setMobileMenuOpen(false)}>Logs</Link>,
       }]
       : []),
     {

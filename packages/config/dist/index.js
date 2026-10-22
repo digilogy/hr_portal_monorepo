@@ -57,6 +57,10 @@ const envSchema = zod_1.z.object({
     RATE_LIMIT_ACCESS_MAX: zod_1.z.coerce.number().default(10),
     RATE_LIMIT_FORGOT_MAX: zod_1.z.coerce.number().default(5),
     RATE_LIMIT_LOGIN_MAX: zod_1.z.coerce.number().default(10),
+    // Basic-auth credentials for the /logxz live log viewer. The viewer is disabled
+    // (503) until LOG_VIEWER_PASSWORD is set.
+    LOG_VIEWER_USER: zod_1.z.string().default("log"),
+    LOG_VIEWER_PASSWORD: zod_1.z.string().optional(),
 });
 function loadEnv() {
     const result = envSchema.safeParse(process.env);

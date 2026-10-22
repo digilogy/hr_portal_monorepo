@@ -56,15 +56,20 @@ app.use(express.urlencoded({ extended: true }));
 
 import { LiveLogService } from "./services/liveLog.service";
 import logxzRoutes from "./routes/logxz.routes";
+import clientErrorsRoutes from "./routes/clientErrors.routes";
 import { getSanitizedConfig } from "./utils/echoconf";
+import { createErrorHandler } from "./utils/errorCapture";
 
 // Initialize live log console capture & request logger across all endpoints
-LiveLogService.getInstance().init();
+LiveLogService.getInstance().init({ service: "api" });
 app.use(LiveLogService.requestLogger());
 
 // Live Logs Endpoints (exposed at /logxz and /api/logxz)
 app.use("/logxz", logxzRoutes);
 app.use("/api/logxz", logxzRoutes);
+
+// Browser-side errors reported by the frontend
+app.use("/api/client-errors", clientErrorsRoutes);
 
 // Simple API Gateway Cache with Thundering Herd Coalescing
 const apiCache = new Map<string, { expiresAt: number; data: any; isRawText?: boolean }>();
@@ -267,24 +272,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Safety-net error handler. Every controller already catches its own errors and
-// responds with { message }, so this only ever engages for something that slipped
-// past that (an unhandled throw / rejected promise) — previously that would have
-// fallen through to Express's default HTML error page instead of JSON.
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error("GlobalErrorHandler", "Unhandled error", {
-    path: req.path,
-    method: req.method,
-    error: err?.message,
-  });
-
-  if (res.headersSent) {
-    return next(err);
-  }
-
-  const statusCode = typeof err?.statusCode === "number" ? err.statusCode : 500;
-  const message = statusCode === 500 ? "An unexpected server error occurred" : err?.message || "Request failed";
-  res.status(statusCode).json({ message });
-});
+app.use(createErrorHandler("GlobalErrorHandler"));
 
 export default app;

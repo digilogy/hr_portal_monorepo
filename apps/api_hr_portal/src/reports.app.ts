@@ -2,10 +2,16 @@ import express from "express";
 import cors from "cors";
 import { env } from "@hr-portal/config";
 import { logger } from "@hr-portal/logger";
+import { LiveLogService } from "./services/liveLog.service";
+import { createErrorHandler } from "./utils/errorCapture";
 import teamRoutes from "./modules/reports/team.routes";
 import reportsRoutes from "./modules/reports/reports.routes";
 
 const app = express();
+
+// Send this service's warnings/errors to the shared /logxz store. INFO is skipped:
+// the gateway already records every request proxied here.
+LiveLogService.getInstance().init({ service: "reports", minLevel: "WARN" });
 
 function getCorsOptions(): cors.CorsOptions {
   const allowedOrigins = new Set<string>();
@@ -88,5 +94,7 @@ app.use("/api/reports", reportsRoutes);
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK", message: "Reports service is running" });
 });
+
+app.use(createErrorHandler("ReportsApp"));
 
 export default app;

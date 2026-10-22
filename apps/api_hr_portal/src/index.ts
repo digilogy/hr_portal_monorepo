@@ -4,6 +4,9 @@ import { EmailQueueService } from "./services/emailQueue.service";
 import { logger } from "@hr-portal/logger";
 import { echoConfig } from "./utils/echoconf";
 import { env } from "@hr-portal/config";
+import { registerProcessErrorHandlers } from "./utils/errorCapture";
+
+registerProcessErrorHandlers("Server");
 
 const PORT = env.PORT;
 
