@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ErrorReporter } from "@/components/layout/ErrorReporter";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full m-0 p-0 bg-gray-50" suppressHydrationWarning>
+        <ErrorReporter />
         <AntdRegistry>
           <AppLayout>{children}</AppLayout>
         </AntdRegistry>

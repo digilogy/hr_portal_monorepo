@@ -35,6 +35,8 @@ declare const envSchema: z.ZodObject<{
     RATE_LIMIT_ACCESS_MAX: z.ZodDefault<z.ZodNumber>;
     RATE_LIMIT_FORGOT_MAX: z.ZodDefault<z.ZodNumber>;
     RATE_LIMIT_LOGIN_MAX: z.ZodDefault<z.ZodNumber>;
+    LOG_VIEWER_USER: z.ZodDefault<z.ZodString>;
+    LOG_VIEWER_PASSWORD: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     NODE_ENV: "development" | "production" | "test";
     PORT: number;
@@ -60,6 +62,7 @@ declare const envSchema: z.ZodObject<{
     RATE_LIMIT_ACCESS_MAX: number;
     RATE_LIMIT_FORGOT_MAX: number;
     RATE_LIMIT_LOGIN_MAX: number;
+    LOG_VIEWER_USER: string;
     DATABASE_URL?: string | undefined;
     DB_SSL?: string | undefined;
     TYPEORM_SYNCHRONIZE?: string | undefined;
@@ -71,6 +74,7 @@ declare const envSchema: z.ZodObject<{
     SES_FROM_EMAIL?: string | undefined;
     AWS_SES_FROM_EMAIL?: string | undefined;
     AWS_S3_BUCKET?: string | undefined;
+    LOG_VIEWER_PASSWORD?: string | undefined;
 }, {
     JWT_SECRET: string;
     NODE_ENV?: "development" | "production" | "test" | undefined;
@@ -107,6 +111,8 @@ declare const envSchema: z.ZodObject<{
     RATE_LIMIT_ACCESS_MAX?: number | undefined;
     RATE_LIMIT_FORGOT_MAX?: number | undefined;
     RATE_LIMIT_LOGIN_MAX?: number | undefined;
+    LOG_VIEWER_USER?: string | undefined;
+    LOG_VIEWER_PASSWORD?: string | undefined;
 }>;
 export type Env = z.infer<typeof envSchema>;
 export declare const env: {
@@ -134,6 +140,7 @@ export declare const env: {
     RATE_LIMIT_ACCESS_MAX: number;
     RATE_LIMIT_FORGOT_MAX: number;
     RATE_LIMIT_LOGIN_MAX: number;
+    LOG_VIEWER_USER: string;
     DATABASE_URL?: string | undefined;
     DB_SSL?: string | undefined;
     TYPEORM_SYNCHRONIZE?: string | undefined;
@@ -145,6 +152,7 @@ export declare const env: {
     SES_FROM_EMAIL?: string | undefined;
     AWS_SES_FROM_EMAIL?: string | undefined;
     AWS_S3_BUCKET?: string | undefined;
+    LOG_VIEWER_PASSWORD?: string | undefined;
 };
 export {};
 //# sourceMappingURL=index.d.ts.map

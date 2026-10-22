@@ -61,6 +61,11 @@ const envSchema = z.object({
   RATE_LIMIT_ACCESS_MAX: z.coerce.number().default(10),
   RATE_LIMIT_FORGOT_MAX: z.coerce.number().default(5),
   RATE_LIMIT_LOGIN_MAX: z.coerce.number().default(10),
+
+  // Basic-auth credentials for the /logxz live log viewer. The viewer is disabled
+  // (503) until LOG_VIEWER_PASSWORD is set.
+  LOG_VIEWER_USER: z.string().default("log"),
+  LOG_VIEWER_PASSWORD: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

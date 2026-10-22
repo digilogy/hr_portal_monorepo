@@ -1,13 +1,19 @@
 import { redisClient, isRedisConnected } from "@hr-portal/queue";
 import { Request, Response, NextFunction } from "express";
+import { randomUUID } from "crypto";
 
 export interface LogEntry {
+  // Unique per entry; timestamp + message is not (identical requests in the same ms).
+  id?: string;
   timestamp: string;
   level: "INFO" | "WARN" | "ERROR" | "DEBUG";
   context: string;
   message: string;
   meta?: Record<string, unknown>;
   source?: string;
+  // Which process wrote the entry (api / admin / reports / worker / web). All
+  // processes share the same Redis list, so this is what tells them apart.
+  service?: string;
 }
 
 const REDIS_LOG_KEY = "app:live_logs";
@@ -15,9 +21,20 @@ const MAX_LOGS_LIMIT = 2000;
 const IN_MEMORY_BUFFER: LogEntry[] = [];
 const MAX_IN_MEMORY = 1000;
 
+const LEVEL_RANK: Record<LogEntry["level"], number> = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
+
+export interface LiveLogInitOptions {
+  service: string;
+  // Entries below this level are not stored. The admin/reports services use WARN
+  // because the gateway already records every request that is proxied to them.
+  minLevel?: LogEntry["level"];
+}
+
 export class LiveLogService {
   private static instance: LiveLogService;
   private isInitialized = false;
+  private service = "api";
+  private minLevel: LogEntry["level"] = "DEBUG";
 
   private constructor() {}
 
@@ -28,9 +45,11 @@ export class LiveLogService {
     return LiveLogService.instance;
   }
 
-  public init() {
+  public init(options: LiveLogInitOptions = { service: "api" }) {
     if (this.isInitialized) return;
     this.isInitialized = true;
+    this.service = options.service;
+    this.minLevel = options.minLevel ?? "DEBUG";
 
     const originalLog = console.log;
     const originalWarn = console.warn;
@@ -116,7 +135,12 @@ export class LiveLogService {
     const liveLog = LiveLogService.getInstance();
 
     return (req: Request, res: Response, next: NextFunction) => {
-      if (req.path.includes("/logxz") || req.headers["user-agent"]?.includes("k6")) {
+      if (
+        req.path.includes("/logxz") ||
+        req.path.includes("/client-errors") ||
+        req.path.includes("/api/system/logs") ||
+        req.headers["user-agent"]?.includes("k6")
+      ) {
         return next();
       }
 
@@ -151,6 +175,10 @@ export class LiveLogService {
   }
 
   public recordLog(entry: LogEntry) {
+    if (LEVEL_RANK[entry.level] < LEVEL_RANK[this.minLevel]) return;
+    if (!entry.service) entry.service = this.service;
+    if (!entry.id) entry.id = randomUUID();
+
     IN_MEMORY_BUFFER.unshift(entry);
     if (IN_MEMORY_BUFFER.length > MAX_IN_MEMORY) {
       IN_MEMORY_BUFFER.length = MAX_IN_MEMORY;
@@ -167,12 +195,24 @@ export class LiveLogService {
     }
   }
 
-  public async getRecentLogs(limit = 200, filterLevel?: string, search?: string): Promise<LogEntry[]> {
+  public async getRecentLogs(
+    limit = 200,
+    filterLevel?: string,
+    search?: string,
+    filterService?: string,
+  ): Promise<LogEntry[]> {
     let logs: LogEntry[] = [];
 
     if (isRedisConnected && redisClient) {
       try {
-        const rawLogs = await redisClient.lrange(REDIS_LOG_KEY, 0, limit * 2);
+        // With a filter, matches can sit anywhere in the list (errors are rare among
+        // request logs), so scan all of it — it is capped at MAX_LOGS_LIMIT — and
+        // apply `limit` to the matches, not to how far back we look.
+        const hasFilter =
+          (filterLevel && filterLevel.toUpperCase() !== "ALL") ||
+          (filterService && filterService.toLowerCase() !== "all") ||
+          (search && search.trim() !== "");
+        const rawLogs = await redisClient.lrange(REDIS_LOG_KEY, 0, hasFilter ? -1 : limit - 1);
         for (const raw of rawLogs) {
           try {
             logs.push(JSON.parse(raw));
@@ -190,6 +230,12 @@ export class LiveLogService {
     if (filterLevel && filterLevel.toUpperCase() !== "ALL") {
       const targetLevel = filterLevel.toUpperCase();
       logs = logs.filter((l) => l.level === targetLevel);
+    }
+
+    if (filterService && filterService.toLowerCase() !== "all") {
+      const target = filterService.toLowerCase();
+      // Entries written before service tagging existed came from the main API.
+      logs = logs.filter((l) => (l.service || "api") === target);
     }
 
     if (search && search.trim() !== "") {

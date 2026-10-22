@@ -1,28 +1,36 @@
 import { Router, Request, Response } from "express";
+import { timingSafeEqual } from "crypto";
+import { env } from "@hr-portal/config";
 import { LiveLogService } from "../services/liveLog.service";
 
 const router = Router();
 const liveLogService = LiveLogService.getInstance();
 
-const AUTH_USER = "log";
-const AUTH_PASS = "logxadmin";
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+}
 
-// Basic Auth Middleware
+// Basic Auth Middleware. Credentials come from LOG_VIEWER_USER / LOG_VIEWER_PASSWORD;
+// the viewer stays disabled until a password is configured.
 function requireLogAuth(req: Request, res: Response, next: () => void) {
+  if (!env.LOG_VIEWER_PASSWORD) {
+    res.status(503).send("Log viewer is disabled: set LOG_VIEWER_PASSWORD to enable it.");
+    return;
+  }
+
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Basic ")) {
     const base64Credentials = authHeader.split(" ")[1];
-    const credentials = Buffer.from(base64Credentials, "base64").toString("ascii");
-    const [username, password] = credentials.split(":");
+    const credentials = Buffer.from(base64Credentials, "base64").toString("utf8");
+    const separator = credentials.indexOf(":");
+    const username = credentials.slice(0, separator);
+    const password = credentials.slice(separator + 1);
 
-    if (username === AUTH_USER && password === AUTH_PASS) {
+    if (separator > -1 && safeEqual(username, env.LOG_VIEWER_USER) && safeEqual(password, env.LOG_VIEWER_PASSWORD)) {
       return next();
     }
-  }
-
-  // Allow query parameter shortcut (?key=logxadmin or ?pass=logxadmin)
-  if (req.query.key === AUTH_PASS || req.query.pass === AUTH_PASS) {
-    return next();
   }
 
   res.setHeader("WWW-Authenticate", 'Basic realm="Timesheet Live Logs"');
@@ -37,8 +45,9 @@ router.get("/", async (req: Request, res: Response) => {
   const limit = Math.min(parseInt(req.query.limit as string) || 200, 1000);
   const level = req.query.level as string | undefined;
   const search = req.query.search as string | undefined;
+  const service = req.query.service as string | undefined;
 
-  const logs = await liveLogService.getRecentLogs(limit, level, search);
+  const logs = await liveLogService.getRecentLogs(limit, level, search, service);
 
   // JSON format
   if (format === "json") {
@@ -55,7 +64,7 @@ router.get("/", async (req: Request, res: Response) => {
     const textLines = logs
       .map((l) => {
         const metaStr = l.meta ? " | " + JSON.stringify(l.meta) : "";
-        return "[" + l.timestamp + "] [" + l.level.padEnd(5) + "] [" + l.context + "] " + l.message + metaStr;
+        return "[" + l.timestamp + "] [" + l.level.padEnd(5) + "] [" + (l.service || "api") + "] [" + l.context + "] " + l.message + metaStr;
       })
       .join("\n");
     return res.send(textLines || "No logs captured yet.");
@@ -187,6 +196,7 @@ router.get("/", async (req: Request, res: Response) => {
     .lvl-WARN { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
     .lvl-ERROR { background: rgba(248, 81, 73, 0.2); color: var(--error); }
     .lvl-DEBUG { background: rgba(163, 113, 247, 0.15); color: var(--debug); }
+    .log-svc { color: var(--success); flex-shrink: 0; width: 56px; }
     .log-ctx { color: #f0883e; font-weight: 500; flex-shrink: 0; }
     .log-msg { color: #e6edf3; flex-grow: 1; }
     .log-meta { color: #8b949e; font-size: 11px; margin-left: 6px; }
@@ -207,6 +217,14 @@ router.get("/", async (req: Request, res: Response) => {
         <option value="WARN">WARN</option>
         <option value="ERROR">ERROR</option>
         <option value="DEBUG">DEBUG</option>
+      </select>
+      <select id="service-select">
+        <option value="all">All Services</option>
+        <option value="api">api</option>
+        <option value="admin">admin</option>
+        <option value="reports">reports</option>
+        <option value="worker">worker</option>
+        <option value="web">web (browser)</option>
       </select>
       <select id="limit-select">
         <option value="100">100 logs</option>
@@ -241,9 +259,10 @@ router.get("/", async (req: Request, res: Response) => {
       const level = document.getElementById("level-select").value;
       const limit = document.getElementById("limit-select").value;
       const search = document.getElementById("search-input").value;
+      const service = document.getElementById("service-select").value;
 
       try {
-        const query = new URLSearchParams({ format: "json", limit, level, search });
+        const query = new URLSearchParams({ format: "json", limit, level, search, service });
         const res = await fetch(window.location.pathname + "?" + query.toString(), {
           headers: { "Accept": "application/json" }
         });
@@ -268,6 +287,7 @@ router.get("/", async (req: Request, res: Response) => {
         return '<div class="log-row">' +
           '<span class="log-ts">' + escapeHtml(l.timestamp.substring(11, 23)) + '</span>' +
           '<span class="log-lvl lvl-' + l.level + '">' + l.level + '</span>' +
+          '<span class="log-svc">' + escapeHtml(l.service || 'api') + '</span>' +
           '<span class="log-ctx">[' + escapeHtml(l.context) + ']</span>' +
           '<span class="log-msg">' + escapeHtml(l.message) + metaHtml + '</span>' +
         '</div>';
@@ -326,6 +346,9 @@ router.get("/", async (req: Request, res: Response) => {
       fetchLogs();
     });
     document.getElementById("level-select").addEventListener("change", () => {
+      fetchLogs();
+    });
+    document.getElementById("service-select").addEventListener("change", () => {
       fetchLogs();
     });
     document.getElementById("limit-select").addEventListener("change", () => {
