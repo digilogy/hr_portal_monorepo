@@ -8,6 +8,8 @@ import { employeeDataRepository } from "./employeeData.repository";
 import { shiftRepository } from "./shift.repository";
 import { throwIfUploadCancelled } from "./uploadCancellation";
 import { RedisService } from "@hr-portal/auth";
+import { normalizeWeeklyOff, shiftKey, WEEKLY_OFF_ALLOWED_TEXT } from "./shiftRules";
+import type { RejectedShifts } from "./shiftUpload.service";
 const LOG_CONTEXT = "BulkUpload";
 const PROGRESS_LOG_INTERVAL = 500;
 
@@ -49,7 +51,21 @@ const fieldAliases: Record<string, string> = {
   "attendance shift": "attendanceShift",
   "shift name": "attendanceShift",
   zone: "zone",
+  "weekly off": "weeklyOff",
+  policy: "policy",
 };
+
+// Columns where the HR export writes 0 for an empty cell.
+const ZERO_MEANS_EMPTY = new Set([
+  "subDepartment",
+  "directManagerEmployeeId",
+  "directManagerName",
+  "hrbpEmployeeId",
+  "hrbpName",
+  "hodEmployeeId",
+  "hodEmployeeName",
+  "officeMobileNumber",
+]);
 
 const EMPLOYEE_ID_HEADERS = new Set([
   "employee id",
@@ -71,7 +87,11 @@ function mapRow(row: Record<string, unknown>): Record<string, string> {
   return mappedValues;
 }
 
-function buildEmployeeRecord(mappedValues: Record<string, string>) {
+function buildEmployeeRecord(rawValues: Record<string, string>) {
+  const mappedValues: Record<string, string> = { ...rawValues };
+  for (const field of ZERO_MEANS_EMPTY) {
+    if (mappedValues[field] === "0") mappedValues[field] = "";
+  }
   return {
     employmentStatus: mappedValues["employmentStatus"] || "",
     employeeId: mappedValues["employeeId"] || "",
@@ -119,7 +139,7 @@ export class EmployeeDataService {
   static async processBulkUpload(
     filePath: string,
     job: UploadJob,
-    options: { deleteFile?: boolean } = { deleteFile: true }
+    options: { deleteFile?: boolean; rejectedShifts?: RejectedShifts } = { deleteFile: true }
   ): Promise<{
     totalRows: number;
     successCount: number;
@@ -152,6 +172,21 @@ export class EmployeeDataService {
     let totalRows = 0;
     let skippedEmptyRows = 0;
     const processedIds: number[] = [];
+    // Set when a row failed before we could tell which saved employee it was: removing
+    // "employees not in this upload" could then delete that employee.
+    let unidentifiedFailure = false;
+
+    // Loaded after the Shift Detail tab has been applied (master upload runs it first).
+    const shiftsByKey = await shiftRepository.getShiftsByKey();
+
+    const fail = async (rowNumber: number, employeeKey: string, message: string, mappedRow: Record<string, string>) => {
+      failureCount++;
+      if (errors.length < 100) {
+        errors.push({ row: mappedRow, error: message, rowIndex: rowNumber });
+      }
+      await writeUploadLog(job, rowNumber, employeeKey, "failed", message, mappedRow);
+      logger.warn(LOG_CONTEXT, message, { jobId: job.id, rowIndex: rowNumber });
+    };
 
     for (const [index, row] of rows.entries()) {
       throwIfUploadCancelled(job.id);
@@ -168,31 +203,41 @@ export class EmployeeDataService {
 
       totalRows++;
       const rowNumber = index + 2;
+      const employeeKey = employeeId || officialEmailId;
+      const prefix = `[Employee data] Row ${rowNumber}${employeeKey ? ` (${employeeKey})` : ""}`;
 
       if (!employeeId && !officialEmailId) {
-        failureCount++;
-        const message =
-          "Missing required field: Employee Id or Official Email Id";
-        if (errors.length < 100) {
-          errors.push({ row: mappedRow, error: message, rowIndex: rowNumber });
-        }
-        await writeUploadLog(
-          job,
-          rowNumber,
-          "",
-          "failed",
-          message,
-          mappedRow,
-        );
-        logger.warn(LOG_CONTEXT, message, {
-          jobId: job.id,
-          rowIndex: rowNumber,
-        });
+        await fail(rowNumber, "", `${prefix}: Employee Id and Official Email Id are both empty. Row skipped.`, mappedRow);
         continue;
       }
 
+      // Work out shift and weekly off before saving, so a bad cell never half-applies.
+      const problems: string[] = [];
+      const shiftName = mappedRow.attendanceShift;
+      const shift = shiftName ? shiftsByKey.get(shiftKey(shiftName)) : undefined;
+      if (!shiftName) {
+        problems.push("Shift Name is empty");
+      } else if (!shift) {
+        const rejected = options.rejectedShifts?.get(shiftKey(shiftName));
+        problems.push(rejected
+          ? `Shift "${shiftName}" is not available because Shift Detail row ${rejected.rowNumber} failed (${rejected.reason})`
+          : `Shift Name "${shiftName}" not found in Shift Detail`);
+      }
+
+      let weeklyOff: string | null = null;
+      if ("weeklyOff" in mappedValues) {
+        const rawWeeklyOff = mappedValues.weeklyOff;
+        weeklyOff = normalizeWeeklyOff(rawWeeklyOff);
+        if (!rawWeeklyOff) problems.push("Weekly Off is empty");
+        else if (!weeklyOff) problems.push(`Weekly Off "${rawWeeklyOff}" is not recognised. Allowed: ${WEEKLY_OFF_ALLOWED_TEXT}`);
+      } else if (shift) {
+        // Old-format sheet without a Weekly Off column: the shift's Off Days applies.
+        weeklyOff = normalizeWeeklyOff(shift.offDays);
+      }
+
+      let existing: EmployeeData | null = null;
+      let saved = false;
       try {
-        let existing: EmployeeData | null = null;
         if (employeeId) {
           existing = await employeeDataRepository.findByEmployeeId(employeeId);
         }
@@ -200,53 +245,56 @@ export class EmployeeDataService {
           existing = await employeeDataRepository.findByEmailCaseInsensitive(officialEmailId);
         }
 
+        let savedId: number;
         if (existing) {
           Object.assign(existing, mappedRow);
           await employeeDataRepository.save(existing);
-          updatedCount++;
-          processedIds.push(existing.id);
-          const message = "Updated existing record";
-          await writeUploadLog(
-            job,
-            rowNumber,
-            employeeId || officialEmailId,
-            "success",
-            message,
-            mappedRow,
-          );
+          savedId = existing.id;
         } else {
-          let newEmployeeData = employeeDataRepository.create(mappedRow);
-          newEmployeeData = await employeeDataRepository.save(newEmployeeData);
-          addedCount++;
-          processedIds.push(newEmployeeData.id);
-          await writeUploadLog(
-            job,
-            rowNumber,
-            employeeId || officialEmailId,
-            "success",
-            "Imported successfully",
-            mappedRow,
-          );
+          const created = await employeeDataRepository.save(employeeDataRepository.create(mappedRow));
+          savedId = created.id;
+        }
+        processedIds.push(savedId);
+        saved = true;
+
+        const finalEmployeeId = employeeId || existing?.employeeId;
+        if (problems.length === 0 && !finalEmployeeId) {
+          problems.push("Employee Id is empty, so no shift can be assigned");
         }
 
-        const attendanceShift = mappedRow.attendanceShift;
-        if (attendanceShift) {
-          const shift = await shiftRepository.findShiftByName(attendanceShift);
-          if (shift) {
-            const finalEmployeeId = employeeId || existing?.employeeId;
-            if (finalEmployeeId) {
-              await shiftRepository.upsertAssignment({
-                employeeId: finalEmployeeId,
-                shiftId: shift.id,
-              });
-            }
-          }
+        if (problems.length === 0 && shift && finalEmployeeId) {
+          await shiftRepository.upsertAssignment({
+            employeeId: finalEmployeeId,
+            shiftId: shift.id,
+            weeklyOff,
+            policy: "policy" in mappedValues ? mappedValues.policy : undefined,
+          });
         }
 
         const finalEmail = officialEmailId || existing?.officialEmailId;
         if (finalEmail) {
           const cacheKey = `profile_v2:${finalEmail.toLowerCase()}`;
           await RedisService.delete(cacheKey);
+        }
+
+        if (problems.length > 0) {
+          await fail(
+            rowNumber,
+            employeeKey,
+            `${prefix}: ${problems.join("; ")}. Employee details saved; previous shift and weekly off kept.`,
+            mappedRow,
+          );
+        } else {
+          if (existing) updatedCount++;
+          else addedCount++;
+          await writeUploadLog(
+            job,
+            rowNumber,
+            employeeKey,
+            "success",
+            existing ? "Updated existing record" : "Imported successfully",
+            mappedRow,
+          );
         }
 
         if (totalRows % PROGRESS_LOG_INTERVAL === 0) {
@@ -259,30 +307,30 @@ export class EmployeeDataService {
           });
         }
       } catch (error: unknown) {
-        failureCount++;
         const message =
           error instanceof Error ? error.message : "Unknown error";
-        if (errors.length < 100) {
-          errors.push({ row: mappedRow, error: message, rowIndex: rowNumber });
+        if (saved) {
+          await fail(rowNumber, employeeKey, `${prefix}: Employee details saved, but the shift could not be assigned: ${message}. Previous shift and weekly off kept.`, mappedRow);
+        } else {
+          // Keep the existing employee: a failed row must not get them deleted below.
+          if (existing) processedIds.push(existing.id);
+          else if (!(await this.keepExisting(employeeId, officialEmailId, processedIds))) unidentifiedFailure = true;
+          await fail(rowNumber, employeeKey, `${prefix}: Could not be saved: ${message}. Existing record kept (not deleted).`, mappedRow);
         }
-        await writeUploadLog(
-          job,
-          rowNumber,
-          employeeId || officialEmailId,
-          "failed",
-          message,
-          mappedRow,
-        );
         logger.error(LOG_CONTEXT, "Row import failed", {
           jobId: job.id,
           rowIndex: rowNumber,
-          employeeId: employeeId || officialEmailId,
+          employeeId: employeeKey,
           error: message,
         });
       }
     }
 
-    if (processedIds.length > 0) {
+    if (unidentifiedFailure) {
+      logger.warn(LOG_CONTEXT, "Skipped removing employees not in this upload: a failed row could not be matched to a saved employee", {
+        jobId: job.id,
+      });
+    } else if (processedIds.length > 0) {
       try {
         const deleteResult = await employeeDataRepository.deleteUnprocessed(processedIds);
         logger.info(LOG_CONTEXT, "Removed old employee data not present in this upload", {
@@ -310,7 +358,7 @@ export class EmployeeDataService {
     }
 
     const successCount = addedCount + updatedCount;
-    if (successCount > 0) {
+    if (processedIds.length > 0) {
       await RedisService.deletePattern("cache:employees:*");
       await RedisService.deletePattern("report*");
     }
@@ -334,6 +382,19 @@ export class EmployeeDataService {
       updatedCount,
       errors,
     };
+  }
+
+  /** After a failed save, finds the saved employee so it is kept. False if it can't be told. */
+  private static async keepExisting(employeeId: string, officialEmailId: string, processedIds: number[]): Promise<boolean> {
+    try {
+      const found =
+        (employeeId ? await employeeDataRepository.findByEmployeeId(employeeId) : null) ??
+        (officialEmailId ? await employeeDataRepository.findByEmailCaseInsensitive(officialEmailId) : null);
+      if (found) processedIds.push(found.id);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private static async parseFile(

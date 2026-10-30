@@ -187,19 +187,16 @@ function getEffectiveTiming(date: Dayjs, profile: any, defaultTiming: string): s
   if (!profile) return defaultTiming;
 
   const dayOfWeek = date.day();
-  if (profile.halfDay) {
-    const match = profile.halfDay.match(/^([a-zA-Z]+)\s*\((.*?)(?:\s*-\s*|\s+to\s+)(.*?)\)/i);
-    if (match) {
-      const dayStr = match[1].toLowerCase();
-      const start = match[2].trim();
-      const end = match[3].trim();
-      const daysMap: Record<string, number> = {
-        sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
-        wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
-      };
-      if (daysMap[dayStr] === dayOfWeek) {
-        return `${start} - ${end}`;
-      }
+  // "Sat (08:00 - 12:30)" or several days sharing one timing: "Sat, Sun (09:30 - 19:30)".
+  const match = profile.halfDay?.match(/^(.+?)\s*\((.*?)(?:\s*[-–—]\s*|\s+to\s+)(.*?)\)$/i);
+  if (match) {
+    const daysMap: Record<string, number> = {
+      sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+      wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+    };
+    const days = match[1].split(/\s*(?:,|&|\band\b)\s*/i).filter(Boolean).map((d: string) => daysMap[d.toLowerCase()]);
+    if (days.includes(dayOfWeek)) {
+      return `${match[2].trim()} - ${match[3].trim()}`;
     }
   }
   return defaultTiming;
@@ -598,7 +595,7 @@ export default function TimesheetPage() {
       const [start, end] = timingToParse.split("-").map((s: string) => s.trim());
       if (start && end) {
         const parseTime = (t: string) => {
-          const [h, m] = t.split(":").map(Number);
+          const [h, m] = t.replace(".", ":").split(":").map(Number);
           return (h || 0) + (m || 0) / 60;
         };
         const h1 = parseTime(start);

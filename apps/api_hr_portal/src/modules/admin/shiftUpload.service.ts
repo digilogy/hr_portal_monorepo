@@ -7,6 +7,8 @@ import { logger } from "@hr-portal/logger";
 import { employeeDataRepository } from "./employeeData.repository";
 import { shiftRepository } from "./shift.repository";
 import { throwIfUploadCancelled } from "./uploadCancellation";
+import { RedisService } from "@hr-portal/auth";
+import { normalizeAllowedTimings, normalizeHalfDay, normalizeShiftName, shiftKey } from "./shiftRules";
 
 const LOG_CONTEXT = "ShiftUpload";
 const PROGRESS_LOG_INTERVAL = 500;
@@ -77,6 +79,9 @@ async function writeUploadLog(
   );
 }
 
+/** Shift names (by shiftKey) that had no valid Shift Detail row, with the first row's reason. */
+export type RejectedShifts = Map<string, { rowNumber: number; reason: string }>;
+
 export class ShiftUploadService {
   static async processBulkUpload(
     filePath: string,
@@ -89,6 +94,7 @@ export class ShiftUploadService {
     addedCount: number;
     updatedCount: number;
     errors: Array<{ rowIndex: number; error: string; row: Record<string, string> }>;
+    rejectedShifts: RejectedShifts;
   }> {
     const extension = path.extname(filePath).toLowerCase();
     logger.info(LOG_CONTEXT, "Starting shift upload", {
@@ -110,14 +116,29 @@ export class ShiftUploadService {
     }> = [];
     let addedCount = 0;
     let updatedCount = 0;
+    let unchangedCount = 0;
     let failureCount = 0;
     let totalRows = 0;
     let skippedEmptyRows = 0;
 
+    const shiftsByKey = await shiftRepository.getShiftsByKey();
+    // First valid row per shift name; repeated rows must match it.
+    const accepted = new Map<string, { rowNumber: number; allowedTimings: string; halfDay: string }>();
+    // Shift names with no valid row in this file, for the employee upload's error messages.
+    const rejectedShifts: RejectedShifts = new Map();
+
+    const fail = async (rowNumber: number, name: string, message: string, mappedValues: Record<string, string>) => {
+      failureCount++;
+      if (errors.length < 100) {
+        errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
+      }
+      await writeUploadLog(job, rowNumber, name, "failed", message, mappedValues);
+      logger.warn(LOG_CONTEXT, message, { jobId: job.id, rowIndex: rowNumber });
+    };
+
     for (const [index, row] of rows.entries()) {
       throwIfUploadCancelled(job.id);
       const mappedValues = mapRow(row);
-      const name = mappedValues.name;
 
       const hasData = Object.values(mappedValues).some((value) => value !== "");
       if (!hasData) {
@@ -127,50 +148,90 @@ export class ShiftUploadService {
 
       totalRows++;
       const rowNumber = index + 2;
+      const prefix = `[Shift Detail] Row ${rowNumber}`;
+      const name = normalizeShiftName(mappedValues.name ?? "");
 
-      const allowedTimings = mappedValues.allowedTimings;
-      
-      if (!name || !allowedTimings) {
-        failureCount++;
-        const message = "Missing required field: Shift Name and Timings";
-        console.error(`ROW ${rowNumber} FAILED VALIDATION! Raw row:`, JSON.stringify(row), `Mapped values:`, JSON.stringify(mappedValues));
-        if (errors.length < 100) {
-          errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
+      if (!name) {
+        await fail(rowNumber, "", `${prefix}: Shift Name is empty.`, mappedValues);
+        continue;
+      }
+
+      const key = shiftKey(name);
+      const rawTimings = mappedValues.allowedTimings ?? "";
+      const rawHalfDay = mappedValues.halfDay ?? "";
+      const problems: string[] = [];
+      let allowedTimings = "";
+      let halfDay = "";
+
+      if (!rawTimings) {
+        problems.push(`Allowed Timings is empty for shift "${name}"`);
+      } else {
+        const timings = normalizeAllowedTimings(rawTimings);
+        if (timings.ok) allowedTimings = timings.value;
+        else problems.push(
+          `Allowed Timings "${rawTimings}" for shift "${name}" is not valid: ${timings.reason}. ` +
+          "Use HH:MM - HH:MM (e.g. 09:30 - 19:30); separate multiple timings with commas",
+        );
+      }
+
+      const half = normalizeHalfDay(rawHalfDay);
+      if (half.ok) halfDay = half.value;
+      else problems.push(
+        `Half Day "${rawHalfDay}" for shift "${name}" is not valid: ${half.reason}. ` +
+        "Use Day (HH:MM - HH:MM), e.g. Sat (08:00 - 12:30), or several days, e.g. Sat, Sun (09:30 - 19:30)",
+      );
+
+      if (problems.length > 0) {
+        if (!accepted.has(key) && !rejectedShifts.has(key)) {
+          rejectedShifts.set(key, { rowNumber, reason: problems.join("; ") });
         }
-        await writeUploadLog(job, rowNumber, "", "failed", message, mappedValues);
-        logger.warn(LOG_CONTEXT, message, { jobId: job.id, rowIndex: rowNumber });
+        await fail(rowNumber, name, `${prefix}: ${problems.join("; ")}.`, mappedValues);
+        continue;
+      }
+
+      const earlier = accepted.get(key);
+      if (earlier) {
+        if (earlier.allowedTimings === allowedTimings && earlier.halfDay === halfDay) {
+          unchangedCount++;
+          await writeUploadLog(job, rowNumber, name, "success", `${prefix}: Same as row ${earlier.rowNumber}; already applied.`, mappedValues);
+        } else {
+          await fail(
+            rowNumber,
+            name,
+            `${prefix}: Shift "${name}" is already in row ${earlier.rowNumber} with Allowed Timings ` +
+            `"${earlier.allowedTimings}" and Half Day "${earlier.halfDay || "—"}", but this row has ` +
+            `"${allowedTimings}" and "${halfDay || "—"}". Rows with the same Shift Name must match. ` +
+            `Row ${earlier.rowNumber} was used.`,
+            mappedValues,
+          );
+        }
         continue;
       }
 
       try {
-        const workingDays = mappedValues.workingDays;
-        const offDays = mappedValues.offDays;
-        const halfDay = mappedValues.halfDay;
+        // Weekly off now comes from each employee's row. Off Days is kept only from old-format
+        // sheets that still have the column; otherwise it is cleared so stale values can't apply.
+        const hasOffDaysColumns = "offDays" in mappedValues || "workingDays" in mappedValues;
+        const payload: Partial<Shift> = {
+          allowedTimings,
+          halfDay,
+          workingDays: hasOffDaysColumns ? mappedValues.workingDays ?? "" : "",
+          offDays: hasOffDaysColumns ? mappedValues.offDays ?? "" : "",
+        };
 
-        let shift = await shiftRepository.findShiftByName(name);
-        if (!shift) {
-          shift = await shiftRepository.createShift({
-            name,
-            allowedTimings,
-            workingDays,
-            offDays,
-            halfDay,
-          });
+        const existing = shiftsByKey.get(key);
+        if (existing) {
+          await shiftRepository.updateShift(existing, payload);
+          updatedCount++;
+          await writeUploadLog(job, rowNumber, name, "success", "Shift updated successfully", mappedValues);
+        } else {
+          const created = await shiftRepository.createShift({ name, ...payload });
+          shiftsByKey.set(key, created);
           addedCount++;
           await writeUploadLog(job, rowNumber, name, "success", "Imported shift successfully", mappedValues);
-        } else {
-          const updatePayload: Partial<Shift> = {};
-          if (allowedTimings !== undefined) updatePayload.allowedTimings = allowedTimings;
-          if (workingDays !== undefined) updatePayload.workingDays = workingDays;
-          if (offDays !== undefined) updatePayload.offDays = offDays;
-          if (halfDay !== undefined) updatePayload.halfDay = halfDay;
-
-          if (Object.keys(updatePayload).length > 0) {
-            await shiftRepository.updateShift(shift, updatePayload);
-          }
-          await writeUploadLog(job, rowNumber, name, "success", "Shift updated successfully", mappedValues);
-          updatedCount++;
         }
+        accepted.set(key, { rowNumber, allowedTimings, halfDay });
+        rejectedShifts.delete(key);
 
         if (totalRows % PROGRESS_LOG_INTERVAL === 0) {
           logger.info(LOG_CONTEXT, "Upload progress", {
@@ -182,20 +243,11 @@ export class ShiftUploadService {
           });
         }
       } catch (error: unknown) {
-        failureCount++;
-        const message =
-          error instanceof Error ? error.message : "Unknown error";
-        if (errors.length < 100) {
-          errors.push({ row: mappedValues, error: message, rowIndex: rowNumber });
+        const message = error instanceof Error ? error.message : "Unknown error";
+        if (!accepted.has(key) && !rejectedShifts.has(key)) {
+          rejectedShifts.set(key, { rowNumber, reason: `could not be saved: ${message}` });
         }
-        await writeUploadLog(
-          job,
-          rowNumber,
-          name,
-          "failed",
-          message,
-          mappedValues,
-        );
+        await fail(rowNumber, name, `${prefix}: Shift "${name}" could not be saved: ${message}.`, mappedValues);
         logger.error(LOG_CONTEXT, "Row import failed", {
           jobId: job.id,
           rowIndex: rowNumber,
@@ -211,11 +263,19 @@ export class ShiftUploadService {
       } catch {}
     }
 
-    const successCount = addedCount + updatedCount;
+    const successCount = addedCount + updatedCount + unchangedCount;
+    if (addedCount + updatedCount > 0) {
+      // Profiles carry the shift's timings and half day.
+      await RedisService.deletePattern("profile_v2:*");
+    }
+
     logger.info(LOG_CONTEXT, "Shift upload completed", {
       jobId: job.id,
       totalRows,
       successCount,
+      failureCount,
+      skippedEmptyRows,
+      rejectedShifts: rejectedShifts.size,
     });
 
     return {
@@ -225,6 +285,7 @@ export class ShiftUploadService {
       addedCount,
       updatedCount,
       errors,
+      rejectedShifts,
     };
   }
 

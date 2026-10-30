@@ -22,9 +22,12 @@ export class UploadQueueRepository {
     const job = await uploadJobOrm.findOneBy({ id: jobId });
     if (!job) return null;
 
+    // Every failed row, in the order they were logged (Shift Detail tab, then Employee data).
+    // The row payload is left out so a large failed upload stays small.
     const failedLogs = await AppDataSource.getRepository(UploadLog).find({
+      select: { id: true, rowIndex: true, employeeId: true, status: true, message: true },
       where: { job: { id: jobId }, status: "failed" },
-      take: 100, // Limit to 100 to prevent OOM when parsing job status
+      order: { id: "ASC" },
     });
     
     job.logs = failedLogs;

@@ -11,6 +11,7 @@ import { teamReportsRepository, TimesheetHoursStats } from "./teamReports.reposi
 import { inferTaskCategory } from "./taskCategorizer";
 import { getTimesheetTaskExportRows, buildExcelBuffer, buildPdfBuffer } from "./teamReports.export";
 import { RedisService } from "@hr-portal/auth";
+import { parseDayTiming } from "../admin/shiftRules";
 
 export interface TeamMemberNode {
   key: string;
@@ -423,22 +424,17 @@ async function getExpectedHoursMap(
       if (parsed) fullDayHours = parsed;
     }
 
+    // One or more days with their own timing, e.g. "Sat (08:00 - 12:30)" or "Sat, Sun (09:30 - 19:30)".
+    const halfDay = parseDayTiming(shiftInfo.halfDay);
+
     while (current <= end) {
       const offDaysStr = shiftInfo.offDays || "Sunday";
       const isOff = isDayMatch(current, offDaysStr);
 
       if (!isOff) {
-        const halfDayStr = shiftInfo.halfDay || "";
-        const isHalf = isDayMatch(current, halfDayStr);
-
-        if (isHalf) {
-          let halfDayHours = fullDayHours / 2;
-          const match = halfDayStr.match(/\((.*?)\)/);
-          if (match && match[1]) {
-            const parsed = calculateSlotHours(match[1]);
-            if (parsed) halfDayHours = parsed;
-          }
-          totalHours += halfDayHours;
+        if (halfDay && halfDay.days.includes(current.getDay())) {
+          const parsed = calculateSlotHours(`${halfDay.start} - ${halfDay.end}`);
+          totalHours += parsed || fullDayHours / 2;
         } else {
           totalHours += fullDayHours;
         }
