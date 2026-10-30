@@ -21,6 +21,7 @@ out/
 
 # logs & debug
 logs/
+!apps/hr_portal/src/app/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
