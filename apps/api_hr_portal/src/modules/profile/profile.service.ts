@@ -2,6 +2,7 @@ import { UserRole, AppDataSource, EmployeeShiftAssignment, EmployeeData } from "
 import { AccessService } from "../access/access.service";
 import { profileRepository } from "./profile.repository";
 import { holidayRepository } from "../admin/holiday.repository";
+import { resolveWeeklyOff } from "../admin/shiftRules";
 import { RedisService } from "@hr-portal/auth";
 import { logger } from "@hr-portal/logger";
 import { TimesheetRealignService } from "../../services/timesheetRealign.service";
@@ -93,6 +94,7 @@ export class ProfileService {
       let allowedTimings: string | undefined = undefined;
       let preferredTiming: string | undefined = undefined;
       let halfDay: string | undefined = undefined;
+      let shiftOffDays: string | undefined = undefined;
 
       if (employee.employeeId) {
         const assignment = await AppDataSource.getRepository(EmployeeShiftAssignment).findOne({
@@ -107,13 +109,12 @@ export class ProfileService {
             shiftName = assignment.shift.name;
             allowedTimings = assignment.shift.allowedTimings || undefined;
             halfDay = assignment.shift.halfDay || undefined;
-
-            if (!weeklyOff && assignment.shift.offDays) {
-              weeklyOff = assignment.shift.offDays;
-            }
+            shiftOffDays = assignment.shift.offDays || undefined;
           }
         }
       }
+      // Employee's own weekly off, else the shift's (old sheets), else Sunday.
+      weeklyOff = resolveWeeklyOff(weeklyOff, shiftOffDays);
 
       const zoneMap: Record<string, string> = {
         "chennai": "Tamil Nadu Zone",

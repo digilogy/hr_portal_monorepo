@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import { EmployeeProfile } from "../profile/profile.service";
+import { parseDayTiming } from "../admin/shiftRules";
 
 // --- Date/Time Utility Functions ported from frontend ---
 
@@ -74,38 +75,20 @@ export function parseTimeRangeHours(timeRangeStr?: string): number {
   return possibleHours[0] || 8.5;
 }
 
-export function parseHalfDayInfo(halfDayStr?: string): { day: number; hours: number } | null {
-  if (!halfDayStr) return null;
-  const match = halfDayStr.match(/^([a-zA-Z]+)\s*\((.*?)(?:\s*-\s*|\s+to\s+)(.*?)\)/i);
-
-  if (!match) return null;
-
-  const dayStr = match[1].toLowerCase();
-  const start = match[2].trim();
-  const end = match[3].trim();
-
-  const daysMap: Record<string, number> = {
-    sun: 0, sunday: 0,
-    mon: 1, monday: 1,
-    tue: 2, tuesday: 2,
-    wed: 3, wednesday: 3,
-    thu: 4, thursday: 4,
-    fri: 5, friday: 5,
-    sat: 6, saturday: 6,
-  };
-
-  const day = daysMap[dayStr];
-  if (day === undefined) return null;
+/** Half Day value -> the days it applies to and that day's hours. */
+export function parseHalfDayInfo(halfDayStr?: string): { days: number[]; hours: number } | null {
+  const parsed = parseDayTiming(halfDayStr);
+  if (!parsed) return null;
 
   const parseTime = (t: string) => {
     const parts = t.replace(".", ":").split(":");
     return parseInt(parts[0]) + (parseInt(parts[1]) || 0) / 60;
   };
-  const h1 = parseTime(start);
-  const h2 = parseTime(end);
+  const h1 = parseTime(parsed.start);
+  const h2 = parseTime(parsed.end);
   const hours = h2 > h1 ? h2 - h1 : 4.5;
 
-  return { day, hours };
+  return { days: parsed.days, hours };
 }
 
 export interface WorkdayTarget {
@@ -118,7 +101,7 @@ export function getWorkdays(
   to: dayjs.Dayjs,
   weeklyOffRule?: string,
   normalHours: number = 8.5,
-  halfDayInfo: { day: number; hours: number } | null = null,
+  halfDayInfo: { days: number[]; hours: number } | null = null,
   holidays: any[] = []
 ): WorkdayTarget[] {
   const dates: WorkdayTarget[] = [];
@@ -173,7 +156,7 @@ export function getWorkdays(
 
     if (isWorkday) {
       let hours = normalHours;
-      if (halfDayInfo && dayOfWeek === halfDayInfo.day) {
+      if (halfDayInfo && halfDayInfo.days.includes(dayOfWeek)) {
         hours = halfDayInfo.hours;
       }
       dates.push({ date: current.format("YYYY-MM-DD"), targetHours: hours });

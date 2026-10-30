@@ -1,4 +1,5 @@
 import { AppDataSource, EmployeeData, Timesheet, User } from "@hr-portal/database";
+import { describeWorkingDays, resolveWeeklyOff } from "../admin/shiftRules";
 
 const employeeDataOrm = AppDataSource.getRepository(EmployeeData);
 const timesheetOrm = AppDataSource.getRepository(Timesheet);
@@ -228,10 +229,11 @@ export class TeamReportsRepository {
         
       for (const a of assignments as any[]) {
         if (!a.employeeId) continue;
+        const offDays = resolveWeeklyOff(a.weeklyOff, a.shift?.offDays);
         result.set(a.employeeId.trim(), {
           shiftTimings: a.shift?.allowedTimings || null,
-          workingDays: a.shift?.workingDays || null,
-          offDays: a.shift?.offDays || null,
+          workingDays: describeWorkingDays(offDays),
+          offDays,
           halfDay: a.shift?.halfDay || null,
         });
       }

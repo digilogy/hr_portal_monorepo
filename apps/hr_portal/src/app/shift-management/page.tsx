@@ -410,8 +410,13 @@ export default function ShiftManagementPage() {
               <span>• Official Email Id</span>
               <span>• Office Mobile Number</span>
               <span>• Zone</span>
-              <span>• Attendance Shift</span>
+              <span>• Policy</span>
+              <span>• Shift Name</span>
+              <span>• Weekly Off</span>
             </div>
+            <p className="text-xs">
+              <strong>Weekly Off</strong> sets each employee&apos;s off days; working days are every other day. Accepted values: All Sunday &amp; 2nd Saturday Off, All Sunday Off, General Off, Office Off, All Tuesday Off, Tuesday Off, Marketing Off, All Thursday Off, or &quot;All &lt;Day&gt; Off&quot;.
+            </p>
           </div>
 
           <div>
@@ -420,10 +425,11 @@ export default function ShiftManagementPage() {
             <div className="bg-gray-50 p-4 rounded border border-gray-200 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
               <div>• Shift Name</div>
               <div>• Allowed Timings</div>
-              <div>• Working Days</div>
-              <div>• Off Days</div>
-              <div>• Half Day</div>
+              <div>• Half Day (Optional)</div>
             </div>
+            <p className="text-xs mt-2">
+              Allowed Timings: HH:MM - HH:MM (e.g. 09:30 - 19:30), several separated by commas. Half Day: Day (HH:MM - HH:MM), e.g. Sat (08:00 - 12:30), or several days sharing one timing, e.g. Sat, Sun (09:30 - 19:30). Those days use this timing instead of Allowed Timings. A Shift Name may repeat only with the same timings and half day.
+            </p>
           </div>
 
           <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-sm mt-4">
@@ -449,7 +455,7 @@ export default function ShiftManagementPage() {
         ) : (
           <ResponsiveTable
             dataSource={selectedJobErrors}
-            rowKey={(r) => `err-${r.rowIndex}`}
+            rowKey={(r) => `err-${r.id ?? r.rowIndex}`}
             pagination={{ pageSize: 10 }}
             columns={[
               { title: "Row", dataIndex: "rowIndex", width: 80 },

@@ -65,7 +65,10 @@ async function processNextJob(): Promise<void> {
         let result;
         if (job.type === "master") {
           const shiftResult = await ShiftUploadService.processBulkUpload(workingFilePath, job, { deleteFile: false });
-          const employeeResult = await EmployeeDataService.processBulkUpload(workingFilePath, job, { deleteFile: false });
+          const employeeResult = await EmployeeDataService.processBulkUpload(workingFilePath, job, {
+            deleteFile: false,
+            rejectedShifts: shiftResult.rejectedShifts,
+          });
           result = {
             totalRows: employeeResult.totalRows + shiftResult.totalRows,
             successCount: employeeResult.successCount + shiftResult.successCount,

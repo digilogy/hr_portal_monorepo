@@ -1,5 +1,6 @@
 import { TimesheetSlot } from "@hr-portal/database";
 import { parseTimeSlotRange } from "./timesheetSlots";
+import { parseDayTiming } from "../admin/shiftRules";
 
 /**
  * Re-aligns saved timesheet entries onto the slot grid of the user's current shift.
@@ -22,11 +23,6 @@ const DEFAULT_GRID = [
   "16:00 - 17:00",
 ];
 
-const DAY_INDEX: Record<string, number> = {
-  sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
-  wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
-};
-
 export function generateSlotKey(timeSlot: string): string {
   return "slot-" + timeSlot.replace(/[^0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
@@ -39,18 +35,14 @@ export function resolveBaseTiming(allowedTimings?: string | null, preferredTimin
   return options[0] ?? "";
 }
 
-/** Swaps in the half-day timing (e.g. "Sat (08:00 - 12:30)") on that weekday. */
+/** Swaps in the half-day timing (e.g. "Sat (08:00 - 12:30)", "Sat, Sun (09:30 - 19:30)") on those weekdays. */
 export function getEffectiveTiming(date: string, halfDay: string | null | undefined, baseTiming: string): string {
-  if (!halfDay) return baseTiming;
-  const match = halfDay.match(/^([a-zA-Z]+)\s*\((.*?)(?:\s*-\s*|\s+to\s+)(.*?)\)/i);
-  if (!match) return baseTiming;
+  const parsed = parseDayTiming(halfDay);
+  if (!parsed) return baseTiming;
 
   const [year, month, day] = date.split("-").map(Number);
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  if (DAY_INDEX[match[1].toLowerCase()] === weekday) {
-    return `${match[2].trim()} - ${match[3].trim()}`;
-  }
-  return baseTiming;
+  return parsed.days.includes(weekday) ? `${parsed.start} - ${parsed.end}` : baseTiming;
 }
 
 /** Hourly slots from shift start to end, the last one shortened to fit. */

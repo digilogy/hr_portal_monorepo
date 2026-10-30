@@ -18,6 +18,7 @@ function formatJobResponse(job: NonNullable<Awaited<ReturnType<typeof UploadQueu
     ...job,
     addedCount: job.successCount,
     errors: failedLogs.map((log: UploadLog) => ({
+      id: log.id,
       rowIndex: log.rowIndex,
       employeeId: log.employeeId,
       error: log.message,

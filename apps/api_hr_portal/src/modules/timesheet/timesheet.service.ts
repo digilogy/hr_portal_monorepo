@@ -3,6 +3,7 @@ import { validateTimesheetSlots } from "./timesheetSlots";
 import { timesheetRepository, TimesheetHistoryOptions } from "./timesheet.repository";
 import { ProfileService, EmployeeProfile } from "../profile/profile.service";
 import { RedisService } from "@hr-portal/auth";
+import { DEFAULT_WEEKLY_OFF } from "../admin/shiftRules";
 
 function calculateSlotHours(timeSlot: string): number {
   const parts = timeSlot.split(" - ");
@@ -65,35 +66,35 @@ export class TimesheetService {
     const date = new Date(year, month - 1, day);
     const dayOfWeek = date.getDay(); // 0 (Sun) to 6 (Sat)
 
-    if (profile.weeklyOff) {
-      const offDaysMap: Record<string, number> = {
-        sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
-        wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
-      };
+    // No weekly off means Sunday, as on the timesheet page, dashboard and reports.
+    const weeklyOff = profile.weeklyOff || DEFAULT_WEEKLY_OFF;
+    const offDaysMap: Record<string, number> = {
+      sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tuesday: 2,
+      wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+    };
 
-      const offDays = profile.weeklyOff.split(",").map(d => d.trim().toLowerCase());
-      for (const off of offDays) {
-        if (offDaysMap[off] === dayOfWeek) {
-          return true;
-        }
+    const offDays = weeklyOff.split(",").map(d => d.trim().toLowerCase());
+    for (const off of offDays) {
+      if (offDaysMap[off] === dayOfWeek) {
+        return true;
+      }
 
-        const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
-        if (nthMatch) {
-          const nthMap: Record<string, number> = {
-            first: 1, '1st': 1,
-            second: 2, '2nd': 2,
-            third: 3, '3rd': 3,
-            fourth: 4, '4th': 4,
-            fifth: 5, '5th': 5
-          };
-          const n = nthMap[nthMatch[1]];
-          const targetDay = offDaysMap[nthMatch[2]];
-          if (n && targetDay !== undefined) {
-            const dateNum = date.getDate();
-            const currentNth = Math.ceil(dateNum / 7);
-            if (dayOfWeek === targetDay && currentNth === n) {
-              return true;
-            }
+      const nthMatch = off.match(/^(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(.+)$/);
+      if (nthMatch) {
+        const nthMap: Record<string, number> = {
+          first: 1, '1st': 1,
+          second: 2, '2nd': 2,
+          third: 3, '3rd': 3,
+          fourth: 4, '4th': 4,
+          fifth: 5, '5th': 5
+        };
+        const n = nthMap[nthMatch[1]];
+        const targetDay = offDaysMap[nthMatch[2]];
+        if (n && targetDay !== undefined) {
+          const dateNum = date.getDate();
+          const currentNth = Math.ceil(dateNum / 7);
+          if (dayOfWeek === targetDay && currentNth === n) {
+            return true;
           }
         }
       }
