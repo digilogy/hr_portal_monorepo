@@ -8,7 +8,6 @@ interface ProfileHeaderProps {
   reportingManager: string;
   hod: string;
   department: string;
-  subDepartment: string;
   employmentStatus?: string;
 }
 
@@ -18,7 +17,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   reportingManager,
   hod,
   department,
-  subDepartment,
   employmentStatus = "Active",
 }) => {
   const isActive = employmentStatus.toLowerCase() === "active";
@@ -67,12 +65,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               <ApartmentOutlined className="text-gray-400" /> Department
             </span>
             <span className="text-gray-800 dark:text-gray-200 font-medium text-sm">{department}</span>
-          </div>
-          <div className="flex flex-col items-center md:items-start">
-            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-              <ApartmentOutlined className="text-gray-400" /> Sub Department
-            </span>
-            <span className="text-gray-800 dark:text-gray-200 font-medium text-sm">{subDepartment}</span>
           </div>
         </div>
       </div>

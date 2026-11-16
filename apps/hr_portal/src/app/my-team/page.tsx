@@ -58,7 +58,6 @@ interface TeamMemberNode {
   email: string;
   role: string;
   department: string;
-  subDepartment: string;
   manager: string;
   hod: string;
   phone: string;
@@ -568,9 +567,6 @@ export default function MyTeamPage() {
               <Descriptions.Item label="Job Title">{selectedMember.role}</Descriptions.Item>
               <Descriptions.Item label="Department">
                 {selectedMember.department}
-              </Descriptions.Item>
-              <Descriptions.Item label="Sub Department">
-                {selectedMember.subDepartment || "—"}
               </Descriptions.Item>
               <Descriptions.Item label="Reporting Manager">
                 {selectedMember.manager}

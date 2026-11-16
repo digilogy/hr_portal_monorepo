@@ -4,7 +4,6 @@ import {
   ApartmentOutlined,
   TeamOutlined,
   UserOutlined,
-  PartitionOutlined,
   CheckCircleOutlined,
 } from "@ant-design/icons";
 import { FilterClearIcon } from "@/components/ui/FilterClearIcon";
@@ -74,7 +73,6 @@ export function AdminReportFilters({
   const scopedOptions = useMemo(
     () => ({
       departments: options?.departments ?? [],
-      subDepartments: options?.subDepartments ?? [],
       hods: options?.hods ?? [],
       hrbps: options?.hrbps ?? [],
       managers: options?.managers ?? [],
@@ -100,7 +98,6 @@ export function AdminReportFilters({
   const optionsLoading = loading || scopedLoading;
 
   const showDept = scopedOptions.departments.length > 1;
-  const showSubDept = scopedOptions.subDepartments.length > 1;
   const showManager = scopedOptions.managers.length > 1;
   const showEmployee = !hideEmployee && scopedOptions.employees.length > 1;
 
@@ -108,7 +105,6 @@ export function AdminReportFilters({
 
   const isFiltered =
     (value.department && value.department !== "all") ||
-    (value.subDepartment && value.subDepartment !== "all") ||
     (value.manager && value.manager !== "all") ||
     (value.employee && value.employee !== "all") ||
     (value.status && value.status !== "all");
@@ -133,28 +129,6 @@ export function AdminReportFilters({
             className={selectClassName}
             placeholder="All Departments"
             options={toFieldOptions(cascadedOptions.departments.length > 0 ? cascadedOptions.departments : scopedOptions.departments)}
-          />
-        </FilterField>
-      )}
-
-      {showSubDept && (
-        <FilterField label="Sub Department" icon={<PartitionOutlined />} className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px] sm:max-w-[320px]">
-          <Select
-            popupMatchSelectWidth={false}
-            virtual={false}
-            allowClear
-            showSearch
-            optionFilterProp="label"
-            filterOption={caseInsensitiveFilterOption}
-            loading={optionsLoading}
-            value={value.subDepartment === "all" ? undefined : value.subDepartment}
-            onChange={(subDepartment) =>
-              applyChange({ subDepartment: subDepartment ?? "all" })
-            }
-            onClear={() => applyChange({ subDepartment: "all" })}
-            className={selectClassName}
-            placeholder="All Sub Departments"
-            options={toFieldOptions(cascadedOptions.subDepartments.length > 0 ? cascadedOptions.subDepartments : scopedOptions.subDepartments)}
           />
         </FilterField>
       )}

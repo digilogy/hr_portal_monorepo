@@ -399,8 +399,7 @@ export default function ShiftManagementPage() {
               <span>• Employee Id</span>
               <span>• Full Name</span>
               <span>• Job Title</span>
-              <span>• Department</span>
-              <span>• Sub Department</span>
+              <span>• Current Department</span>
               <span>• Direct Manager Employee Id</span>
               <span>• Direct Manager Name</span>
               <span>• HRBP Employee ID</span>
@@ -411,11 +410,11 @@ export default function ShiftManagementPage() {
               <span>• Office Mobile Number</span>
               <span>• Zone</span>
               <span>• Policy</span>
-              <span>• Shift Name</span>
-              <span>• Weekly Off</span>
+              <span>• Assigned Shift</span>
+              <span>• Assigned Weekly Off</span>
             </div>
             <p className="text-xs">
-              <strong>Weekly Off</strong> sets each employee&apos;s off days; working days are every other day. Accepted values: All Sunday &amp; 2nd Saturday Off, All Sunday Off, General Off, Office Off, All Tuesday Off, Tuesday Off, Marketing Off, All Thursday Off, or &quot;All &lt;Day&gt; Off&quot;.
+              <strong>Assigned Weekly Off</strong> sets each employee&apos;s off days; working days are every other day. Accepted values: All Sunday &amp; 2nd Saturday Off, All Sunday Off, General Off, Office Off, All Tuesday Off, Tuesday Off, Marketing Off, All Thursday Off, or &quot;All &lt;Day&gt; Off&quot;. The days may follow in brackets, e.g. All Sunday Off (All Sunday) or Marketing Off (All Tuesday, First Wednesday); when present, the bracketed days are used. A &quot;-&quot; in any cell is treated as empty.
             </p>
           </div>
 
@@ -423,18 +422,18 @@ export default function ShiftManagementPage() {
             <h3 className="font-semibold text-gray-800 mb-2">Tab 2: Shift Detail</h3>
             <p className="text-sm mb-3">This sheet creates or updates the shift rules themselves (e.g. what times make up a General shift). It requires these exact headers:</p>
             <div className="bg-gray-50 p-4 rounded border border-gray-200 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-              <div>• Shift Name</div>
+              <div>• Assigned Shift</div>
               <div>• Allowed Timings</div>
               <div>• Half Day (Optional)</div>
             </div>
             <p className="text-xs mt-2">
-              Allowed Timings: HH:MM - HH:MM (e.g. 09:30 - 19:30), several separated by commas. Half Day: Day (HH:MM - HH:MM), e.g. Sat (08:00 - 12:30), or several days sharing one timing, e.g. Sat, Sun (09:30 - 19:30). Those days use this timing instead of Allowed Timings. A Shift Name may repeat only with the same timings and half day.
+              Allowed Timings: HH:MM - HH:MM (e.g. 09:30 - 19:30), several separated by commas. Half Day: Day (HH:MM - HH:MM), e.g. Sat (08:00 - 12:30), or several days sharing one timing, e.g. Sat, Sun (09:30 - 19:30). Those days use this timing instead of Allowed Timings. An Assigned Shift may repeat only with the same timings and half day.
             </p>
           </div>
 
           <div className="bg-blue-50 text-blue-800 p-3 rounded-md text-sm mt-4">
             <InfoCircleOutlined className="mr-2" />
-            <strong>Note:</strong> The system automatically looks for the sheets by name or header contents. Ensure the <strong>Employee data</strong> in Tab 1 matches a <strong>Shift Detail</strong> in Tab 2 exactly!
+            <strong>Note:</strong> The system automatically looks for the sheets by name or header contents. Ensure every <strong>Assigned Shift</strong> in Tab 1 matches an <strong>Assigned Shift</strong> in Tab 2 exactly!
           </div>
         </div>
       </Modal>

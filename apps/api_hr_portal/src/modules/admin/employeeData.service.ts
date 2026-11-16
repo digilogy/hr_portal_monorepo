@@ -39,7 +39,7 @@ const fieldAliases: Record<string, string> = {
   "full name": "fullName",
   "job title": "jobTitle",
   department: "department",
-  "sub department": "subDepartment",
+  "current department": "department",
   "direct manager employee id": "directManagerEmployeeId",
   "direct manager name": "directManagerName",
   "hrbp employee id": "hrbpEmployeeId",
@@ -50,14 +50,15 @@ const fieldAliases: Record<string, string> = {
   "office mobile number": "officeMobileNumber",
   "attendance shift": "attendanceShift",
   "shift name": "attendanceShift",
+  "assigned shift": "attendanceShift",
   zone: "zone",
   "weekly off": "weeklyOff",
+  "assigned weekly off": "weeklyOff",
   policy: "policy",
 };
 
 // Columns where the HR export writes 0 for an empty cell.
 const ZERO_MEANS_EMPTY = new Set([
-  "subDepartment",
   "directManagerEmployeeId",
   "directManagerName",
   "hrbpEmployeeId",
@@ -77,12 +78,16 @@ const EMPLOYEE_ID_HEADERS = new Set([
   "employee code",
 ]);
 
+// The HRMS export writes "-" for an empty cell, in every column.
+const EMPTY_PLACEHOLDER = "-";
+
 function mapRow(row: Record<string, unknown>): Record<string, string> {
   const mappedValues: Record<string, string> = {};
   for (const key of Object.keys(row)) {
     const normalizedKey = normalizeHeader(key);
     const mappedKey = fieldAliases[normalizedKey] ?? normalizedKey;
-    mappedValues[mappedKey] = getString(row[key]);
+    const value = getString(row[key]);
+    mappedValues[mappedKey] = value === EMPTY_PLACEHOLDER ? "" : value;
   }
   return mappedValues;
 }
@@ -98,7 +103,6 @@ function buildEmployeeRecord(rawValues: Record<string, string>) {
     fullName: mappedValues["fullName"] || "",
     jobTitle: mappedValues["jobTitle"] || "",
     department: mappedValues["department"] || "",
-    subDepartment: mappedValues["subDepartment"] || "",
     directManagerEmployeeId: mappedValues["directManagerEmployeeId"] || "",
     directManagerName: mappedValues["directManagerName"] || "",
     hrbpEmployeeId: mappedValues["hrbpEmployeeId"] || "",
@@ -269,6 +273,9 @@ export class EmployeeDataService {
             weeklyOff,
             policy: "policy" in mappedValues ? mappedValues.policy : undefined,
           });
+        } else if (finalEmployeeId) {
+          // The upload replaces old data: no valid shift in the sheet means no shift.
+          await shiftRepository.deleteAssignment(finalEmployeeId);
         }
 
         const finalEmail = officialEmailId || existing?.officialEmailId;
@@ -281,7 +288,7 @@ export class EmployeeDataService {
           await fail(
             rowNumber,
             employeeKey,
-            `${prefix}: ${problems.join("; ")}. Employee details saved; previous shift and weekly off kept.`,
+            `${prefix}: ${problems.join("; ")}. Employee details saved; no shift or weekly off assigned.`,
             mappedRow,
           );
         } else {
@@ -340,6 +347,17 @@ export class EmployeeDataService {
       } catch (error) {
         logger.error(LOG_CONTEXT, "Failed to remove old employee data", { error });
       }
+    }
+
+    // Shift assignments of employees who are no longer in employee data.
+    try {
+      const removedAssignments = await shiftRepository.deleteOrphanAssignments();
+      logger.info(LOG_CONTEXT, "Removed shift assignments of removed employees", {
+        jobId: job.id,
+        removedAssignments,
+      });
+    } catch (error) {
+      logger.error(LOG_CONTEXT, "Failed to remove shift assignments of removed employees", { jobId: job.id, error });
     }
 
     if (options.deleteFile !== false && isUploadTempFile(filePath)) {

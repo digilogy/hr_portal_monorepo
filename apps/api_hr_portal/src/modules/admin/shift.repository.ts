@@ -1,8 +1,10 @@
-import { AppDataSource, Shift, EmployeeShiftAssignment } from "@hr-portal/database";
+import { AppDataSource, Shift, EmployeeShiftAssignment, EmployeeData } from "@hr-portal/database";
 import { describeWorkingDays, normalizeShiftName, resolveWeeklyOff, shiftKey } from "./shiftRules";
 
 const shiftOrm = AppDataSource.getRepository(Shift);
 const assignmentOrm = AppDataSource.getRepository(EmployeeShiftAssignment);
+// Keeps each DELETE ... IN (...) well under the database's parameter limit.
+const DELETE_CHUNK = 1000;
 
 export class ShiftRepository {
   /** All shifts keyed by shiftKey(name). When two names share a key, the exact spelling wins. */
@@ -43,13 +45,39 @@ export class ShiftRepository {
     return assignmentOrm.save(assignment);
   }
 
+  /** Removes the employee's shift and weekly off (their sheet row had no valid shift). */
+  async deleteAssignment(employeeId: string): Promise<void> {
+    await assignmentOrm.delete({ employeeId });
+  }
+
+  /** Removes assignments whose employee is no longer in employee data. Returns how many. */
+  async deleteOrphanAssignments(): Promise<number> {
+    const employees = await AppDataSource.getRepository(EmployeeData).find({ select: ["employeeId"] });
+    const known = new Set(employees.map((e) => e.employeeId).filter(Boolean));
+    const orphanIds = (await assignmentOrm.find({ select: ["id", "employeeId"] }))
+      .filter((a) => !known.has(a.employeeId))
+      .map((a) => a.id);
+    for (let i = 0; i < orphanIds.length; i += DELETE_CHUNK) {
+      await assignmentOrm.delete(orphanIds.slice(i, i + DELETE_CHUNK));
+    }
+    return orphanIds.length;
+  }
+
+  /**
+   * Removes shifts that are not in the uploaded Shift Detail tab and no employee is assigned to.
+   * Returns the removed names.
+   */
+  async deleteUnusedShifts(keepKeys: Set<string>): Promise<string[]> {
+    const used = new Set((await assignmentOrm.find({ select: ["shiftId"] })).map((a) => a.shiftId));
+    const unused = (await shiftOrm.find()).filter((s) => !keepKeys.has(shiftKey(s.name)) && !used.has(s.id));
+    if (unused.length > 0) await shiftOrm.delete(unused.map((s) => s.id));
+    return unused.map((s) => s.name);
+  }
+
   async getAllEmployeeShifts(filters: Record<string, string> = {}): Promise<any[]> {
     const where: any = {};
     if (filters.department && filters.department !== "all") {
       where.department = filters.department;
-    }
-    if (filters.subDepartment && filters.subDepartment !== "all") {
-      where.subDepartment = filters.subDepartment;
     }
     if (filters.manager && filters.manager !== "all") {
       where.directManagerName = filters.manager;

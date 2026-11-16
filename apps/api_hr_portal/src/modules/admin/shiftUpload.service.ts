@@ -31,6 +31,7 @@ const fieldAliases: Record<string, string> = {
   "shift name": "name",
   "shift block name": "name",
   "attendance shift": "name",
+  "assigned shift": "name",
   "allowed timings": "allowedTimings",
   "timings": "allowedTimings",
   "working days": "workingDays",
@@ -95,6 +96,8 @@ export class ShiftUploadService {
     updatedCount: number;
     errors: Array<{ rowIndex: number; error: string; row: Record<string, string> }>;
     rejectedShifts: RejectedShifts;
+    /** shiftKey of every shift name in the file, valid or not. */
+    fileShiftKeys: Set<string>;
   }> {
     const extension = path.extname(filePath).toLowerCase();
     logger.info(LOG_CONTEXT, "Starting shift upload", {
@@ -126,6 +129,7 @@ export class ShiftUploadService {
     const accepted = new Map<string, { rowNumber: number; allowedTimings: string; halfDay: string }>();
     // Shift names with no valid row in this file, for the employee upload's error messages.
     const rejectedShifts: RejectedShifts = new Map();
+    const fileShiftKeys = new Set<string>();
 
     const fail = async (rowNumber: number, name: string, message: string, mappedValues: Record<string, string>) => {
       failureCount++;
@@ -157,6 +161,7 @@ export class ShiftUploadService {
       }
 
       const key = shiftKey(name);
+      fileShiftKeys.add(key);
       const rawTimings = mappedValues.allowedTimings ?? "";
       const rawHalfDay = mappedValues.halfDay ?? "";
       const problems: string[] = [];
@@ -286,6 +291,7 @@ export class ShiftUploadService {
       updatedCount,
       errors,
       rejectedShifts,
+      fileShiftKeys,
     };
   }
 

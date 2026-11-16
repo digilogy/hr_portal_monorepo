@@ -45,7 +45,8 @@ const WEEKLY_OFF_LABELS: Record<string, string> = {
 
 export const WEEKLY_OFF_ALLOWED_TEXT =
   "All Sunday & 2nd Saturday Off, All Sunday Off, General Off, Office Off, All Tuesday Off, " +
-  "Tuesday Off, Marketing Off, All Thursday Off, or \"All <Day> Off\"";
+  "Tuesday Off, Marketing Off, All Thursday Off, or \"All <Day> Off\", optionally followed by the " +
+  "days in brackets, e.g. \"All Sunday Off (All Sunday)\" or \"Marketing Off (All Tuesday, First Wednesday)\"";
 
 /** Own-property lookup, so cell text like "constructor" never matches a built-in. */
 function lookup<T>(table: Record<string, T>, key: string): T | undefined {
@@ -70,9 +71,23 @@ export function shiftKey(name: string): string {
  * Converts a sheet label ("All Sunday & 2nd Saturday Off") or an already canonical value
  * ("Sun, 2nd Sat", the old Shift Detail "Off Days") to canonical form. Returns null when the
  * value is empty or not understood; it never guesses.
+ *
+ * The HRMS export writes the label followed by its days in brackets:
+ * "Marketing Off (All Tuesday, First Wednesday)". The bracket lists the actual off days, so it
+ * is used when it can be read; otherwise the label decides.
  */
 export function normalizeWeeklyOff(value: string | null | undefined): string | null {
   const text = collapseSpaces(value ?? "").toLowerCase();
+  if (!text) return null;
+
+  const bracketed = text.match(/^(.*?)\s*\(([^()]*)\)$/);
+  if (bracketed) {
+    return parseDayList(bracketed[2]) ?? normalizeLabel(bracketed[1]);
+  }
+  return normalizeLabel(text);
+}
+
+function normalizeLabel(text: string): string | null {
   if (!text) return null;
 
   const known = lookup(WEEKLY_OFF_LABELS, text);
@@ -86,22 +101,65 @@ export function normalizeWeeklyOff(value: string | null | undefined): string | n
     return day === undefined ? null : DAY_ABBR[day];
   }
 
-  // Canonical lists: "Sun", "Sun, 2nd Sat", "Sunday, second Saturday".
-  const tokens: string[] = [];
+  return parseDayList(text);
+}
+
+/**
+ * Day lists: "Sun", "Sun, 2nd Sat", "Sunday, second Saturday", "All Tuesday, First Wednesday".
+ * Output is ordered every-week days first (Sun..Sat), then nth days, so the same days always
+ * give the same string.
+ */
+function parseDayList(text: string): string | null {
+  const fullDays = new Set<number>();
+  const nthDays = new Map<string, [number, number]>();
   for (const part of text.split(",").map((p) => p.trim()).filter(Boolean)) {
-    const nth = part.match(/^([a-z0-9]+) ([a-z]+)$/);
-    const nthIndex = nth ? lookup(NTH_INDEX, nth[1]) : undefined;
-    const nthDay = nth ? lookup(DAY_INDEX, nth[2]) : undefined;
+    const pair = part.match(/^([a-z0-9]+) ([a-z]+)$/);
+    const pairDay = pair ? lookup(DAY_INDEX, pair[2]) : undefined;
+    const nthIndex = pair ? lookup(NTH_INDEX, pair[1]) : undefined;
     const day = lookup(DAY_INDEX, part);
-    if (nthIndex !== undefined && nthDay !== undefined) {
-      tokens.push(`${NTH_LABEL[nthIndex]} ${DAY_ABBR[nthDay]}`);
+    if (pair && pair[1] === "all" && pairDay !== undefined) {
+      fullDays.add(pairDay);
+    } else if (nthIndex !== undefined && pairDay !== undefined) {
+      nthDays.set(`${nthIndex}-${pairDay}`, [nthIndex, pairDay]);
     } else if (day !== undefined) {
-      tokens.push(DAY_ABBR[day]);
+      fullDays.add(day);
     } else {
       return null;
     }
   }
-  return tokens.length > 0 ? [...new Set(tokens)].join(", ") : null;
+
+  const tokens = [...fullDays].sort((a, b) => a - b).map((d) => DAY_ABBR[d]);
+  const nthSorted = [...nthDays.values()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  for (const [n, d] of nthSorted) tokens.push(`${NTH_LABEL[n]} ${DAY_ABBR[d]}`);
+  return tokens.length > 0 ? tokens.join(", ") : null;
+}
+
+/** Off-day rule for date checks: days off every week, and nth-weekday-of-month days off. */
+export function parseWeeklyOff(value: string | null | undefined): {
+  fullDays: Set<number>;
+  nthDays: Array<{ nth: number; day: number }>;
+} {
+  const canonical = normalizeWeeklyOff(value) ?? DEFAULT_WEEKLY_OFF;
+  const fullDays = new Set<number>();
+  const nthDays: Array<{ nth: number; day: number }> = [];
+  if (canonical === "None") return { fullDays, nthDays };
+  for (const token of canonical.split(", ")) {
+    const [first, second] = token.split(" ");
+    if (second) nthDays.push({ nth: NTH_LABEL.indexOf(first), day: DAY_ABBR.indexOf(second) });
+    else fullDays.add(DAY_ABBR.indexOf(first));
+  }
+  return { fullDays, nthDays };
+}
+
+/** True when the date (day of week 0-6, day of month 1-31) is a weekly off under the rule. */
+export function isWeeklyOffDay(
+  rule: ReturnType<typeof parseWeeklyOff>,
+  dayOfWeek: number,
+  dayOfMonth: number,
+): boolean {
+  if (rule.fullDays.has(dayOfWeek)) return true;
+  const occurrence = Math.ceil(dayOfMonth / 7);
+  return rule.nthDays.some((n) => n.day === dayOfWeek && n.nth === occurrence);
 }
 
 /** The weekly off that applies: the employee's own, else the shift's (old sheets), else Sunday. */

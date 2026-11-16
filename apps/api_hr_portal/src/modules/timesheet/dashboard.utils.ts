@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import { EmployeeProfile } from "../profile/profile.service";
-import { parseDayTiming } from "../admin/shiftRules";
+import { isWeeklyOffDay, parseDayTiming, parseWeeklyOff } from "../admin/shiftRules";
 
 // --- Date/Time Utility Functions ported from frontend ---
 
@@ -108,40 +108,13 @@ export function getWorkdays(
   let current = from.startOf("day");
   const end = to.startOf("day");
 
-  const rule = (weeklyOffRule || "").toLowerCase();
-
-  const isDayOff = (dayName: string, shortName: string) => {
-    const regex = new RegExp(`\\b(${dayName}|${shortName})\\b`, 'i');
-    return regex.test(rule);
-  };
-
-  const excludeSunday = isDayOff("sunday", "sun") || !rule; // Default to Sunday if empty
-  const excludeMonday = isDayOff("monday", "mon");
-  const excludeTuesday = isDayOff("tuesday", "tue");
-  const excludeWednesday = isDayOff("wednesday", "wed");
-  const excludeThursday = isDayOff("thursday", "thu");
-  const excludeFriday = isDayOff("friday", "fri");
-  const excludeSaturday = isDayOff("saturday", "sat") && !rule.includes("2nd sat");
-  const excludeSecondSaturday = rule.includes("2nd sat");
+  // Handles every-week days ("Tue") and nth days of the month ("2nd Sat", "1st Wed").
+  // Empty or unreadable rules fall back to Sunday off.
+  const offRule = parseWeeklyOff(weeklyOffRule);
 
   while (current.isBefore(end) || current.isSame(end, "day")) {
     const dayOfWeek = current.day(); // 0 = Sunday, 6 = Saturday
-    let isWorkday = true;
-
-    if (dayOfWeek === 0 && excludeSunday) isWorkday = false;
-    else if (dayOfWeek === 1 && excludeMonday) isWorkday = false;
-    else if (dayOfWeek === 2 && excludeTuesday) isWorkday = false;
-    else if (dayOfWeek === 3 && excludeWednesday) isWorkday = false;
-    else if (dayOfWeek === 4 && excludeThursday) isWorkday = false;
-    else if (dayOfWeek === 5 && excludeFriday) isWorkday = false;
-    else if (dayOfWeek === 6) {
-      if (excludeSaturday) isWorkday = false;
-      else if (excludeSecondSaturday) {
-        // Calculate if it's the second Saturday
-        const weekOfMonth = Math.ceil(current.date() / 7);
-        if (weekOfMonth === 2) isWorkday = false;
-      }
-    }
+    let isWorkday = !isWeeklyOffDay(offRule, dayOfWeek, current.date());
 
     if (isWorkday && holidays.length > 0) {
       const currentStr = current.format("YYYY-MM-DD");
