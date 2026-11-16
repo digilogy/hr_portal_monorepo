@@ -2,7 +2,6 @@ import { EmployeeData } from "@hr-portal/database";
 
 export interface ReportFilters {
   department: string;
-  subDepartment: string;
   manager: string;
   employee: string;
   status: string;
@@ -16,13 +15,11 @@ export interface ReportFilterEmployee {
   employeeId: string;
   name: string;
   department: string;
-  subDepartment: string;
   manager: string;
 }
 
 export const DEFAULT_REPORT_FILTERS: ReportFilters = {
   department: "all",
-  subDepartment: "all",
   manager: "all",
   employee: "all",
   status: "all",
@@ -34,7 +31,6 @@ export const DEFAULT_DEPARTMENT_FILTER: DepartmentFilter = {
 
 export function parseReportFilters(query: {
   department?: unknown;
-  subDepartment?: unknown;
   manager?: unknown;
   employee?: unknown;
   status?: unknown;
@@ -43,10 +39,6 @@ export function parseReportFilters(query: {
     department:
       typeof query.department === "string" && query.department.trim()
         ? query.department.trim()
-        : "all",
-    subDepartment:
-      typeof query.subDepartment === "string" && query.subDepartment.trim()
-        ? query.subDepartment.trim()
         : "all",
     manager:
       typeof query.manager === "string" && query.manager.trim()
@@ -77,7 +69,6 @@ export function parseDepartmentFilter(query: {
 export function hasActiveReportFilters(filters: ReportFilters): boolean {
   return (
     filters.department !== "all" ||
-    filters.subDepartment !== "all" ||
     filters.manager !== "all" ||
     filters.employee !== "all" ||
     filters.status !== "all"
@@ -161,7 +152,6 @@ export function buildReportFilterEmployeeRecords(
       employeeId,
       name: normalizeFilterValue(employee.fullName, "Unnamed"),
       department: normalizeFilterValue(employee.department),
-      subDepartment: normalizeFilterValue(employee.subDepartment),
       manager: normalizeFilterValue(employee.directManagerName),
     };
 
@@ -191,10 +181,6 @@ export function employeeMatchesReportFilters(
   filters: ReportFilters,
 ): boolean {
   if (!fieldMatchesFilter(employee.department, filters.department)) {
-    return false;
-  }
-
-  if (!fieldMatchesFilter(employee.subDepartment, filters.subDepartment)) {
     return false;
   }
 
@@ -247,14 +233,10 @@ export function filterEmployeesByDepartmentFilter(
 
 export function scopeReportFilterEmployees(
   records: ReportFilterEmployee[],
-  filters: Pick<ReportFilters, "department" | "subDepartment" | "manager">,
+  filters: Pick<ReportFilters, "department" | "manager">,
 ): ReportFilterEmployee[] {
   return records.filter((record) => {
     if (!fieldMatchesFilter(record.department, filters.department)) {
-      return false;
-    }
-
-    if (!fieldMatchesFilter(record.subDepartment, filters.subDepartment)) {
       return false;
     }
 
@@ -268,33 +250,21 @@ export function scopeReportFilterEmployees(
 
 export function buildCascadedReportFilterOptions(
   records: ReportFilterEmployee[],
-  filters: Pick<ReportFilters, "department" | "subDepartment" | "manager">,
+  filters: Pick<ReportFilters, "department" | "manager">,
 ): {
-  subDepartments: string[];
   managers: string[];
   employees: Array<{ employeeId: string; label: string }>;
 } {
   const departmentScoped = scopeReportFilterEmployees(records, {
     department: filters.department,
-    subDepartment: "all",
-    manager: "all",
-  });
-
-  const subDepartmentScoped = scopeReportFilterEmployees(records, {
-    department: filters.department,
-    subDepartment: filters.subDepartment,
     manager: "all",
   });
 
   const fullyScoped = scopeReportFilterEmployees(records, filters);
 
   return {
-    subDepartments: buildDedupedOptionsFromRecords(
-      departmentScoped,
-      (record) => record.subDepartment,
-    ),
     managers: buildDedupedOptionsFromRecords(
-      subDepartmentScoped.length > 0 ? subDepartmentScoped : departmentScoped,
+      departmentScoped,
       (record) => record.manager,
     ),
     employees: fullyScoped.map((record) => ({
@@ -306,7 +276,6 @@ export function buildCascadedReportFilterOptions(
 
 export function buildReportFilterOptions(employees: EmployeeData[]): {
   departments: string[];
-  subDepartments: string[];
   managers: string[];
   employees: ReportFilterEmployee[];
 } {
@@ -314,10 +283,6 @@ export function buildReportFilterOptions(employees: EmployeeData[]): {
 
   return {
     departments: buildDepartmentFilterOptions(employees),
-    subDepartments: buildDedupedOptionsFromRecords(
-      records,
-      (record) => record.subDepartment,
-    ),
     managers: buildDedupedOptionsFromRecords(records, (record) => record.manager),
     employees: records,
   };
@@ -327,16 +292,11 @@ export function teamMemberMatchesReportFilters(
   member: {
     employeeId?: string;
     department?: string;
-    subDepartment?: string;
     manager?: string;
   },
   filters: ReportFilters,
 ): boolean {
   if (!fieldMatchesFilter(member.department, filters.department)) {
-    return false;
-  }
-
-  if (!fieldMatchesFilter(member.subDepartment, filters.subDepartment)) {
     return false;
   }
 
@@ -367,17 +327,7 @@ export function sanitizeReportFilters(
   filters: ReportFilters,
   records: ReportFilterEmployee[],
 ): ReportFilters {
-  const cascaded = buildCascadedReportFilterOptions(records, filters);
   let next = { ...filters };
-
-  if (
-    next.subDepartment !== "all" &&
-    !cascaded.subDepartments.some(
-      (value) => filterFieldKey(value) === filterFieldKey(next.subDepartment),
-    )
-  ) {
-    next = { ...next, subDepartment: "all" };
-  }
 
   const refreshed = buildCascadedReportFilterOptions(records, next);
 

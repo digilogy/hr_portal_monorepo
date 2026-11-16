@@ -20,7 +20,6 @@ export interface TeamMemberNode {
   email: string;
   role: string;
   department: string;
-  subDepartment: string;
   manager: string;
   hod: string;
   phone: string;
@@ -697,7 +696,6 @@ function buildTeamMemberNode(
     email: employee.officialEmailId || "—",
     role: employee.jobTitle || "—",
     department: employee.department || "—",
-    subDepartment: employee.subDepartment?.trim() || "—",
     manager: employee.directManagerName || "—",
     hod: employee.hodEmployeeName || "—",
     phone: employee.officeMobileNumber || "—",
@@ -826,7 +824,6 @@ function buildTeamTree(
         email: employee.officialEmailId || "—",
         role: employee.jobTitle || "—",
         department: employee.department || "—",
-        subDepartment: employee.subDepartment?.trim() || "—",
         manager: employee.directManagerName || "—",
         hod: employee.hodEmployeeName || "—",
         phone: employee.officeMobileNumber || "—",
@@ -894,7 +891,6 @@ export class TeamReportsService {
     const options = buildReportFilterOptions(employees);
     const result = {
       departments: options.departments,
-      subDepartments: options.subDepartments,
       managers: options.managers,
       employees: options.employees,
     };
@@ -919,7 +915,6 @@ export class TeamReportsService {
     const scoped = filterEmployeesByReportFilters(employees, filters);
     const options = buildReportFilterOptions(scoped);
     const result = {
-      subDepartments: options.subDepartments,
       managers: options.managers,
       employees: options.employees,
     };

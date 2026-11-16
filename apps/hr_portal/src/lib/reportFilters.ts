@@ -2,7 +2,6 @@ export interface ReportFilterEmployee {
   employeeId: string;
   name: string;
   department: string;
-  subDepartment: string;
   hod: string;
   hrbp: string;
   manager: string;
@@ -10,7 +9,6 @@ export interface ReportFilterEmployee {
 
 export interface ReportFilterOptions {
   departments: string[];
-  subDepartments: string[];
   hods: string[];
   hrbps: string[];
   managers: string[];
@@ -18,7 +16,6 @@ export interface ReportFilterOptions {
 }
 
 export interface ScopedReportFilterOptions {
-  subDepartments: string[];
   hods: string[];
   hrbps: string[];
   managers: string[];
@@ -31,7 +28,6 @@ export interface DepartmentFilterOptions {
 
 export interface ReportFilters {
   department: string;
-  subDepartment: string;
   hod: string;
   hrbp: string;
   manager: string;
@@ -45,7 +41,6 @@ export interface DepartmentFilter {
 
 export const DEFAULT_REPORT_FILTERS: ReportFilters = {
   department: "all",
-  subDepartment: "all",
   hod: "all",
   hrbp: "all",
   manager: "all",
@@ -63,9 +58,6 @@ export function appendReportFilters(
 ): URLSearchParams {
   if (filters.department !== "all") {
     params.set("department", filters.department);
-  }
-  if (filters.subDepartment !== "all") {
-    params.set("subDepartment", filters.subDepartment);
   }
   if (filters.hod !== "all") {
     params.set("hod", filters.hod);
@@ -100,7 +92,6 @@ export function parseReportFiltersFromSearchParams(
 ): ReportFilters {
   return {
     department: searchParams.get("department")?.trim() || "all",
-    subDepartment: searchParams.get("subDepartment")?.trim() || "all",
     hod: searchParams.get("hod")?.trim() || "all",
     hrbp: searchParams.get("hrbp")?.trim() || "all",
     manager: searchParams.get("manager")?.trim() || "all",
@@ -172,14 +163,10 @@ function fieldMatchesFilter(
 
 export function scopeReportFilterEmployees(
   records: ReportFilterEmployee[],
-  filters: Pick<ReportFilters, "department" | "subDepartment" | "hod" | "hrbp" | "manager">,
+  filters: Pick<ReportFilters, "department" | "hod" | "hrbp" | "manager">,
 ): ReportFilterEmployee[] {
   return records.filter((record) => {
     if (!fieldMatchesFilter(record.department, filters.department)) {
-      return false;
-    }
-
-    if (!fieldMatchesFilter(record.subDepartment, filters.subDepartment)) {
       return false;
     }
 
@@ -201,10 +188,9 @@ export function scopeReportFilterEmployees(
 
 export function buildCascadedReportFilterOptions(
   records: ReportFilterEmployee[],
-  filters: Pick<ReportFilters, "department" | "subDepartment" | "hod" | "hrbp" | "manager">,
+  filters: Pick<ReportFilters, "department" | "hod" | "hrbp" | "manager">,
 ): {
   departments: string[];
-  subDepartments: string[];
   hods: string[];
   hrbps: string[];
   managers: string[];
@@ -223,10 +209,6 @@ export function buildCascadedReportFilterOptions(
     departments: buildDedupedOptionsFromRecords(
       scopeExcept("department"),
       (record) => record.department,
-    ),
-    subDepartments: buildDedupedOptionsFromRecords(
-      scopeExcept("subDepartment"),
-      (record) => record.subDepartment,
     ),
     hods: buildDedupedOptionsFromRecords(
       scopeExcept("hod"),
@@ -261,15 +243,6 @@ export function sanitizeReportFilters(
     )
   ) {
     next = { ...next, department: "all" };
-  }
-
-  if (
-    next.subDepartment !== "all" &&
-    !cascaded.subDepartments.some(
-      (value) => filterFieldKey(value) === filterFieldKey(next.subDepartment),
-    )
-  ) {
-    next = { ...next, subDepartment: "all" };
   }
 
   if (
@@ -319,7 +292,6 @@ export function teamMemberMatchesReportFilters(
   member: {
     employeeId?: string;
     department?: string;
-    subDepartment?: string;
     hod?: string;
     hrbp?: string;
     manager?: string;
@@ -327,10 +299,6 @@ export function teamMemberMatchesReportFilters(
   filters: ReportFilters,
 ): boolean {
   if (!fieldMatchesFilter(member.department, filters.department)) {
-    return false;
-  }
-
-  if (!fieldMatchesFilter(member.subDepartment, filters.subDepartment)) {
     return false;
   }
 
@@ -359,7 +327,6 @@ export function teamMemberMatchesReportFilters(
 export function hasActiveReportFilters(filters: ReportFilters): boolean {
   return (
     filters.department !== "all" ||
-    filters.subDepartment !== "all" ||
     filters.hod !== "all" ||
     filters.hrbp !== "all" ||
     filters.manager !== "all" ||

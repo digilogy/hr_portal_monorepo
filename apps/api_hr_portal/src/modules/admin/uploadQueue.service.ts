@@ -8,6 +8,7 @@ import { EmployeeDataService } from "./employeeData.service";
 import { ShiftUploadService } from "./shiftUpload.service";
 import { logger } from "@hr-portal/logger";
 import { uploadQueueRepository } from "./uploadQueue.repository";
+import { shiftRepository } from "./shift.repository";
 import { TimesheetRealignService } from "../../services/timesheetRealign.service";
 import {
   clearUploadCancelled,
@@ -18,6 +19,24 @@ import {
 
 const jobQueue: string[] = [];
 let isProcessing = false;
+
+/**
+ * Master upload replaces old data: shifts that are no longer in the Shift Detail tab are removed,
+ * unless an employee is still assigned to one. Skipped when the tab named no shifts at all, so a
+ * broken file can't wipe every shift.
+ */
+async function removeShiftsNotInSheet(job: UploadJob, fileShiftKeys: Set<string>): Promise<void> {
+  if (fileShiftKeys.size === 0) {
+    logger.warn("UploadQueue", "Shift Detail named no shifts; old shifts kept", { jobId: job.id });
+    return;
+  }
+  try {
+    const removed = await shiftRepository.deleteUnusedShifts(fileShiftKeys);
+    logger.info("UploadQueue", "Removed shifts not in this upload", { jobId: job.id, removed });
+  } catch (error) {
+    logger.error("UploadQueue", "Failed to remove shifts not in this upload", { jobId: job.id, error });
+  }
+}
 
 const LOG_CONTEXT = "UploadQueue";
 
@@ -69,6 +88,7 @@ async function processNextJob(): Promise<void> {
             deleteFile: false,
             rejectedShifts: shiftResult.rejectedShifts,
           });
+          await removeShiftsNotInSheet(job, shiftResult.fileShiftKeys);
           result = {
             totalRows: employeeResult.totalRows + shiftResult.totalRows,
             successCount: employeeResult.successCount + shiftResult.successCount,

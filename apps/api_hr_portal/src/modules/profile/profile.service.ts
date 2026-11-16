@@ -17,7 +17,6 @@ export interface EmployeeProfile {
   phone: string;
   jobTitle: string;
   employmentStatus: string;
-  subDepartment: string;
   role: UserRole;
   alsoManager: boolean;
   policy?: string;
@@ -72,7 +71,6 @@ export class ProfileService {
             phone: "—",
             jobTitle: isSuperAdmin ? "Super Administrator" : "Administrator",
             employmentStatus: "Active",
-            subDepartment: "—",
             role: UserRole.ADMIN,
             alsoManager: false,
           };
@@ -157,7 +155,6 @@ export class ProfileService {
         phone: formatValue(employee.officeMobileNumber),
         jobTitle: formatValue(employee.jobTitle),
         employmentStatus: formatValue(employee.employmentStatus),
-        subDepartment: formatValue(employee.subDepartment),
         zone: formatValue(employee.zone),
         role,
         alsoManager,

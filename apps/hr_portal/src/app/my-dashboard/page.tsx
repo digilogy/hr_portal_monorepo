@@ -121,7 +121,6 @@ interface TeamMemberNode {
   email: string;
   role: string;
   department: string;
-  subDepartment: string;
   status: string;
   hours: number;
   utilization: number;
@@ -137,7 +136,6 @@ interface AttentionMemberRow {
   email: string;
   role: string;
   department: string;
-  subDepartment: string;
   status: string;
   hours: number;
   utilization: number;
@@ -336,7 +334,6 @@ export default function MyDashboardPage() {
       email: member.email,
       role: member.role,
       department: member.department,
-      subDepartment: member.subDepartment,
       status: member.status,
       hours: member.hours,
       utilization: member.utilization,

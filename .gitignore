@@ -61,3 +61,6 @@ Thumbs.db
 /old.xlsx
 /Timesheet (1).xlsx
 /Timesheet (2).xlsx
+/env.development
+/env.production
+/env.jenkins

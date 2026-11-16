@@ -20,7 +20,6 @@ interface EmployeeProfile {
   phone: string;
   jobTitle: string;
   employmentStatus: string;
-  subDepartment: string;
   role: UserRole;
   shiftName?: string;
   allowedTimings?: string;
@@ -145,7 +144,6 @@ export default function ProfilePage() {
         reportingManager={profile.reportingManager}
         hod={profile.hod}
         department={profile.department}
-        subDepartment={profile.subDepartment}
         employmentStatus={profile.employmentStatus}
       />
 
@@ -191,7 +189,6 @@ export default function ProfilePage() {
                   </p>
                   <p className="text-gray-900 dark:text-gray-100 font-medium break-words">
                     {profile.department}
-                    {profile.subDepartment !== "—" ? ` · ${profile.subDepartment}` : ""}
                   </p>
                 </div>
               </div>
